@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>ToolBox – Deine interaktiven Tools</title>
+  <meta name="description" content="Kostenlose interaktive Tools und Rechner">
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+
+  <!-- ========== HEADER ========== -->
+  <header class="header">
+    <div class="container">
+      <div class="header-inner">
+        <a href="index.html" class="logo">
+          <span class="logo-icon">⚡</span>
+          <span class="logo-text">ToolBox</span>
+        </a>
+        <nav class="nav" id="mainNav">
+          <ul class="nav-list">
+            <li><a href="#rechner" class="nav-link">Rechner</a></li>
+            <li><a href="#konverter" class="nav-link">Konverter</a></li>
+            <li><a href="#sonstiges" class="nav-link">Sonstiges</a></li>
+          </ul>
+        </nav>
+        <button class="burger" id="burgerBtn" aria-label="Menü öffnen">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========== HERO ========== -->
+  <section class="hero">
+    <div class="container">
+      <div class="hero-content">
+        <h1 class="hero-title">
+          Deine <span class="gradient-text">interaktiven Tools</span><br>
+          – alles an einem Ort
+        </h1>
+        <p class="hero-sub">
+          Schnell, kostenlos und ohne Anmeldung. Einfach Tool auswählen und loslegen.
+        </p>
+        <a href="#tools" class="btn btn-primary">Tools entdecken</a>
+      </div>
+      <div class="hero-visual" aria-hidden="true">
+        <div class="hero-blob"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========== TOOLS SECTION ========== -->
+  <main id="tools" class="tools-section">
+    <div class="container">
+
+      <!-- Suchfeld -->
+      <div class="search-wrapper">
+        <input
+          type="search"
+          id="searchInput"
+          class="search-input"
+          placeholder="🔍  Tool suchen..."
+          aria-label="Tools suchen"
+        />
+      </div>
+
+      <!-- ── KATEGORIE: RECHNER ── -->
+      <section class="category" id="rechner">
+        <div class="category-header">
+          <span class="category-icon">🧮</span>
+          <h2 class="category-title">Rechner</h2>
+          <span class="category-count" id="count-rechner"></span>
+        </div>
+        <div class="cards-grid" id="grid-rechner">
+
+          <a href="tools/rechner/zinsrechner.html" class="card" data-title="Zinsrechner" data-category="rechner">
+            <div class="card-icon">💰</div>
+            <h3 class="card-title">Zinsrechner</h3>
+            <p class="card-desc">Berechne Zinsen für Kredite und Anlagen</p>
+            <span class="card-arrow">→</span>
+          </a>
+
+          <a href="tools/rechner/mehrwertsteuer.html" class="card" data-title="MwSt-Rechner" data-category="rechner">
+            <div class="card-icon">🧾</div>
+            <h3 class="card-title">MwSt-Rechner</h3>
+            <p class="card-desc">Mehrwertsteuer schnell berechnen</p>
+            <span class="card-arrow">→</span>
+          </a>
+
+          <!-- ➕ Weitere Rechner hier einfügen -->
+
+        </div>
+      </section>
+
+      <!-- ── KATEGORIE: KONVERTER ── -->
+      <section class="category" id="konverter">
+        <div class="category-header">
+          <span class="category-icon">🔄</span>
+          <h2 class="category-title">Konverter</h2>
+          <span class="category-count" id="count-konverter"></span>
+        </div>
+        <div class="cards-grid" id="grid-konverter">
+
+          <a href="tools/konverter/einheiten.html" class="card" data-title="Einheiten-Konverter" data-category="konverter">
+            <div class="card-icon">📐</div>
+            <h3 class="card-title">Einheiten-Konverter</h3>
+            <p class="card-desc">Länge, Gewicht, Temperatur und mehr</p>
+            <span class="card-arrow">→</span>
+          </a>
+
+          <a href="tools/konverter/waehrung.html" class="card" data-title="Währungsrechner" data-category="konverter">
+            <div class="card-icon">💱</div>
+            <h3 class="card-title">Währungsrechner</h3>
+            <p class="card-desc">Wechselkurse aktuell umrechnen</p>
+            <span class="card-arrow">→</span>
+          </a>
+
+          <!-- ➕ Weitere Konverter hier einfügen -->
+
+        </div>
+      </section>
+
+      <!-- ── KATEGORIE: SONSTIGES ── -->
+      <section class="category" id="sonstiges">
+        <div class="category-header">
+          <span class="category-icon">🛠️</span>
+          <h2 class="category-title">Sonstiges</h2>
+          <span class="category-count" id="count-sonstiges"></span>
+        </div>
+        <div class="cards-grid" id="grid-sonstiges">
+
+          <a href="tools/sonstiges/passwort-generator.html" class="card" data-title="Passwort-Generator" data-category="sonstiges">
+            <div class="card-icon">🔐</div>
+            <h3 class="card-title">Passwort-Generator</h3>
+            <p class="card-desc">Sichere Passwörter auf Knopfdruck</p>
+            <span class="card-arrow">→</span>
+          </a>
+
+          <!-- ➕ Weitere Tools hier einfügen -->
+
+        </div>
+      </section>
+
+      <!-- Keine Ergebnisse -->
+      <div class="no-results" id="noResults" hidden>
+        <span>😕</span>
+        <p>Kein Tool gefunden für „<span id="searchTerm"></span>"</p>
+      </div>
+
+    </div>
+  </main>
+
+  <!-- ========== FOOTER ========== -->
+  <footer class="footer">
+    <div class="container">
+      <p>© <span id="year"></span> ToolBox – Alle Tools kostenlos & ohne Anmeldung</p>
+    </div>
+  </footer>
+
+  <script src="js/main.js"></script>
+</body>
+</html>
