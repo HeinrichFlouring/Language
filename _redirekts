@@ -1,0 +1,8 @@
+1. VS Code öffnen
+2. Neue Datei → Strg + N
+3. Inhalt reinkopieren
+4. Speichern → Strg + Shift + S
+5. Dateiname eingeben:  _redirects
+   (kein Punkt am Ende, kein .txt!)
+6. Dateityp: "All Files (*.*)"
+7. Speichern
