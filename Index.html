@@ -460,232 +460,282 @@
       <!-- ║    <div class="menu-divider"></div>                         ║ -->
       <!-- ╚══════════════════════════════════════════════════════════════╝ -->
 
+ <!-- ══════════════════════════════════
+         📁 KARTEN (Hauptkategorie)
+    ══════════════════════════════════ -->
+    <div class="menu-item">
+      <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+        <span class="menu-icon">🌐</span>
+        Karten
+        <span class="menu-arrow">▶</span>
+      </button>
+      <div class="menu-children">
 
-      <!-- ══════════════════════════════════
-           📁 KARTEN (Hauptkategorie)
-      ══════════════════════════════════ -->
-      <div class="menu-item">
-        <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
-          <span class="menu-icon">🌐</span>
-          Karten
-          <span class="menu-arrow">▶</span>
-        </button>
-        <div class="menu-children">
+        <span class="menu-tool"
+          onclick="openTool('tools/Karten/Muttersprachen-Karte.html', 'Muttersprachen-Karte', '💬')">
+          <span class="menu-tool-icon">📄</span>
+          Muttersprachen-Karte
+        </span>
 
-          <!-- 🔧 Tool: Muttersprachen-Karte -->
-          <span class="menu-tool"
-            onclick="openTool('tools/Karten/Muttersprachen-Karte.html', 'Muttersprachen-Karte', '💬')">
-            <span class="menu-tool-icon">📄</span>
-            Muttersprachen-Karte
-          </span>
+        <!-- ➕ NEUE KARTE: Kopiere die 4 Zeilen oben, ändere Pfad/Name/Emoji -->
 
-          <!-- ➕ Weitere Karten-Tools hier einfügen (gleiche Zeile wie oben) -->
-
-        </div>
       </div>
-
-      <div class="menu-divider"></div>
-
-      <!-- ══════════════════════════════════
-           📁 SPRACHFAMILIEN (Hauptkategorie)
-      ══════════════════════════════════ -->
-      <div class="menu-item">
-        <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
-          <span class="menu-icon">🗣️</span>
-          Sprachfamilien
-          <span class="menu-arrow">▶</span>
-        </button>
-        <div class="menu-children">
-
-          <!-- 📁 Papua -->
-          <div class="menu-item">
-            <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
-              <span class="menu-icon">🌿</span>
-              Papua
-              <span class="menu-arrow">▶</span>
-            </button>
-            <div class="menu-children">
-              <!-- Platzhalter -->
-              <span class="menu-tool placeholder">
-                <span class="menu-tool-icon">🔜</span>
-                Kommt bald
-              </span>
-              <!-- ➕ Papua-Tools hier einfügen -->
-            </div>
-          </div>
-
-          <!-- 📁 Australisch -->
-          <div class="menu-item">
-            <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
-              <span class="menu-icon">🦘</span>
-              Australisch
-              <span class="menu-arrow">▶</span>
-            </button>
-            <div class="menu-children">
-              <span class="menu-tool placeholder">
-                <span class="menu-tool-icon">🔜</span>
-                Kommt bald
-              </span>
-              <!-- ➕ Australisch-Tools hier einfügen -->
-            </div>
-          </div>
-
-          <!-- 📁 Asiatisch -->
-          <div class="menu-item">
-            <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
-              <span class="menu-icon">🏯</span>
-              Asiatisch
-              <span class="menu-arrow">▶</span>
-            </button>
-            <div class="menu-children">
-
-              <!-- 🔧 Tool: Thai-Kadai (direkt in Asiatisch) -->
-              <span class="menu-tool"
-                onclick="openTool('tools/Thai-Kadai/Thai Kadai Version 4.html', 'Thai-Kadai', '🏯')">
-                <span class="menu-tool-icon">📄</span>
-                Thai-Kadai
-              </span>
-
-              <!-- ➕ Weitere Asiatisch-Tools hier einfügen -->
-
-            </div>
-          </div>
-
-          <!-- 📁 Afrikanisch -->
-          <div class="menu-item">
-            <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
-              <span class="menu-icon">🌍</span>
-              Afrikanisch
-              <span class="menu-arrow">▶</span>
-            </button>
-            <div class="menu-children">
-
-              <!-- 📁 Niger-Kongo -->
-              <div class="menu-item">
-                <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
-                  <span class="menu-icon">🌱</span>
-                  Niger-Kongo
-                  <span class="menu-arrow">▶</span>
-                </button>
-                <div class="menu-children">
-                  <span class="menu-tool placeholder">
-                    <span class="menu-tool-icon">🔜</span>
-                    Kommt bald
-                  </span>
-                  <!-- ➕ Niger-Kongo-Tools hier einfügen -->
-                </div>
-              </div>
-
-              <!-- 📁 Afro-Asiatisch -->
-              <div class="menu-item">
-                <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
-                  <span class="menu-icon">🏺</span>
-                  Afro-Asiatisch
-                  <span class="menu-arrow">▶</span>
-                </button>
-                <div class="menu-children">
-
-                  <!-- 🔧 Tool: Semitisch (Platzhalter) -->
-                  <span class="menu-tool placeholder">
-                    <span class="menu-tool-icon">🔜</span>
-                    Semitisch
-                  </span>
-                  <!-- ➕ Wenn Semitisch.html fertig:              -->
-                  <!-- onclick="openTool('tools/...', 'Semitisch', '...')" -->
-
-                </div>
-              </div>
-
-              <!-- ➕ Weitere Afrikanisch-Unterkategorien hier -->
-
-            </div>
-          </div>
-
-          <!-- 📁 Europäisch -->
-          <div class="menu-item">
-            <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
-              <span class="menu-icon">🏰</span>
-              Europäisch
-              <span class="menu-arrow">▶</span>
-            </button>
-            <div class="menu-children">
-
-              <!-- 📁 Indo-Europäisch -->
-              <div class="menu-item">
-                <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
-                  <span class="menu-icon">🌳</span>
-                  Indo-Europäisch
-                  <span class="menu-arrow">▶</span>
-                </button>
-                <div class="menu-children">
-
-                  <!-- 🔧 Tool: Germanisch (echte HTML) -->
-                  <span class="menu-tool"
-                    onclick="openTool('tools/Indo-Europäisch/Germanisch.html', 'Germanisch', '⚔️')">
-                    <span class="menu-tool-icon">📄</span>
-                    Germanisch
-                  </span>
-
-                  <!-- Platzhalter: Romanisch -->
-                  <span class="menu-tool placeholder">
-                    <span class="menu-tool-icon">🔜</span>
-                    Romanisch
-                  </span>
-                  <!-- ➕ Wenn fertig ersetzen mit:
-                  <span class="menu-tool"
-                    onclick="openTool('tools/Indo-Europäisch/Romanisch.html', 'Romanisch', '🏛️')">
-                    <span class="menu-tool-icon">📄</span>
-                    Romanisch
-                  </span>
-                  -->
-
-                  <!-- Platzhalter: Slawisch -->
-                  <span class="menu-tool placeholder">
-                    <span class="menu-tool-icon">🔜</span>
-                    Slawisch
-                  </span>
-                  <!-- ➕ Wenn fertig ersetzen mit:
-                  <span class="menu-tool"
-                    onclick="openTool('tools/Indo-Europäisch/Slawisch.html', 'Slawisch', '☦️')">
-                    <span class="menu-tool-icon">📄</span>
-                    Slawisch
-                  </span>
-                  -->
-
-                  <!-- ➕ Weitere Indo-Europäisch-Tools hier -->
-
-                </div>
-              </div>
-
-              <!-- ➕ Weitere Europäisch-Unterkategorien hier -->
-
-            </div>
-          </div>
-
-          <!-- ➕ Weitere Sprachfamilien-Hauptkategorien hier -->
-
-        </div>
-      </div>
-
-      <!-- ╔══════════════════════════════════════════════════════════════╗ -->
-      <!-- ║  ➕ NEUE HAUPTKATEGORIE hinzufügen:                         ║ -->
-      <!-- ║                                                              ║ -->
-      <!-- ║  <div class="menu-divider"></div>                           ║ -->
-      <!-- ║  <div class="menu-item">                                    ║ -->
-      <!-- ║    <button class="menu-btn" onclick="toggleMenu(this)"      ║ -->
-      <!-- ║            aria-expanded="false">                           ║ -->
-      <!-- ║      <span class="menu-icon">EMOJI</span>                   ║ -->
-      <!-- ║      KATEGORIENAME                                           ║ -->
-      <!-- ║      <span class="menu-arrow">▶</span>                     ║ -->
-      <!-- ║    </button>                                                ║ -->
-      <!-- ║    <div class="menu-children">                             ║ -->
-      <!-- ║      ... Tools oder Unterkategorien ...                     ║ -->
-      <!-- ║    </div>                                                   ║ -->
-      <!-- ║  </div>                                                     ║ -->
-      <!-- ╚══════════════════════════════════════════════════════════════╝ -->
-
     </div>
-  </aside>
+
+    <div class="menu-divider"></div>
+
+    <!-- ══════════════════════════════════
+         📁 SPRACHFAMILIEN (Hauptkategorie)
+    ══════════════════════════════════ -->
+    <div class="menu-item">
+      <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+        <span class="menu-icon">🗣️</span>
+        Sprachfamilien
+        <span class="menu-arrow">▶</span>
+      </button>
+      <div class="menu-children">
+
+        <!-- 📁 Papua -->
+        <div class="menu-item">
+          <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+            <span class="menu-icon">🌿</span>
+            Papua
+            <span class="menu-arrow">▶</span>
+          </button>
+          <div class="menu-children">
+            <span class="menu-tool placeholder">
+              <span class="menu-tool-icon">🔜</span>
+              Kommt bald
+            </span>
+            <!-- ➕ NEUES TOOL: Kopiere die span.menu-tool Vorlage (siehe unten) -->
+          </div>
+        </div>
+
+        <!-- 📁 Australisch -->
+        <div class="menu-item">
+          <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+            <span class="menu-icon">🦘</span>
+            Australisch
+            <span class="menu-arrow">▶</span>
+          </button>
+          <div class="menu-children">
+            <span class="menu-tool placeholder">
+              <span class="menu-tool-icon">🔜</span>
+              Kommt bald
+            </span>
+            <!-- ➕ NEUES TOOL: Kopiere die span.menu-tool Vorlage (siehe unten) -->
+          </div>
+        </div>
+
+        <!-- 📁 Asiatisch -->
+        <div class="menu-item">
+          <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+            <span class="menu-icon">🏯</span>
+            Asiatisch
+            <span class="menu-arrow">▶</span>
+          </button>
+          <div class="menu-children">
+
+            <span class="menu-tool"
+              onclick="openTool('tools/Thai-Kadai/Thai Kadai Version 4.html', 'Thai-Kadai', '🏯')">
+              <span class="menu-tool-icon">📄</span>
+              Thai-Kadai
+            </span>
+
+            <!-- ➕ NEUES TOOL: Kopiere die span.menu-tool Vorlage (siehe unten) -->
+
+          </div>
+        </div>
+
+        <!-- 📁 Afrikanisch -->
+        <div class="menu-item">
+          <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+            <span class="menu-icon">🌍</span>
+            Afrikanisch
+            <span class="menu-arrow">▶</span>
+          </button>
+          <div class="menu-children">
+
+            <!-- 📁 Niger-Kongo -->
+            <div class="menu-item">
+              <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+                <span class="menu-icon">🌱</span>
+                Niger-Kongo
+                <span class="menu-arrow">▶</span>
+              </button>
+              <div class="menu-children">
+                <span class="menu-tool placeholder">
+                  <span class="menu-tool-icon">🔜</span>
+                  Kommt bald
+                </span>
+                <!-- ➕ NEUES TOOL: Kopiere die span.menu-tool Vorlage (siehe unten) -->
+              </div>
+            </div>
+
+            <!-- 📁 Afro-Asiatisch -->
+            <div class="menu-item">
+              <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+                <span class="menu-icon">🏺</span>
+                Afro-Asiatisch
+                <span class="menu-arrow">▶</span>
+              </button>
+              <div class="menu-children">
+                <span class="menu-tool placeholder">
+                  <span class="menu-tool-icon">🔜</span>
+                  Kommt bald
+                </span>
+                <!-- ➕ NEUES TOOL: Kopiere die span.menu-tool Vorlage (siehe unten) -->
+              </div>
+            </div>
+
+            <!-- ➕ NEUE UNTERKATEGORIE in Afrikanisch: Kopiere den div.menu-item Block (siehe unten) -->
+
+          </div>
+        </div>
+
+        <!-- 📁 Europäisch -->
+        <div class="menu-item">
+          <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+            <span class="menu-icon">🏰</span>
+            Europäisch
+            <span class="menu-arrow">▶</span>
+          </button>
+          <div class="menu-children">
+
+            <!-- 📁 Indo-Europäisch -->
+            <div class="menu-item">
+              <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+                <span class="menu-icon">🌳</span>
+                Indo-Europäisch
+                <span class="menu-arrow">▶</span>
+              </button>
+              <div class="menu-children">
+
+                <!-- 🔧 Tool: Anatolisch -->
+                <span class="menu-tool"
+                  onclick="openTool('tools/Indo-Europäisch/Anatolisch.html', 'Anatolisch', '🏛️')">
+                  <span class="menu-tool-icon">📄</span>
+                  Anatolisch
+                </span>
+
+                <!-- 🔧 Tool: Balto-Slawisch -->
+                <span class="menu-tool"
+                  onclick="openTool('tools/Indo-Europäisch/Balto-Slawisch.html', 'Balto-Slawisch', '☦️')">
+                  <span class="menu-tool-icon">📄</span>
+                  Balto-Slawisch
+                </span>
+
+                <!-- 🔧 Tool: Albanisch -->
+                <span class="menu-tool"
+                  onclick="openTool('tools/Indo-Europäisch/Albanisch.html', 'Albanisch', '🦅')">
+                  <span class="menu-tool-icon">📄</span>
+                  Albanisch
+                </span>
+
+                <!-- 🔧 Tool: Keltisch -->
+                <span class="menu-tool"
+                  onclick="openTool('tools/Indo-Europäisch/Keltisch.html', 'Keltisch', '🍀')">
+                  <span class="menu-tool-icon">📄</span>
+                  Keltisch
+                </span>
+
+                <!-- 🔧 Tool: Armenisch -->
+                <span class="menu-tool"
+                  onclick="openTool('tools/Indo-Europäisch/Armenisch.html', 'Armenisch', '⛪')">
+                  <span class="menu-tool-icon">📄</span>
+                  Armenisch
+                </span>
+
+                <!-- 🔧 Tool: Griechisch-Phrygisch -->
+                <span class="menu-tool"
+                  onclick="openTool('tools/Indo-Europäisch/Griechisch-Phrygisch.html', 'Griechisch-Phrygisch', '🏛️')">
+                  <span class="menu-tool-icon">📄</span>
+                  Griechisch-Phrygisch
+                </span>
+
+                <!-- 📁 Germanisch -->
+                <div class="menu-item">
+                  <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+                    <span class="menu-icon">⚔️</span>
+                    Germanisch
+                    <span class="menu-arrow">▶</span>
+                  </button>
+                  <div class="menu-children">
+
+                    <!-- 🔧 Tool: Ost-Germanisch -->
+                    <span class="menu-tool"
+                      onclick="openTool('tools/Indo-Europäisch/Germanisch/Ost-Germanisch.html', 'Ost-Germanisch', '🗡️')">
+                      <span class="menu-tool-icon">📄</span>
+                      Ost-Germanisch
+                    </span>
+
+                    <!-- 📁 Nordwest-Germanisch -->
+                    <div class="menu-item">
+                      <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+                        <span class="menu-icon">🧭</span>
+                        Nordwest-Germanisch
+                        <span class="menu-arrow">▶</span>
+                      </button>
+                      <div class="menu-children">
+
+                        <!-- 🔧 Tool: Älteres Futhark -->
+                        <span class="menu-tool"
+                          onclick="openTool('tools/Indo-Europäisch/Germanisch/Nordwest-Germanisch/Älteres Futhark.html', 'Älteres Futhark', '᚛')">
+                          <span class="menu-tool-icon">📄</span>
+                          Älteres Futhark
+                        </span>
+
+                        <!-- 🔧 Tool: Nord-Germanisch -->
+                        <span class="menu-tool"
+                          onclick="openTool('tools/Indo-Europäisch/Germanisch/Nordwest-Germanisch/Nord-Germanisch.html', 'Nord-Germanisch', '🛡️')">
+                          <span class="menu-tool-icon">📄</span>
+                          Nord-Germanisch
+                        </span>
+
+                        <!-- 🔧 Tool: West-Germanisch -->
+                        <span class="menu-tool"
+                          onclick="openTool('tools/Indo-Europäisch/Germanisch/Nordwest-Germanisch/West-Germanisch.html', 'West-Germanisch', '🏰')">
+                          <span class="menu-tool-icon">📄</span>
+                          West-Germanisch
+                        </span>
+
+                        <!-- ➕ NEUES TOOL: Kopiere die span.menu-tool Vorlage (siehe unten) -->
+
+                      </div>
+                    </div>
+
+                    <!-- ➕ NEUE UNTERKATEGORIE in Germanisch: Kopiere den div.menu-item Block (siehe unten) -->
+
+                  </div>
+                </div>
+
+                <!-- ➕ NEUES TOOL direkt in Indo-Europäisch: Kopiere die span.menu-tool Vorlage -->
+                <!-- ➕ NEUE UNTERKATEGORIE in Indo-Europäisch: Kopiere den div.menu-item Block -->
+
+              </div>
+            </div>
+
+            <!-- ➕ NEUE UNTERKATEGORIE in Europäisch (z.B. Baskisch): Kopiere den div.menu-item Block -->
+
+          </div>
+        </div>
+
+        <!-- ➕ NEUE HAUPTGRUPPE in Sprachfamilien (z.B. Amerikanisch): Kopiere den div.menu-item Block -->
+
+      </div>
+    </div>
+
+
+    <!-- ══════════════════════════════════════════════════════════════
+         ➕ NEUE HAUPTKATEGORIE (neben Karten / Sprachfamilien):
+         1. Kopiere den Block unten
+         2. Füge ihn VOR diesem Kommentar ein
+         3. Ergänze davor eine <div class="menu-divider"></div>
+    ══════════════════════════════════════════════════════════════ -->
+
+
+  </div>
+</aside>
 
   <!-- ════════════ HAUPTBEREICH ════════════ -->
   <div class="main-area">
@@ -874,3 +924,4 @@
 
 </body>
 </html>
+
