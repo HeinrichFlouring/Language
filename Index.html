@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Sprachtools</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+  <style>
+    /* ═══════════════════════════════════════════
+       CSS-VARIABLEN (Farbpalette)
+    ═══════════════════════════════════════════ */
+    :root {
+      --bg-primary:  #0a0a0f;
+      --bg-nav:      #0d0d14;
+      --bg-panel:    #13131c;
+      --gold-bright: #f0c060;
+      --gold-mid:    #c8973a;
+      --gold-glow:   rgba(240,192,96,0.15);
+      --text-primary:#e8d5a0;
+      --text-dim:    #9a8a68;
+      --text-muted:  #7a6a52;
+      --border:      #1e1e2e;
+      --border-gold: rgba(200,151,58,0.3);
+    }
+
+    /* ═══════════════════════════════════════════
+       GRUNDLAYOUT
+    ═══════════════════════════════════════════ */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Georgia', 'Inter', sans-serif;
+      background: var(--bg-primary);
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      overflow: hidden; /* Kein Scrollen auf body-Ebene */
+    }
+
+    /* ═══════════════════════════════════════════
+       TOPBAR (schmale Leiste oben)
+    ═══════════════════════════════════════════ */
+    .topbar {
+      height: 48px;
+      background: var(--bg-nav);
+      border-bottom: 1px solid var(--border-gold);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 12px;
+      z-index: 100;
+      flex-shrink: 0;
+    }
+
+    /* Hamburger-Button */
+    .sidebar-toggle {
+      background: none;
+      border: none;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      padding: 4px;
+      flex-shrink: 0;
+    }
+    .sidebar-toggle span {
+      display: block;
+      width: 22px;
+      height: 2px;
+      background: #fff;
+      border-radius: 2px;
+      transition: all 0.3s;
+    }
+
+    /* Logo in der Topbar */
+    .topbar-logo {
+      font-size: 1rem;
+      font-weight: 700;
+      color: var(--gold-bright);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .topbar-logo:hover { color: var(--gold-mid); }
+
+    /* Aktuell geöffnetes Tool – Breadcrumb in Topbar */
+    .topbar-breadcrumb {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      margin-left: 8px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .topbar-breadcrumb span {
+      color: var(--gold-mid);
+    }
+
+    /* ═══════════════════════════════════════════
+       HAUPT-LAYOUT: Sidebar + Inhalt
+    ═══════════════════════════════════════════ */
+    .layout {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    /* ═══════════════════════════════════════════
+       SIDEBAR (linke Leiste)
+    ═══════════════════════════════════════════ */
+    .sidebar {
+      width: 200px;
+      background: var(--bg-panel);
+      border-right: 1px solid var(--border-gold);
+      display: flex;
+      flex-direction: column;
+      transition: width 0.3s ease, opacity 0.3s ease;
+      overflow: hidden;
+      flex-shrink: 0;
+    }
+
+    /* Sidebar zugeklappt */
+    .sidebar.collapsed {
+      width: 0;
+      opacity: 0;
+    }
+
+    .sidebar-inner {
+      width: 200px; /* Feste Breite damit Inhalt nicht "quetscht" */
+      height: 100%;
+      overflow-y: auto;
+      overflow-x: auto;
+      padding: 4px 0;
+    }
+
+    /* Scrollbar-Styling für Sidebar - verbessert für bidirektionales Scrolling */
+    .sidebar-inner::-webkit-scrollbar { height: 4px; width: 4px; }
+    .sidebar-inner::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-inner::-webkit-scrollbar-thumb { background: rgba(200,151,58,0.3); border-radius: 4px; }
+    .sidebar-inner::-webkit-scrollbar-thumb:hover { background: rgba(200,151,58,0.5); }
+
+    /* ── Menü-Items ── */
+
+    /* Kategorie (aufklappbar) */
+    .menu-item {
+      display: block;
+      width: 100%;
+    }
+
+    /* Button für Kategorien */
+    .menu-btn {
+      display: flex;
+      align-items: center;
+      width: 100%;
+      background: none;
+      border: none;
+      color: var(--text-dim);
+      font-family: 'Georgia', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding: 3px 8px;
+      cursor: pointer;
+      text-align: left;
+      gap: 4px;
+      transition: background 0.15s, color 0.15s;
+      border-radius: 0;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .menu-btn:hover {
+      background: var(--gold-glow);
+      color: var(--gold-bright);
+    }
+    .menu-btn.active {
+      color: var(--gold-mid);
+    }
+
+    /* Pfeil-Symbol */
+    .menu-arrow {
+      margin-left: auto;
+      font-size: 0.65rem;
+      transition: transform 0.2s;
+      opacity: 0.6;
+    }
+    .menu-btn[aria-expanded="true"] .menu-arrow {
+      transform: rotate(90deg);
+    }
+
+    /* Icon vor dem Namen - ENTFERNT, siehe menu-btn Struktur */
+    .menu-icon {
+      font-size: 0rem;
+      width: 0px;
+      display: none;
+    }
+
+    /* Unterkategorie-Container */
+    .menu-children {
+      display: none;
+      padding-left: 12px;
+      border-left: 1px solid rgba(200,151,58,0.2);
+      margin-left: 18px;
+    }
+    .menu-children.open {
+      display: block;
+    }
+
+    /* Tool-Link (klickbar, öffnet iframe) */
+    .menu-tool {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 8px 2px 4px;
+      color: var(--text-muted);
+      font-size: 0.68rem;
+      cursor: pointer;
+      border-radius: 3px;
+      transition: background 0.15s, color 0.15s;
+      text-decoration: none;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .menu-tool:hover {
+      background: var(--gold-glow);
+      color: var(--gold-mid);
+    }
+    .menu-tool.active-tool {
+      background: rgba(200,151,58,0.25);
+      color: var(--gold-bright);
+    }
+    .menu-tool-icon {
+      font-size: 0rem;
+      display: none;
+      opacity: 0;
+    }
+
+    /* Platzhalter-Tool (noch kein Link) */
+    .menu-tool.placeholder {
+      opacity: 0.5;
+      cursor: default;
+      font-style: italic;
+    }
+    .menu-tool.placeholder:hover {
+      background: none;
+      color: var(--text-muted);
+    }
+
+    /* Trennlinie zwischen Hauptkategorien */
+    .menu-divider {
+      height: 1px;
+      background: var(--border-gold);
+      margin: 4px 12px;
+    }
+
+    /* ═══════════════════════════════════════════
+       HAUPTBEREICH (rechts)
+    ═══════════════════════════════════════════ */
+    .main-area {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Startseite ── */
+    .home-view {
+      flex: 1;
+      overflow-y: auto;
+      padding: 32px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: var(--bg-primary);
+    }
+    .home-view.hidden { display: none; }
+
+    .home-title {
+      font-size: 2rem;
+      font-weight: 700;
+      color: var(--gold-bright);
+      margin-bottom: 8px;
+      text-align: center;
+    }
+    .home-title .gradient-text {
+      background: linear-gradient(135deg, var(--gold-mid), var(--gold-bright));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    .home-subtitle {
+      font-size: 1rem;
+      color: var(--text-dim);
+      margin-bottom: 40px;
+      text-align: center;
+    }
+
+    /* Grid der Tool-Kacheln auf Startseite */
+    .home-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    /* Abschnitts-Überschrift im Grid */
+    .home-section-title {
+      grid-column: 1 / -1;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: #9ca3af;
+      margin-top: 16px;
+      margin-bottom: -4px;
+    }
+
+    /* Tool-Kachel */
+    .home-card {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-gold);
+      border-radius: 8px;
+      padding: 20px 16px;
+      cursor: pointer;
+      transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .home-card:hover {
+      box-shadow: 0 4px 20px var(--gold-glow);
+      border-color: var(--gold-mid);
+      transform: translateY(-2px);
+    }
+    .home-card.placeholder-card {
+      opacity: 0.45;
+      cursor: default;
+    }
+    .home-card.placeholder-card:hover {
+      box-shadow: none;
+      border-color: var(--border-gold);
+      transform: none;
+    }
+    .home-card-icon { font-size: 1.8rem; }
+    .home-card-title {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--gold-bright);
+    }
+    .home-card-path {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* ── Tool-View (iframe) ── */
+    .tool-view {
+      flex: 1;
+      display: none;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .tool-view.active {
+      display: flex;
+    }
+
+    /* Schmale Leiste über dem iframe */
+    .tool-topbar {
+      height: 36px;
+      background: #13131c;
+      border-bottom: 1px solid rgba(200,151,58,0.3);
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+    .tool-back-btn {
+      background: none;
+      border: 1px solid rgba(200,151,58,0.3);
+      border-radius: 4px;
+      padding: 3px 10px;
+      font-size: 0.78rem;
+      cursor: pointer;
+      color: #9a8a68;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: background 0.15s, color 0.15s;
+    }
+    .tool-back-btn:hover {
+      background: rgba(200,151,58,0.15);
+      color: #c8973a;
+    }
+    .tool-label {
+      font-size: 0.82rem;
+      color: #c8973a;
+      font-weight: 500;
+    }
+
+    .tool-iframe {
+      flex: 1;
+      border: none;
+      width: 100%;
+    }
+
+    /* ═══════════════════════════════════════════
+       RESPONSIVE (Mobil)
+    ═══════════════════════════════════════════ */
+    @media (max-width: 600px) {
+      .sidebar {
+        position: fixed;
+        top: 48px;
+        left: 0;
+        height: calc(100vh - 48px);
+        z-index: 200;
+        box-shadow: 4px 0 20px rgba(0,0,0,0.3);
+      }
+      .sidebar.collapsed {
+        width: 0;
+        opacity: 0;
+      }
+      .home-view { padding: 16px; }
+      .home-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════════════════
+     TOPBAR
+═══════════════════════════════════════════════════ -->
+<div class="topbar">
+  <!-- Hamburger -->
+  <button class="sidebar-toggle" id="sidebarToggle" aria-label="Menü öffnen/schließen">
+    <span></span><span></span><span></span>
+  </button>
+
+  <!-- ╔══════════════════════════════════════╗ -->
+  <!-- ║  📝 ANPASSEN: Logo-Text & Symbol    ║ -->
+  <!-- ╚══════════════════════════════════════╝ -->
+  <span class="topbar-logo" onclick="showHome()">🌍 Sprachtools</span>
+
+  <div class="topbar-breadcrumb" id="topbarBreadcrumb"></div>
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     LAYOUT
+═══════════════════════════════════════════════════ -->
+<div class="layout">
+
+  <!-- ════════════ SIDEBAR ════════════ -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-inner">
+
+      <!-- ╔══════════════════════════════════════════════════════════════╗ -->
+      <!-- ║  📋 MENÜ-STRUKTUR                                           ║ -->
+      <!-- ║                                                              ║ -->
+      <!-- ║  ▶ KATEGORIE (aufklappbar):                                 ║ -->
+      <!-- ║    <div class="menu-item">                                  ║ -->
+      <!-- ║      <button class="menu-btn" onclick="toggleMenu(this)">  ║ -->
+      <!-- ║        <span class="menu-icon">EMOJI</span>                 ║ -->
+      <!-- ║        NAME                                                  ║ -->
+      <!-- ║        <span class="menu-arrow">▶</span>                   ║ -->
+      <!-- ║      </button>                                              ║ -->
+      <!-- ║      <div class="menu-children">                           ║ -->
+      <!-- ║        ... Unterkategorien oder Tools hier ...              ║ -->
+      <!-- ║      </div>                                                 ║ -->
+      <!-- ║    </div>                                                   ║ -->
+      <!-- ║                                                              ║ -->
+      <!-- ║  ▶ TOOL (klickbar, öffnet iframe):                         ║ -->
+      <!-- ║    <span class="menu-tool"                                  ║ -->
+      <!-- ║      onclick="openTool('PFAD', 'NAME', 'EMOJI')">          ║ -->
+      <!-- ║      <span class="menu-tool-icon">📄</span> NAME           ║ -->
+      <!-- ║    </span>                                                  ║ -->
+      <!-- ║                                                              ║ -->
+      <!-- ║  ▶ PLATZHALTER (noch kein Tool):                           ║ -->
+      <!-- ║    <span class="menu-tool placeholder">                     ║ -->
+      <!-- ║      <span class="menu-tool-icon">🔜</span> Name           ║ -->
+      <!-- ║    </span>                                                  ║ -->
+      <!-- ║                                                              ║ -->
+      <!-- ║  ▶ TRENNLINIE zwischen Hauptkategorien:                    ║ -->
+      <!-- ║    <div class="menu-divider"></div>                         ║ -->
+      <!-- ╚══════════════════════════════════════════════════════════════╝ -->
+
+
+      <!-- ══════════════════════════════════
+           📁 KARTEN (Hauptkategorie)
+      ══════════════════════════════════ -->
+      <div class="menu-item">
+        <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+          <span class="menu-icon">🌐</span>
+          Karten
+          <span class="menu-arrow">▶</span>
+        </button>
+        <div class="menu-children">
+
+          <!-- 🔧 Tool: Muttersprachen-Karte -->
+          <span class="menu-tool"
+            onclick="openTool('tools/Karten/Muttersprachen-Karte.html', 'Muttersprachen-Karte', '💬')">
+            <span class="menu-tool-icon">📄</span>
+            Muttersprachen-Karte
+          </span>
+
+          <!-- ➕ Weitere Karten-Tools hier einfügen (gleiche Zeile wie oben) -->
+
+        </div>
+      </div>
+
+      <div class="menu-divider"></div>
+
+      <!-- ══════════════════════════════════
+           📁 SPRACHFAMILIEN (Hauptkategorie)
+      ══════════════════════════════════ -->
+      <div class="menu-item">
+        <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+          <span class="menu-icon">🗣️</span>
+          Sprachfamilien
+          <span class="menu-arrow">▶</span>
+        </button>
+        <div class="menu-children">
+
+          <!-- 📁 Papua -->
+          <div class="menu-item">
+            <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+              <span class="menu-icon">🌿</span>
+              Papua
+              <span class="menu-arrow">▶</span>
+            </button>
+            <div class="menu-children">
+              <!-- Platzhalter -->
+              <span class="menu-tool placeholder">
+                <span class="menu-tool-icon">🔜</span>
+                Kommt bald
+              </span>
+              <!-- ➕ Papua-Tools hier einfügen -->
+            </div>
+          </div>
+
+          <!-- 📁 Australisch -->
+          <div class="menu-item">
+            <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+              <span class="menu-icon">🦘</span>
+              Australisch
+              <span class="menu-arrow">▶</span>
+            </button>
+            <div class="menu-children">
+              <span class="menu-tool placeholder">
+                <span class="menu-tool-icon">🔜</span>
+                Kommt bald
+              </span>
+              <!-- ➕ Australisch-Tools hier einfügen -->
+            </div>
+          </div>
+
+          <!-- 📁 Asiatisch -->
+          <div class="menu-item">
+            <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+              <span class="menu-icon">🏯</span>
+              Asiatisch
+              <span class="menu-arrow">▶</span>
+            </button>
+            <div class="menu-children">
+
+              <!-- 🔧 Tool: Thai-Kadai (direkt in Asiatisch) -->
+              <span class="menu-tool"
+                onclick="openTool('tools/Thai-Kadai/Thai Kadai Version 4.html', 'Thai-Kadai', '🏯')">
+                <span class="menu-tool-icon">📄</span>
+                Thai-Kadai
+              </span>
+
+              <!-- ➕ Weitere Asiatisch-Tools hier einfügen -->
+
+            </div>
+          </div>
+
+          <!-- 📁 Afrikanisch -->
+          <div class="menu-item">
+            <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+              <span class="menu-icon">🌍</span>
+              Afrikanisch
+              <span class="menu-arrow">▶</span>
+            </button>
+            <div class="menu-children">
+
+              <!-- 📁 Niger-Kongo -->
+              <div class="menu-item">
+                <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+                  <span class="menu-icon">🌱</span>
+                  Niger-Kongo
+                  <span class="menu-arrow">▶</span>
+                </button>
+                <div class="menu-children">
+                  <span class="menu-tool placeholder">
+                    <span class="menu-tool-icon">🔜</span>
+                    Kommt bald
+                  </span>
+                  <!-- ➕ Niger-Kongo-Tools hier einfügen -->
+                </div>
+              </div>
+
+              <!-- 📁 Afro-Asiatisch -->
+              <div class="menu-item">
+                <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+                  <span class="menu-icon">🏺</span>
+                  Afro-Asiatisch
+                  <span class="menu-arrow">▶</span>
+                </button>
+                <div class="menu-children">
+
+                  <!-- 🔧 Tool: Semitisch (Platzhalter) -->
+                  <span class="menu-tool placeholder">
+                    <span class="menu-tool-icon">🔜</span>
+                    Semitisch
+                  </span>
+                  <!-- ➕ Wenn Semitisch.html fertig:              -->
+                  <!-- onclick="openTool('tools/...', 'Semitisch', '...')" -->
+
+                </div>
+              </div>
+
+              <!-- ➕ Weitere Afrikanisch-Unterkategorien hier -->
+
+            </div>
+          </div>
+
+          <!-- 📁 Europäisch -->
+          <div class="menu-item">
+            <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+              <span class="menu-icon">🏰</span>
+              Europäisch
+              <span class="menu-arrow">▶</span>
+            </button>
+            <div class="menu-children">
+
+              <!-- 📁 Indo-Europäisch -->
+              <div class="menu-item">
+                <button class="menu-btn" onclick="toggleMenu(this)" aria-expanded="false">
+                  <span class="menu-icon">🌳</span>
+                  Indo-Europäisch
+                  <span class="menu-arrow">▶</span>
+                </button>
+                <div class="menu-children">
+
+                  <!-- 🔧 Tool: Germanisch (echte HTML) -->
+                  <span class="menu-tool"
+                    onclick="openTool('tools/Indo-Europäisch/Germanisch.html', 'Germanisch', '⚔️')">
+                    <span class="menu-tool-icon">📄</span>
+                    Germanisch
+                  </span>
+
+                  <!-- Platzhalter: Romanisch -->
+                  <span class="menu-tool placeholder">
+                    <span class="menu-tool-icon">🔜</span>
+                    Romanisch
+                  </span>
+                  <!-- ➕ Wenn fertig ersetzen mit:
+                  <span class="menu-tool"
+                    onclick="openTool('tools/Indo-Europäisch/Romanisch.html', 'Romanisch', '🏛️')">
+                    <span class="menu-tool-icon">📄</span>
+                    Romanisch
+                  </span>
+                  -->
+
+                  <!-- Platzhalter: Slawisch -->
+                  <span class="menu-tool placeholder">
+                    <span class="menu-tool-icon">🔜</span>
+                    Slawisch
+                  </span>
+                  <!-- ➕ Wenn fertig ersetzen mit:
+                  <span class="menu-tool"
+                    onclick="openTool('tools/Indo-Europäisch/Slawisch.html', 'Slawisch', '☦️')">
+                    <span class="menu-tool-icon">📄</span>
+                    Slawisch
+                  </span>
+                  -->
+
+                  <!-- ➕ Weitere Indo-Europäisch-Tools hier -->
+
+                </div>
+              </div>
+
+              <!-- ➕ Weitere Europäisch-Unterkategorien hier -->
+
+            </div>
+          </div>
+
+          <!-- ➕ Weitere Sprachfamilien-Hauptkategorien hier -->
+
+        </div>
+      </div>
+
+      <!-- ╔══════════════════════════════════════════════════════════════╗ -->
+      <!-- ║  ➕ NEUE HAUPTKATEGORIE hinzufügen:                         ║ -->
+      <!-- ║                                                              ║ -->
+      <!-- ║  <div class="menu-divider"></div>                           ║ -->
+      <!-- ║  <div class="menu-item">                                    ║ -->
+      <!-- ║    <button class="menu-btn" onclick="toggleMenu(this)"      ║ -->
+      <!-- ║            aria-expanded="false">                           ║ -->
+      <!-- ║      <span class="menu-icon">EMOJI</span>                   ║ -->
+      <!-- ║      KATEGORIENAME                                           ║ -->
+      <!-- ║      <span class="menu-arrow">▶</span>                     ║ -->
+      <!-- ║    </button>                                                ║ -->
+      <!-- ║    <div class="menu-children">                             ║ -->
+      <!-- ║      ... Tools oder Unterkategorien ...                     ║ -->
+      <!-- ║    </div>                                                   ║ -->
+      <!-- ║  </div>                                                     ║ -->
+      <!-- ╚══════════════════════════════════════════════════════════════╝ -->
+
+    </div>
+  </aside>
+
+  <!-- ════════════ HAUPTBEREICH ════════════ -->
+  <div class="main-area">
+
+    <!-- ── STARTSEITE ── -->
+    <div class="home-view" id="homeView">
+
+      <!-- ╔══════════════════════════════════════════╗ -->
+      <!-- ║  📝 ANPASSEN: Titel & Untertitel         ║ -->
+      <!-- ╚══════════════════════════════════════════╝ -->
+      <h1 class="home-title">
+        <span class="gradient-text">Sprachtools</span>
+      </h1>
+      <p class="home-subtitle">Interaktive Sprachbäume, Karten & mehr</p>
+
+      <!-- ╔══════════════════════════════════════════════════════════════╗ -->
+      <!-- ║  📋 TOOL-KACHELN AUF STARTSEITE                            ║ -->
+      <!-- ║                                                              ║ -->
+      <!-- ║  Abschnitt-Titel: <div class="home-section-title">NAME</div>║ -->
+      <!-- ║                                                              ║ -->
+      <!-- ║  Echte Kachel:                                              ║ -->
+      <!-- ║  <div class="home-card"                                     ║ -->
+      <!-- ║    onclick="openTool('PFAD', 'NAME', 'EMOJI')">            ║ -->
+      <!-- ║    <div class="home-card-icon">EMOJI</div>                  ║ -->
+      <!-- ║    <div class="home-card-title">NAME</div>                  ║ -->
+      <!-- ║    <div class="home-card-path">Kategorie › Unterkat.</div>  ║ -->
+      <!-- ║  </div>                                                     ║ -->
+      <!-- ║                                                              ║ -->
+      <!-- ║  Platzhalter-Kachel: class="home-card placeholder-card"    ║ -->
+      <!-- ╚══════════════════════════════════════════════════════════════╝ -->
+      <div class="home-grid">
+
+        <!-- Abschnitt: Karten -->
+        <div class="home-section-title">🌐 Karten</div>
+
+        <div class="home-card"
+          onclick="openTool('tools/Karten/Muttersprachen-Karte.html', 'Muttersprachen-Karte', '💬')">
+          <div class="home-card-icon">💬</div>
+          <div class="home-card-title">Muttersprachen-Karte</div>
+          <div class="home-card-path">Karten</div>
+        </div>
+
+        <!-- ➕ Weitere Karten-Kacheln hier einfügen -->
+
+
+        <!-- Abschnitt: Asiatisch -->
+        <div class="home-section-title">🏯 Asiatisch</div>
+
+        <div class="home-card"
+          onclick="openTool('tools/Thai-Kadai/Thai Kadai Version 4.html', 'Thai-Kadai', '🏯')">
+          <div class="home-card-icon">🏯</div>
+          <div class="home-card-title">Thai-Kadai</div>
+          <div class="home-card-path">Sprachfamilien › Asiatisch</div>
+        </div>
+
+        <!-- ➕ Weitere Asiatisch-Kacheln hier einfügen -->
+
+
+        <!-- Abschnitt: Indo-Europäisch -->
+        <div class="home-section-title">🌳 Indo-Europäisch</div>
+
+        <div class="home-card"
+          onclick="openTool('tools/Indo-Europäisch/Germanisch.html', 'Germanisch', '⚔️')">
+          <div class="home-card-icon">⚔️</div>
+          <div class="home-card-title">Germanisch</div>
+          <div class="home-card-path">Sprachfamilien › Europäisch › Indo-Europäisch</div>
+        </div>
+
+        <div class="home-card placeholder-card">
+          <div class="home-card-icon">🏛️</div>
+          <div class="home-card-title">Romanisch</div>
+          <div class="home-card-path">Sprachfamilien › Europäisch › Indo-Europäisch</div>
+        </div>
+
+        <div class="home-card placeholder-card">
+          <div class="home-card-icon">☦️</div>
+          <div class="home-card-title">Slawisch</div>
+          <div class="home-card-path">Sprachfamilien › Europäisch › Indo-Europäisch</div>
+        </div>
+
+        <!-- ➕ Weitere Indo-Europäisch-Kacheln hier einfügen -->
+
+      </div>
+    </div>
+    <!-- ── Ende Startseite ── -->
+
+
+    <!-- ── TOOL-ANSICHT (iframe) ── -->
+    <div class="tool-view" id="toolView">
+      <div class="tool-topbar">
+        <button class="tool-back-btn" onclick="showHome()">
+          ← Startseite
+        </button>
+        <span class="tool-label" id="toolLabel"></span>
+      </div>
+      <iframe
+        class="tool-iframe"
+        id="toolIframe"
+        src=""
+        title="Tool"
+        allow="fullscreen"
+      ></iframe>
+    </div>
+    <!-- ── Ende Tool-Ansicht ── -->
+
+  </div>
+  <!-- Ende main-area -->
+
+</div>
+<!-- Ende layout -->
+
+
+<script>
+  /* ═══════════════════════════════════════════════════════
+     SIDEBAR TOGGLE
+  ═══════════════════════════════════════════════════════ */
+  const sidebar = document.getElementById('sidebar');
+  const toggleBtn = document.getElementById('sidebarToggle');
+
+  toggleBtn.addEventListener('click', () => {
+    sidebar.classList.toggle('collapsed');
+  });
+
+  /* ═══════════════════════════════════════════════════════
+     MENÜ: KATEGORIE AUFKLAPPEN / ZUKLAPPEN
+  ═══════════════════════════════════════════════════════ */
+  function toggleMenu(btn) {
+    const children = btn.nextElementSibling;
+    const isOpen = children.classList.contains('open');
+
+    children.classList.toggle('open');
+    btn.setAttribute('aria-expanded', !isOpen);
+    btn.classList.toggle('active', !isOpen);
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     TOOL ÖFFNEN
+     - pfad: relativer Pfad zur HTML-Datei
+     - name: Anzeigename im Label
+     - icon: Emoji für Topbar
+  ═══════════════════════════════════════════════════════ */
+  function openTool(pfad, name, icon) {
+    // Platzhalter ignorieren
+    if (!pfad) return;
+
+    const homeView  = document.getElementById('homeView');
+    const toolView  = document.getElementById('toolView');
+    const iframe    = document.getElementById('toolIframe');
+    const label     = document.getElementById('toolLabel');
+    const breadcrumb = document.getElementById('topbarBreadcrumb');
+
+    iframe.src = pfad;
+    label.textContent = icon + '  ' + name;
+    breadcrumb.innerHTML = '/ <span>' + name + '</span>';
+
+    homeView.classList.add('hidden');
+    toolView.classList.add('active');
+
+    // Aktives Tool im Menü markieren
+    document.querySelectorAll('.menu-tool').forEach(t => t.classList.remove('active-tool'));
+    // Finde das richtige menu-tool und markiere es
+    document.querySelectorAll('.menu-tool:not(.placeholder)').forEach(t => {
+      if (t.getAttribute('onclick') && t.getAttribute('onclick').includes(pfad)) {
+        t.classList.add('active-tool');
+      }
+    });
+  }
+
+  /* ═══════════════════════════════════════════════════════
+     STARTSEITE ANZEIGEN
+  ═══════════════════════════════════════════════════════ */
+  function showHome() {
+    const homeView  = document.getElementById('homeView');
+    const toolView  = document.getElementById('toolView');
+    const iframe    = document.getElementById('toolIframe');
+    const breadcrumb = document.getElementById('topbarBreadcrumb');
+
+    toolView.classList.remove('active');
+    homeView.classList.remove('hidden');
+    iframe.src = '';
+    breadcrumb.innerHTML = '';
+
+    document.querySelectorAll('.menu-tool').forEach(t => t.classList.remove('active-tool'));
+  }
+</script>
+
+</body>
+</html>
