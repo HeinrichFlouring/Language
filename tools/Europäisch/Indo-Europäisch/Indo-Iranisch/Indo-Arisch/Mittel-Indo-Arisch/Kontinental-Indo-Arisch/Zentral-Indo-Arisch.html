@@ -1,0 +1,4454 @@
+<!DOCTYPE html>
+<!--
+╔══════════════════════════════════════════════════════════════════════╗
+║  SPRACHFAMILIEN-ATLAS · VORLAGE v4                                  ║
+╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title id="page-title">Sprachfamilien-Atlas</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+  --bg-primary:  #0a0a0f;
+  --bg-nav:      #0d0d14;
+  --bg-panel:    #13131c;
+  --gold-bright: #f0c060;
+  --gold-mid:    #c8973a;
+  --gold-glow:   rgba(240,192,96,0.15);
+  --text-primary:#e8d5a0;
+  --text-dim:    #9a8a68;      /* heller als vorher (#7a6a48) */
+  --text-muted:  #7a6a52;      /* heller als vorher (#4a4030) */
+  --border:      #1e1e2e;
+  --border-gold: rgba(200,151,58,0.3);
+  --node-family: #c8973a;
+  --node-lang:   #7ec8c8;
+  --node-sub:    #c87868;
+  --node-dial:   #a0b878;
+  --nav-h:       52px;
+  --toolbar-h:   46px;
+  --panel-w:     300px;
+}
+    html, body { height:100%; width:100%; overflow:hidden; font-family:'Georgia',serif; background:var(--bg-primary); color:var(--text-primary); }
+
+    /* ── NAV ── */
+    #nav { position:fixed; top:0; left:0; right:0; height:var(--nav-h); background:var(--bg-nav); border-bottom:1px solid var(--border-gold); display:flex; align-items:center; justify-content:space-between; padding:0 24px; z-index:1000; box-shadow:0 2px 20px rgba(0,0,0,.6); }
+    #nav-left { display:flex; align-items:center; gap:10px; }
+    .title-glyph { font-size:1.3rem; color:var(--gold-bright); text-shadow:0 0 12px rgba(240,192,96,.4); }
+    .title-main  { font-size:1rem; color:var(--gold-bright); letter-spacing:2px; text-transform:uppercase; font-weight:normal; }
+    .title-sub   { font-size:.65rem; color:var(--text-dim); letter-spacing:1px; font-family:'Segoe UI',sans-serif; }
+    #nav-tabs { display:flex; gap:4px; background:rgba(0,0,0,.4); border:1px solid var(--border-gold); border-radius:8px; padding:4px; }
+    .nav-tab { display:flex; align-items:center; gap:7px; padding:6px 18px; border-radius:6px; border:1px solid transparent; cursor:pointer; font-family:'Segoe UI',sans-serif; font-size:.78rem; color:var(--text-dim); background:transparent; transition:all .25s; user-select:none; }
+    .nav-tab:hover  { color:var(--gold-mid); background:var(--gold-glow); }
+    .nav-tab.active { color:var(--gold-bright); background:rgba(200,151,58,.18); border-color:var(--border-gold); }
+    .nav-tab svg { width:14px; height:14px; fill:currentColor; flex-shrink:0; }
+    #nav-meta { display:flex; gap:10px; }
+    .meta-chip { font-family:'Segoe UI',sans-serif; font-size:.65rem; color:var(--text-dim); background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:10px; padding:2px 10px; letter-spacing:.5px; }
+
+    /* ── VIEWS ── */
+    #views { position:fixed; top:var(--nav-h); left:0; right:0; bottom:0; }
+    .view { position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity .4s; }
+    .view.visible { opacity:1; pointer-events:all; }
+
+    /* ── TREE VIEW ── */
+    #view-tree { background:var(--bg-primary); display:flex; flex-direction:column; }
+    #tree-toolbar { min-height:var(--toolbar-h); height:auto; background:var(--bg-panel); border-bottom:1px solid var(--border); display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:6px 16px; flex-shrink:0; }
+    .tb-label { font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-muted); letter-spacing:1px; white-space:nowrap; }
+    .tb-btn { display:flex; align-items:center; gap:5px; padding:4px 12px; border-radius:6px; border:1px solid var(--border-gold); background:transparent; color:var(--gold-mid); font-family:'Segoe UI',sans-serif; font-size:.72rem; cursor:pointer; transition:all .2s; white-space:nowrap; }
+    .tb-btn:hover { background:var(--gold-glow); color:var(--gold-bright); border-color:var(--gold-bright); }
+    .tb-btn svg { width:11px; height:11px; fill:currentColor; }
+    .tb-divider { width:1px; height:22px; background:var(--border); flex-shrink:0; }
+    #zoom-info { font-family:monospace; font-size:.7rem; color:var(--text-muted); min-width:38px; text-align:center; }
+    .tb-input { background:rgba(255,255,255,.05); border:1px solid var(--border-gold); border-radius:6px; color:var(--text-primary); font-family:'Segoe UI',sans-serif; font-size:.72rem; padding:4px 10px; width:145px; outline:none; transition:border-color .2s, background .2s; }
+    .tb-input:focus { border-color:var(--gold-bright); background:rgba(240,192,96,.07); }
+    .tb-input::placeholder { color:var(--text-muted); }
+    #tree-legend { display:flex; align-items:center; gap:12px; margin-left:auto; }
+    .leg-item { display:flex; align-items:center; gap:5px; font-family:'Segoe UI',sans-serif; font-size:.65rem; color:var(--text-dim); }
+    .leg-dot  { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+    #tree-main { flex:1; display:flex; overflow:hidden; min-height:0; }
+    #tree-canvas { flex:1; overflow:hidden; position:relative; }
+    #tree-canvas svg { width:100%; height:100%; cursor:grab; }
+    #tree-canvas svg:active { cursor:grabbing; }
+
+    /* ── INFO PANEL ── */
+    #info-panel { width:var(--panel-w); flex-shrink:0; background:var(--bg-panel); border-left:1px solid var(--border-gold); display:flex; flex-direction:column; overflow:hidden; }
+    #ip-header { padding:14px 16px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+    .ip-label { font-family:'Segoe UI',sans-serif; font-size:.62rem; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; }
+    #ip-name  { font-family:'Georgia',serif; font-size:1.05rem; color:var(--gold-bright); line-height:1.3; word-break:break-word; }
+    #ip-orig  { font-family:'Segoe UI',sans-serif; font-size:.7rem; color:var(--text-dim); font-style:italic; margin-top:3px; display:none; }
+    #ip-body  { flex:1; overflow-y:auto; padding:12px 16px; }
+    .ip-section { margin-bottom:14px; }
+    .ip-sec-title { font-family:'Segoe UI',sans-serif; font-size:.6rem; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    .ip-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:5px; font-family:'Segoe UI',sans-serif; font-size:.72rem; }
+    .ip-key { color:var(--text-muted); flex-shrink:0; }
+    .ip-val { color:var(--text-dim); text-align:right; word-break:break-word; }
+    .ip-val.mono { color:var(--node-lang); font-family:monospace; font-size:.75rem; }
+    .ip-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-family:'Segoe UI',sans-serif; font-size:.65rem; letter-spacing:.5px; border:1px solid; }
+    .badge-family   { color:var(--node-family); border-color:var(--node-family); background:rgba(200,151,58,.1); }
+    .badge-language { color:var(--node-lang);   border-color:var(--node-lang);   background:rgba(126,200,200,.1); }
+    .badge-subgroup { color:var(--node-sub);    border-color:var(--node-sub);    background:rgba(200,120,104,.1); }
+    .badge-dialect  { color:var(--node-dial);   border-color:var(--node-dial);   background:rgba(160,184,120,.1); }
+    .ip-country { display:flex; align-items:flex-start; gap:9px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,.04); font-family:'Segoe UI',sans-serif; font-size:.72rem; }
+    .ip-country:last-child { border-bottom:none; }
+    .ip-country-flag   { font-size:1.25rem; line-height:1.1; flex-shrink:0; }
+    .ip-country-info   { display:flex; flex-direction:column; gap:1px; }
+    .ip-country-name   { color:var(--text-dim); line-height:1.4; }
+    .ip-country-region { font-size:.62rem; color:var(--text-muted); }
+    .ip-country-loading { font-size:.68rem; color:var(--text-muted); font-style:italic; padding:3px 0; }
+    .ip-child-list { list-style:none; }
+    .ip-child-list li { display:flex; align-items:center; gap:6px; padding:3px 0; font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-dim); border-bottom:1px solid rgba(255,255,255,.03); }
+    .ip-child-list li:last-child { border-bottom:none; }
+    .ip-child-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    #ip-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:10px; color:var(--text-muted); font-family:'Segoe UI',sans-serif; font-size:.72rem; text-align:center; padding:20px; }
+    #ip-empty .ei { font-size:2rem; opacity:.3; }
+    #ip-content { display:none; height:100%; flex-direction:column; overflow:hidden; }
+    #ip-content.on { display:flex; }
+
+    /* Mini-Karte im Info-Panel */
+    #ip-minimap-wrap { width:100%; height:160px; border-radius:8px; overflow:hidden; border:1px solid var(--border-gold); margin-top:6px; flex-shrink:0; position:relative; }
+    #ip-minimap { width:100%; height:100%; }
+
+    /* ── D3 ELEMENTE ── */
+    .link { fill:none; stroke:rgba(200,151,58,.22); stroke-width:3px; }
+    /* Trennlinie zwischen Haupt-Familienästen */
+    .family-sep { fill:none; stroke:rgba(200,151,58,.12); stroke-width:1px; stroke-dasharray:4,4; }
+    .node circle { stroke-width:1.5px; transition:all .25s; }
+    .node:hover circle { stroke-width:2.5px; }
+    .node.dragging circle { filter: drop-shadow(0 0 8px rgba(240,192,96,.6)); stroke-width:3px; }
+    /* Textgröße wird dynamisch per inline-style gesetzt */
+    .node text { font-family:'Georgia',serif; pointer-events:none; }
+    .node.sel circle { stroke-width:3px; }
+    #tree-bar { height:34px; background:var(--bg-panel); border-top:1px solid var(--border); display:flex; align-items:center; padding:0 20px; gap:20px; flex-shrink:0; }
+    #tree-bar .bi { font-family:'Segoe UI',sans-serif; font-size:.67rem; color:var(--text-muted); }
+    #tree-bar .bi span { color:var(--text-dim); }
+
+    /* ── MAP VIEW ── */
+    #view-map { background:#1a1a2e; }
+    #map { width:100%; height:100%; }
+    /* Legende links unten */
+    #map-overlay {
+      position:absolute;
+      bottom:32px; left:16px;
+      z-index:900;
+      background:rgba(10,10,15,.88);
+      border:1px solid var(--border-gold);
+      border-radius:10px;
+      padding:12px 16px;
+      backdrop-filter:blur(8px);
+      min-width:180px;
+    }
+    .ov-title { font-size:.7rem; color:var(--gold-mid); letter-spacing:1.5px; text-transform:uppercase; font-family:'Segoe UI',sans-serif; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border-gold); }
+    .ov-item  { display:flex; align-items:center; gap:8px; margin-bottom:5px; font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-dim); }
+    .ov-dot   { width:10px; height:10px; border-radius:50%; flex-shrink:0; border:1.5px solid rgba(255,255,255,.2); }
+
+    /* ── LEAFLET OVERRIDES ── */
+    .leaflet-container { background:#2a3a4a !important; }
+    .leaflet-popup-content-wrapper { background:var(--bg-panel) !important; color:var(--text-primary) !important; border:1px solid var(--border-gold) !important; border-radius:10px !important; box-shadow:0 8px 32px rgba(0,0,0,.7) !important; }
+    .leaflet-popup-tip { background:var(--bg-panel) !important; }
+    .leaflet-popup-close-button { color:var(--text-dim) !important; }
+    .lp-name  { font-family:'Georgia',serif; font-size:1rem; color:var(--gold-bright); margin-bottom:4px; }
+    .lp-orig  { font-size:.68rem; color:var(--text-dim); font-style:italic; margin-bottom:6px; }
+    .lp-row   { display:flex; gap:6px; align-items:center; font-size:.7rem; color:var(--text-dim); margin-bottom:3px; }
+    .lp-badge { font-size:.62rem; background:rgba(200,151,58,.2); border:1px solid var(--border-gold); border-radius:4px; padding:1px 6px; color:var(--gold-mid); font-family:monospace; }
+    /* Zoom-Buttons: rechts unten auf der Karte */
+    .leaflet-control-zoom { margin-right:16px !important; margin-bottom:16px !important; }
+    .leaflet-bottom.leaflet-right { bottom:0; right:0; }
+    .leaflet-control-zoom a { background:rgba(13,13,20,0.92) !important; color:var(--gold-mid) !important; border-color:var(--border-gold) !important; }
+    .leaflet-control-attribution { background:rgba(10,10,15,.7) !important; color:var(--text-muted) !important; font-size:.55rem !important; }
+
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+    * { scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+
+    /* Mini-Map Leaflet overrides */
+    #ip-minimap .leaflet-control-zoom { display:none !important; }
+    #ip-minimap .leaflet-control-attribution { font-size:.45rem !important; }
+
+    /* ── ERROR SCREEN ── */
+    #error-screen { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:var(--bg-primary); z-index:10000; flex-direction:column; align-items:center; justify-content:center; padding:40px; text-align:center; }
+    #error-screen.visible { display:flex; }
+    .error-icon { font-size:3rem; margin-bottom:20px; }
+    .error-title { font-size:1.4rem; color:var(--gold-bright); margin-bottom:10px; font-weight:700; }
+    .error-message { font-size:0.95rem; color:var(--text-dim); max-width:600px; line-height:1.6; margin-bottom:20px; font-family:'Segoe UI',monospace; background:rgba(255,0,0,.1); border:1px solid rgba(200,100,100,.3); border-radius:8px; padding:15px; }
+    .error-details { font-size:0.8rem; color:var(--text-muted); max-width:700px; }
+
+    @media (max-width:700px) { #nav-meta{display:none;} .nav-tab{padding:5px 10px;} #tree-legend{display:none;} }
+    @media (max-width:480px) { #info-panel{display:none;} }
+  </style>
+</head>
+<body>
+
+<nav id="nav">
+  <div id="nav-left">
+    <span class="title-glyph" id="nav-glyph">◈</span>
+    <div>
+      <div class="title-main" id="nav-title-main">Sprachfamilien-Atlas</div>
+      <div class="title-sub">Interaktiver Sprach-Atlas</div>
+    </div>
+  </div>
+  <div id="nav-tabs">
+    <div class="nav-tab active" data-view="tree" onclick="switchView('tree')">
+      <svg viewBox="0 0 16 16"><path d="M1 1h5v3H4v2h2v3H1V7h2V4H1zm7 0h5v3h-2v2h2v3H8V7h2V4H8zm0 7h5v3h-2v2h2v3H8v-3h2v-2H8z"/></svg>
+      Stammbaum
+    </div>
+    <div class="nav-tab" data-view="map" onclick="switchView('map')">
+      <svg viewBox="0 0 16 16"><path d="M8 0a5 5 0 0 0-5 5c0 3.5 5 11 5 11s5-7.5 5-11a5 5 0 0 0-5-5zm0 7.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+      Verbreitungskarte
+    </div>
+  </div>
+  <div id="nav-meta">
+    <span class="meta-chip" id="chip-fam">– Familien</span>
+    <span class="meta-chip" id="chip-lan">– Sprachen</span>
+    <span class="meta-chip" id="chip-dia">– Dialekte</span>
+  </div>
+</nav>
+
+<div id="views">
+
+  <!-- STAMMBAUM -->
+  <div id="view-tree" class="view visible">
+    <div id="tree-toolbar">
+      <button class="tb-btn" onclick="expandAll()">
+        <svg viewBox="0 0 12 12"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        Aufklappen
+      </button>
+      <button class="tb-btn" onclick="collapseAll()">
+        <svg viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        Einklappen
+      </button>
+      <button class="tb-btn" onclick="toggleDialects()">
+        <svg viewBox="0 0 12 12"><path d="M2 3h3v3H2zm5 0h3v3H7zm-5 5h3v3H2zm5 0h3v3H7z" stroke="currentColor" stroke-width="0.8" fill="currentColor"/></svg>
+        Dialekte verbergen
+      </button>
+      <button class="tb-btn" onclick="fitView()">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><polyline points="1,4 1,1 4,1"/><polyline points="8,1 11,1 11,4"/><polyline points="11,8 11,11 8,11"/><polyline points="4,11 1,11 1,8"/></svg>
+        Übersicht
+      </button>
+      <div class="tb-divider"></div>
+      <button class="tb-btn" onclick="zoomBy(1.3)">＋</button>
+      <span id="zoom-info">100%</span>
+      <button class="tb-btn" onclick="zoomBy(0.77)">－</button>
+      <div class="tb-divider"></div>
+      <input id="tree-search" type="text" class="tb-input" placeholder="🔍  Sprache suchen…"
+             oninput="onSearchInput(this.value)"
+             onkeydown="if(event.key==='Escape'){this.value='';clearSearch();}"/>
+      <div class="tb-divider"></div>
+      <!-- Schriftgröße-Regler (ersetzt Abstand-Regler) -->
+      <span class="tb-label">Schriftgröße</span>
+      <input type="range" id="fontsize-sl" min="5" max="20" value="11" step="1"
+             style="width:72px;accent-color:var(--gold-mid);cursor:pointer;vertical-align:middle;"
+             oninput="onFontsizeChange(this.value)"/>
+      <span id="fs-val" style="font-size:.65rem;color:var(--text-muted);min-width:32px">11 px</span>
+      <div id="tree-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#c8973a"></div>Familie</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#7ec8c8"></div>Sprache</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#c87868"></div>Gruppe</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#a0b878"></div>Dialekt</div>
+      </div>
+    </div>
+
+    <div id="tree-main">
+      <div id="tree-canvas">
+        <svg id="tree-svg">
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <clipPath id="text-clip">
+              <!-- Wird dynamisch gefüllt -->
+            </clipPath>
+          </defs>
+          <g id="tree-g"></g>
+        </svg>
+      </div>
+      <div id="info-panel">
+        <div id="ip-empty">
+          <div class="ei">◈</div>
+          <div>Knoten anklicken<br>für Details</div>
+        </div>
+        <div id="ip-content">
+          <div id="ip-header">
+            <div class="ip-label">Details</div>
+            <div id="ip-name">–</div>
+            <div id="ip-orig"></div>
+          </div>
+          <div id="ip-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tree-bar">
+      <div class="bi">Klick: <span>Details / Ein-/Ausklappen</span></div>
+      <div class="bi">Ziehen: <span>Verschieben (Knoten + Astgruppe)</span></div>
+      <div class="bi">Scroll: <span>Zoom</span></div>
+      <div class="bi">Regler: <span>Schriftgröße &amp; Abstände</span></div>
+    </div>
+  </div>
+
+  <!-- KARTE -->
+  <div id="view-map" class="view">
+    <div id="map"></div>
+    <div id="map-overlay">
+      <div class="ov-title">Sprachgruppen</div>
+      <div id="map-legend-items"></div>
+    </div>
+  </div>
+
+</div><!-- #views -->
+
+<!-- ERROR SCREEN -->
+<div id="error-screen">
+  <div class="error-icon">⚠️</div>
+  <div class="error-title">Syntax-Fehler im Newick-String</div>
+  <div class="error-message" id="error-msg"></div>
+  <div class="error-details">
+    <p>Überprüfen Sie Ihren Newick-String auf:</p>
+    <ul style="text-align:left;display:inline-block;margin-top:10px;">
+      <li>✓ Backticks: const rawNewick = `...` (nicht "..." oder '...')</li>
+      <li>✓ Korrekte Klammer-Balance: ( und )</li>
+      <li>✓ Text mit Leerzeichen in Quotes: 'Name mit Leerzeichen'</li>
+      <li>✓ Sprachen markieren mit: -l-</li>
+    </ul>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1a  –  GLYPH
+════════════════════════════════════════════════════════════════ */
+const familyGlyph = "રાતી";
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1b  –  ZÄHLER
+════════════════════════════════════════════════════════════════ */
+const familyMeta = {
+  families:  47,
+  languages: 110,
+  dialects:  384
+};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1c  –  KARTEN-KONFIGURATION
+════════════════════════════════════════════════════════════════ */
+const mapConfig = {
+  center: [19.33208165609396,77.83916428177552],
+  zoom:   3
+};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1d  –  KARTEN-LEGENDE (OPTIONAL)
+════════════════════════════════════════════════════════════════ */
+const mapLegendGroups = [];
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 2a  –  DEUTSCHE NAMEN
+════════════════════════════════════════════════════════════════ */
+const nameTranslations = {'dubl1239': 'Dubli',
+'gama1250': 'Gamadia',
+'kaka1263': 'Kakari',
+'kath1249': 'Kathiyawadi',
+'khar1282': 'Kharwa',
+'stan1296': 'Standard-Gujarati',
+'tari1254': 'Tarimuki',
+'guja1252': 'Gujarati',
+'nort2652': 'Nord-Saurashtra',
+'sout2653': 'Süd-Saurashtra',
+'saur1248': 'Saurashtri',
+'jame1238': 'Jamesabad Aer',
+'jikr1238': 'Jikrio Goth Aer',
+'aerr1238': 'Aer',
+'kach1274': 'Kachi',
+'kach1273': 'Kachi Bhil',
+'kata1263': 'Katai Meghwar',
+'raba1246': 'Rabari',
+'vagr1238': 'Vagri',
+'zala1239': 'Zalavaria Koli',
+'kach1272': 'Kachi Koli',
+'vagh1246': 'Vaghri',
+'haso1241': 'Hasoria Bhil',
+'haso1242': 'Hasoria Koli',
+'mewa1248': 'Mewasi',
+'nair1238': 'Nairya Koli',
+'nucl1280': 'Kern-Wadiyara-Koli',
+'rard1238': 'Rardro Bhil',
+'thar1277': 'Tharadari Bhil',
+'thar1276': 'Tharadari Koli',
+'wadi1248': 'Wadiyara Koli',
+'west2830': 'West-Gujaratisch',
+'guja1256': 'Gujaratisches',
+'bagd1238': 'Bagri von Haryana',
+'bagr1246': 'Bagri von Rajasthan',
+'vish1245': 'Vishnoi',
+'bagr1243': 'Bagri',
+'jand1246': 'Jandavra',
+'bagr1245': 'Bagri-Jandavra',
+'dhun1238': 'Dhundari',
+'hara1256': 'Harauti',
+'sipa1246': 'Sipari',
+'hado1235': 'Hadothi',
+'east2890': 'Ost-Rajasthani',
+'merw1238': 'Merwari',
+'gade1236': 'Gade Lohar',
+'kuch1246': 'Kuchbandhi',
+'kanj1259': 'Kanjari',
+'gora1259': 'Gorawati',
+'khai1246': 'Khairari',
+'sarw1239': 'Sarwari',
+'mewa1249': 'Mewari',
+'mewa1253': 'Mewarisch',
+'balv1238': 'Balvi',
+'khun1256': 'Khuni',
+'mada1244': 'Madahaddi',
+'siro1247': 'Sirohi',
+'godw1241': 'Godwari',
+'ajir1238': 'Ajiri von Hazara',
+'baka1270': 'Bakarwali',
+'east2311': 'Ost-Gujari',
+'gujj1234': 'Gujjari',
+'west2375': 'West-Gujari',
+'guja1253': 'Gujari',
+'barm1242': 'Barmeri',
+'marw1260': 'Marwari (Indien)',
+'mewa1250': 'Mewati',
+'pary1242': 'Parya',
+'mewa1254': 'Mewati-Gojri',
+'jhun1238': 'Jhunjhunu-Churu',
+'sika1258': 'Sikar',
+'shek1243': 'Shekhawati',
+'kabu1254': 'Kabutra',
+'uncl1534': 'Nicht klassifiziertes Rajasthani',
+'bhay1238': 'Bhaya',
+'goar1239': 'Goaria',
+'bara1353': 'Barage',
+'cent1979': 'Zentral-Dhatki',
+'east2310': 'Ost-Dhatki',
+'malh1242': 'Malhi',
+'sout2654': 'Süd-Dhatki',
+'dhat1238': 'Dhatki',
+'marw1258': 'Marwari Bhat',
+'marw1259': 'Marwari Bhil',
+'marw1257': 'Marwari Meghwar',
+'nort2653': 'Nord-Marwari',
+'sout2655': 'Süd-Marwari',
+'marw1256': 'Marwari (Pakistan)',
+'oddd1238': 'Od',
+'park1237': 'Parkari Koli',
+'indu1243': 'Indus-Rajasthani',
+'andh1241': 'Andhra-Pradesh-Lamani',
+'karn1250': 'Karnataka-Lamani',
+'maha1288': 'Maharashtra-Lamani',
+'lamb1269': 'Lambadi',
+'west2831': 'West-Rajasthani',
+'raja1256': 'Rajasthani',
+'guja1255': 'Gujarati-Rajasthani',
+'midd1350': 'Spätes Mittel-Indoarisch',
+'apab1234': 'Apabhramsha-Sprachen',
+'baur1251': 'Bauria',
+'ahir1242': 'Ahiri',
+'anar1243': 'Anarya',
+'bhil1252': 'Bhilodi',
+'bhim1238': 'Bhim',
+'char1267': 'Charani',
+'dava1244': 'Davar Varli',
+'habu1240': 'Habura',
+'konk1265': 'Konkani (Bhili)',
+'kota1270': 'Kotali',
+'magr1238': 'Magra Ki Boli',
+'naha1260': 'Nahari (Bhili)',
+'naik1249': 'Naikdi',
+'panc1245': 'Panchali',
+'pate1245': 'Patelia',
+'rana1245': 'Ranawat',
+'rani1238': 'Rani Bhil',
+'siya1241': 'Siyalgir',
+'bhil1251': 'Bhili',
+'chod1238': 'Chodri',
+'dhod1238': 'Dhodia-Kukna',
+'dung1251': 'Dungra Bhil',
+'gami1242': 'Gamit',
+'adiw1235': 'Adiwasi Garasia',
+'rajp1235': 'Rajput Garasia',
+'gara1268': 'Garasia Bhil',
+'bach1242': 'Bachadi',
+'bhoy1241': 'Bhoyari',
+'dhol1238': 'Dholewari',
+'hosh1238': 'Hoshangabad',
+'jamr1238': 'Jamral',
+'kati1271': 'Katiyai',
+'malv1244': 'Eigentliches Malvi',
+'patv1238': 'Patvi',
+'raja1250': 'Rajawadi',
+'rang1262': 'Rangari (Malvi)',
+'rang1263': 'Rangri',
+'sond1249': 'Sondhwadi',
+'ujja1238': 'Ujjaini',
+'umad1240': 'Umadwadi',
+'malv1243': 'Malvi',
+'gamt1238': 'Gamti',
+'nucl1282': 'Kern-Mawchi',
+'padv1238': 'Padvi',
+'mawc1242': 'Mawchi',
+'bhua1238': 'Bhuani',
+'nima1243': 'Nimadi',
+'neel1238': 'Neelishikari',
+'pitt1245': 'Pittala Bhasha',
+'taka1260': 'Takari',
+'pard1243': 'Pardhi',
+'pary1243': 'Parya Bhilali',
+'bhil1253': 'Bhilali',
+'naha1261': 'Nahali-Baglani',
+'paur1238': 'Pauri Bareli',
+'rath1242': 'Rathwi Bareli',
+'paur1240': 'Pauri-Nahali',
+'paly1238': 'Palya Bareli',
+'rath1243': 'Rathawi',
+'rath1244': 'Rathawi-Palya',
+'vaag1238': 'Vaagri Booli',
+'baru1265': 'Barutiya',
+'noir1238': 'Noiri',
+'ambo1247': 'Ambodi',
+'dehv1238': 'Dehvali',
+'dogr1251': 'Dogri (Vasavi)',
+'khat1247': 'Khatalia',
+'kotn1238': 'Kotni',
+'vasa1239': 'Vasavi',
+'vasa1240': 'Vasave-Noiri',
+'adiv1238': 'Adivasi Wagdi',
+'kher1243': 'Kherwara',
+'sagw1238': 'Sagwara',
+'wagd1238': 'Wagdi',
+'bhil1254': 'Bhil-Sprachen',
+'badh1238': 'Badhani',
+'bang1335': 'Bangani',
+'bhat1261': 'Bhattiani',
+'chan1306': 'Chandpuri',
+'dess1238': 'Dessaulya',
+'gang1264': 'Gangadi',
+'jaun1244': 'Jaunpuri',
+'lohb1238': 'Lohbya',
+'majh1251': 'Majh-Kumaiya',
+'nagp1247': 'Nagpuriya',
+'parv1238': 'Parvati',
+'rath1241': 'Rathi',
+'rava1238': 'Ravai',
+'sala1263': 'Salani',
+'srin1238': 'Srinagaria',
+'tehr1243': 'Tehri',
+'garh1243': 'Garhwali',
+'cent1978': 'Zentral-Kumaoni',
+'nort2651': 'Nordost-Kumaoni',
+'sout2652': 'Südost-Kumaoni',
+'west2373': 'West-Kumaoni',
+'kuma1273': 'Kumaoni',
+'cent1977': 'Zentral-Pahari',
+'doty1234': 'Dotyali',
+'assi1246': 'Assi',
+'chau1257': 'Chaudhabis',
+'paac1238': 'Paachsai',
+'sinj1240': 'Sinja',
+'juml1238': 'Jumli',
+'acch1238': 'Acchami',
+'bait1246': 'Baitadi',
+'bajh1238': 'Bajhangi',
+'baju1244': 'Bajurali',
+'darj1238': 'Darjula',
+'dote1238': 'Doteli',
+'gork1241': 'Gorkhali',
+'nucl1265': 'Kern-Nepali',
+'sora1251': 'Soradi',
+'nepa1254': 'Nepali',
+'east1436': 'Ost-Pahari',
+'indo1310': 'Indoarische Nordzone',
+'dhan1264': 'Dhanki',
+'dang1259': 'Dangri',
+'kota1271': 'Kotali Bhil',
+'kunb1248': 'Kundi (Khandesi)',
+'nucl1283': 'Kern-Khandesi',
+'rang1264': 'Rangari',
+'khan1272': 'Khandesi',
+'khan1271': 'Khandesische Sprachen',
+'angi1238': 'Angika',
+'bhoj1245': 'Bhojpuri Tharu',
+'bojp1238': 'Bojpury',
+'domr1239': 'Domra',
+'madh1242': 'Madhesi',
+'maur1239': 'Mauritisches Bhojpuri',
+'musa1261': 'Musahari',
+'bast1245': 'Basti',
+'gora1260': 'Gorakhpuri',
+'sara1310': 'Sarawaria',
+'nort2656': 'Nördliches Standard-Bhojpuri',
+'sout2661': 'Südliches Standard-Bhojpuri',
+'teli1241': 'Teli',
+'thar1278': 'Tharu (Bhojpuri)',
+'bena1257': 'Benarsi',
+'purb1238': 'Purbi',
+'west2379': 'Westliches Standard-Bhojpuri',
+'bhoj1244': 'Bhojpuri',
+'sarn1238': 'Sarnami Hindustani',
+'trin1268': 'Trinidad-Bhojpuri',
+'cari1275': 'Karibisches Hindustani',
+'bhoj1246': 'Bhojpurisch',
+'cent1981': 'Zentral-Magahi',
+'nort2657': 'Nord-Magahi',
+'sout2662': 'Süd-Magahi',
+'maga1260': 'Magahi',
+'bajj1234': 'Bajjika',
+'bant1278': 'Bantar',
+'bare1271': 'Barei',
+'barm1243': 'Barmeli',
+'cent1982': 'Zentrales umgangssprachliches Maithili',
+'deha1238': 'Dehati',
+'east2315': 'Ost-Maithili',
+'jola1259': 'Jolaha',
+'kawa1274': 'Kawar',
+'kyab1238': 'Kyabrat',
+'makr1244': 'Makrana',
+'musa1262': 'Musar (Maithili)',
+'sadr1247': 'Sadri (Maithili)',
+'sout2663': 'Südliches Standard-Maithili',
+'stan1301': 'Standard-Maithili',
+'tati1242': 'Tati (Maithili)',
+'west2380': 'West-Maithili',
+'mait1250': 'Maithili',
+'kudm1238': 'Kudmali',
+'bora1261': 'Borail Sadri',
+'mokk1242': 'Mokkan Tila Sadri',
+'nurp1238': 'Nurpur Sadri',
+'ucha1239': 'Uchai Sadri',
+'orao1237': 'Oraon Sadri',
+'comm1243': 'Allgemeines Sadri',
+'kisa1260': 'Kisan',
+'lowe1391': 'Nieder-Sadri',
+'sadr1248': 'Sadri',
+'sada1242': 'Indien-Nepal-Bangladesch Sadri',
+'panc1246': 'Panchpargania',
+'sadr1250': 'Sadri-Panchpargania',
+'sada1243': 'Sadanisch',
+'mait1254': 'Magadhanisch',
+'budd1234': 'Buddhistisches Hybrid-Sanskrit',
+'maga1272': 'Magadhanisches Pali',
+'pali1273': 'Pali',
+'chit1274': 'Chitwania Tharu',
+'bank1239': 'Banke',
+'bard1252': 'Bardiya',
+'dang1261': 'Dang',
+'deok1238': 'Deokhuri',
+'kail1251': 'Kailali',
+'kanc1244': 'Kanchanpur',
+'surk1238': 'Surkhet',
+'dang1260': 'Dangaura Tharu',
+'sonh1238': 'Sonha',
+'dang1277': 'Dangaura-Khuna-Sonaha',
+'kath1250': 'Kathoriya Tharu',
+'dhan1266': 'Dhanusa',
+'maho1247': 'Mahottari',
+'mora1272': 'Morangia',
+'mora1271': 'Morangiya',
+'sapt1238': 'Saptari',
+'sarl1242': 'Sarlahi',
+'sira1261': 'Siraha',
+'suns1241': 'Sunsari (Nepal)',
+'uday1238': 'Udayapur',
+'koch1247': 'Kochila Tharu',
+'east2316': 'Ost-Tharu',
+'rana1246': 'Rana Tharu',
+'buks1238': 'Buksa',
+'majh1253': 'Majhi (Nepal)',
+'bant1279': 'Bantar (Nepal)',
+'musa1263': 'Musasa',
+'unun9886': 'Nicht klassifiziertes Tharu',
+'thar1284': 'Tharu-Sprachen',
+'kumh1238': 'Kumhali',
+'bote1238': 'Bote',
+'dara1250': 'Darai',
+'dewa1234': 'Dewas Rai',
+'done1239': 'Done Danuwar',
+'dhan1265': 'Dewas-Done Danuwar',
+'east2831': 'Ost-Danuwar',
+'koch1252': 'Kochariya',
+'koch1253': 'Kochariya-Ost-Danuwar',
+'kusw1234': 'Kuswarisch',
+'unun9885': 'Nicht klassifiziertes Bihari',
+'biha1245': 'Bihari',
+'bahr1250': 'Bahraich',
+'bara1410': 'Barabanki',
+'raeb1235': 'Rae Bareli',
+'cent2393': 'Zentral-Awadhi',
+'azam1235': 'Azamgarhi',
+'gang1265': 'Gangapari',
+'mirz1238': 'Mirzapuri',
+'utta1238': 'Uttari',
+'east2875': 'Ost-Awadhi',
+'fate1235': 'Fatehpur',
+'kher1247': 'Kheri',
+'luck1235': 'Lucknow',
+'sita1239': 'Sitapur',
+'unna1235': 'Unnao',
+'pard1244': 'West-Awadhi',
+'awad1243': 'Awadhi',
+'bana1282': 'Banapari',
+'gaho1238': 'Gahore',
+'godw1242': 'Godwani',
+'ojhi1238': 'Ojhi',
+'sonp1238': 'Sonpari',
+'tirh1246': 'Tirhari',
+'bagh1251': 'Bagheli',
+'awad1245': 'Awadhisch',
+'baig1238': 'Baigani',
+'bhul1238': 'Bhulia',
+'binj1247': 'Binjhwari',
+'chha1250': 'Eigentliches Chhattisgarhi',
+'kala1371': 'Kalanga (Indoeuropäisch)',
+'kava1240': 'Kavardi',
+'khai1247': 'Khairagarhi',
+'sadr1249': 'Sadri Korwa',
+'surg1246': 'Surgujia',
+'chha1249': 'Chhattisgarhi',
+'bhoy1242': 'Bhoyar Powari',
+'gova1250': 'Govari von Seoni',
+'khal1272': 'Khalari',
+'kosh1244': 'Koshti',
+'kumb1266': 'Kumbhari',
+'lodh1245': 'Lodhi (Indoeuropäisch)',
+'mara1376': 'Marari',
+'vyne1238': 'Vyneganga Powari',
+'powa1246': 'Powari',
+'east2726': 'Ost-Hindi',
+'hunz1249': 'Hunza Domaaki',
+'nage1239': 'Nager Domaaki',
+'doma1260': 'Domaaki',
+'beir1242': 'Dom von Beirut',
+'bara1354': 'Dom von Syrien',
+'kara1460': 'Karatschi',
+'kurb1242': 'Kurbat (West-Iran)',
+'mara1375': 'Marashi',
+'nort3360': 'Nord-Domari',
+'nabl1238': 'Jerusalem-Domari',
+'nawa1257': 'Jordanisches Domari',
+'sout3344': 'Süd-Domari',
+'doma1258': 'Domari',
+'angl1239': 'Archaisches Angloromani',
+'wels1246': 'Walisisches Romani',
+'brit1245': 'Britisches Romani',
+'kaal1240': 'Kaale',
+'esto1257': 'Lajenge Roma',
+'kalo1256': 'Kalo-Finnisches Romani',
+'prai1243': 'Praistiki',
+'efta1238': 'Eftawagaria',
+'wite1234': 'Witembergaria',
+'west2928': 'West-Gadschkene',
+'gads1256': 'Gadschkene',
+'lall1238': 'Lallere',
+'mano1274': 'Manouche',
+'abbr1238': 'Abbruzzesi',
+'estr1244': 'Estracharia',
+'kran1245': 'Kranaria',
+'kran1246': 'Krantiki',
+'lomb1263': 'Lombardisch-Venezianisches Sinti',
+'pied1241': 'Piemont-Sinti',
+'sout3309': 'Süd-Sinti',
+'sint1235': 'Sinte-Manouche Romani',
+'nort3197': 'Nordwest-Romani',
+'roma1330': 'Anglo-Nordwest-Romani',
+'abru1239': 'Abruzzesisch-Kalabrisch-Molisanisches Romani',
+'arli1238': 'Arlija',
+'slov1272': 'Slowenisch-Kroatisches Romani',
+'arli1239': 'Arli-Dolenjski',
+'crim1258': 'Krim-Rom',
+'bugu1249': 'Bugurdži',
+'tins1238': 'Drindari',
+'kala1408': 'Kalajdži',
+'tinn1238': 'Drindari–Kalajdži–Bugurdži',
+'erli1234': 'Erli von Sofia',
+'pril1234': 'Prilep-Prizren-Serres',
+'gree1277': 'Pyrgos-Peloponnes-Romani',
+'roma1336': 'Romacilikanes',
+'roma1337': 'Romano',
+'pasp1238': 'Rumelisches Romani',
+'sepe1242': 'Sepečides',
+'serr1257': 'Serres-Saint Athanasios',
+'ursa1238': 'Ursári',
+'zarg1238': 'Zargari',
+'balk1252': 'Balkan-Romani',
+'latv1250': 'Chuxny',
+'lith1252': 'Ost-Lettisch-Litauisches Romani',
+'nort2655': 'Nordrussisches Romani',
+'chal1280': 'Chaladytka',
+'sast1234': 'Pluniakitkes',
+'poli1261': 'Polnisches Romani',
+'whit1261': 'Weißrussisches Romani',
+'balt1257': 'Baltisches Romani',
+'braz1238': 'Brasilianisches Calão',
+'cata1279': 'Katalanisches Calo',
+'basq1236': 'Galicisches Calo',
+'port1238': 'Portugiesisches Calão',
+'span1238': 'Spanisches Caló',
+'calo1236': 'Caló',
+'gurv1234': 'Gurvari',
+'bohe1241': 'Böhmisches Romani',
+'east2314': 'Ostslowakisches Romani',
+'gali1259': 'Galicisches Romani',
+'mora1270': 'Mährisches Romani',
+'nort3372': 'Nord-Siebenbürgisches Romani',
+'west2376': 'Westslowakisches Romani',
+'nort3324': 'Nordzentrales Romani',
+'tran1280': 'Romungro',
+'burg1246': 'Burgenland-Romani',
+'prek1240': 'Prekmurje-Romani',
+'west2927': 'Westungarisches Vend',
+'vend1247': 'Vend',
+'sout3308': 'Südzentrales Romani',
+'carp1235': 'Zentrales Romani',
+'cerh1234': 'Cerhari',
+'chur1254': 'Churari',
+'ghag1238': 'Ghagar (Ägypten)',
+'kald1238': 'Kalderasch',
+'lova1240': 'Lovari',
+'mach1262': 'Machvano',
+'cent1980': 'Nördliches Vlax',
+'ukra1255': 'Südostukrainisches Vlax',
+'nort2654': 'Nordalbanisches Vlax',
+'roma1241': 'Serbo-Bosnisches Vlax',
+'sout2656': 'Südalbanisches Vlax',
+'zagu1235': 'Xoraxane',
+'dzam1241': 'Gurbet-Dzambazi',
+'grek1238': 'Kalpazea-Filipidzía-Xandurja',
+'sede1247': 'Sesshaftes Bulgarien',
+'sede1246': 'Sesshaftes Rumänien',
+'iron1243': 'Walachei-Muntenien-Nordostbulgarien',
+'sout2658': 'Südliches Vlax',
+'vlax1238': 'Vlax-Romani',
+'roma1329': 'Romani',
+'bhar1241': 'Bhariati',
+'alig1238': 'Aligarh',
+'bana1281': 'Banaphari',
+'bhad1242': 'Bhadauri',
+'chha1248': 'Chhatapur',
+'chhi1243': 'Chhindwara-Bundeli',
+'gaol1242': 'Gaoli',
+'khat1248': 'Khatola',
+'kira1246': 'Kirari',
+'kund1251': 'Kundri',
+'lodh1244': 'Lodhanti',
+'nagp1248': 'Nagpuri Hindi',
+'nibh1238': 'Nibhatta',
+'pawa1253': 'Pawari',
+'ragh1238': 'Raghobansi',
+'sout2660': 'Süd-Bharatpur',
+'sout2659': 'Süd-Morena',
+'stan1297': 'Standard-Braj von Bulandshahr',
+'stan1300': 'Standard-Braj von Ost-Agra',
+'stan1298': 'Standard-Braj von Mathura',
+'stan1299': 'Standard-Bundeli',
+'tirh1245': 'Tirhari (Bundeli)',
+'west2378': 'West-Agra',
+'bund1253': 'Bundeli',
+'bund1252': 'Bundeli-Bharia',
+'anta1252': 'Antarbedi',
+'bhuk1238': 'Bhuksa',
+'braj1243': 'Braj Bhasha',
+'dang1258': 'Dangi',
+'jado1238': 'Jadobafi',
+'sika1259': 'Sikarwari',
+'braj1242': 'Braj',
+'bang1336': 'Bangru (Haryanvi)',
+'desw1238': 'Deswali',
+'kaur1275': 'Kauravi',
+'mewa1251': 'Mewati (Haryanvi)',
+'hary1238': 'Haryanvi',
+'kana1282': 'Eigentliches Kanauji',
+'tirh1244': 'Tirhari (Kanauji)',
+'tran1281': 'Übergangs-Kanauji',
+'kana1281': 'Kanauji',
+'hary1239': 'Haryanvisch',
+'anda1280': 'Andamanen-Kreol-Hindi',
+'fiji1242': 'Fidschi-Hindi',
+'dakh1243': 'Dakhini',
+'khad1239': 'Khari Boli',
+'lite1247': 'Literarisches Hindi',
+'nucl1281': 'Kern-Hindi',
+'rekh1239': 'Rekhta',
+'hind1269': 'Hindi',
+'dakh1244': 'Dakhini (Urdu)',
+'jude1269': 'Judäo-Urdu',
+'kark1260': 'Karkhandari',
+'pinj1242': 'Pinjari',
+'urdu1245': 'Urdu',
+'hind1270': 'Hindustani',
+'gher1238': 'Ghera',
+'gurg1240': 'Gurgula',
+'gher1240': 'Ghera-Gurgula',
+'unun9883': 'Nicht klassifiziertes West-Hindi',
+'west2812': 'West-Hindi',
+'indo1322': 'Indoarische Zentralzone',
+'saur1252': 'Sauraseni-Prakrit',
+'shau1239': 'Shaurasenisch',
+'midl1245': 'Zentralindoarisch'};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 2b  –  LÄNDER-OVERRIDE (OPTIONAL)
+════════════════════════════════════════════════════════════════ */
+const countryData = {};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 3a  –  NEWICK-STRING
+   ⚠ IMMER BACKTICKS verwenden!
+════════════════════════════════════════════════════════════════ */
+const rawNewick = `(((('Dubli [dubl1239][dub]-l-':1,('Gamadia [gama1250]':1,'Kakari [kaka1263]':1,'Kathiyawadi [kath1249]':1,'Kharwa [khar1282]':1,'Standard Gujarati [stan1296]':1,'Tarimuki [tari1254]':1)'Gujarati [guja1252][guj]-l-':1,('Northern Saurashtra [nort2652]':1,'Southern Saurashtra [sout2653]':1)'Saurashtra [saur1248][saz]-l-':1,(('Jamesabad Aer [jame1238]':1,'Jikrio Goth Aer [jikr1238]':1)'Aer [aerr1238][aeq]-l-':1,('Kachi [kach1274]':1,'Kachi Bhil [kach1273]':1,'Katai Meghwar [kata1263]':1,'Rabari [raba1246]':1,'Vagri [vagr1238]':1,'Zalavaria Koli [zala1239]':1)'Kachi Koli [kach1272][gjk]-l-':1,'Vaghri [vagh1246][vgr]-l-':1,('Hasoria Bhil [haso1241]':1,'Hasoria Koli [haso1242]':1,'Mewasi [mewa1248]':1,'Nairya Koli [nair1238]':1,'Nuclear Wadiyara Koli [nucl1280]':1,'Rardro Bhil [rard1238]':1,'Tharadari Bhil [thar1277]':1,'Tharadari Koli [thar1276]':1)'Wadiyara Koli [wadi1248][kxp]-l-':1)'Western Gujaratic [west2830]':1)'Gujaratic [guja1256]':1,((('Bagri of Haryana [bagd1238]':1,'Bagri of Rajasthan [bagr1246]':1,'Vishnoi [vish1245]':1)'Bagri [bagr1243][bgq]-l-':1,'Jandavra [jand1246][jnd]-l-':1)'Bagri-Jandavra [bagr1245]':1,('Dhundari [dhun1238][dhd]-l-':1,('Harauti [hara1256]':1,'Sipari [sipa1246]':1)'Hadothi [hado1235][hoj]-l-':1)'Eastern Rajasthani [east2890]':1,'Merwari [merw1238][wry]-l-':1,('Gade Lohar [gade1236][gda]-l-':1,('Kuchbandhi [kuch1246]':1)'Kanjari [kanj1259][kft]-l-':1,('Gorawati [gora1259]':1,'Khairari [khai1246]':1,'Sarwari [sarw1239]':1)'Mewari [mewa1249][mtr]-l-':1)'Mewaric [mewa1253]':1,(('Balvi [balv1238]':1,'Khuni [khun1256]':1,'Madahaddi [mada1244]':1,'Sirohi [siro1247]':1)'Godwari [godw1241][gdx]-l-':1,('Ajiri of Hazara [ajir1238]':1,'Bakarwali [baka1270]':1,'Eastern Gujari [east2311]':1,'Gujjari [gujj1234]':1,'Western Gujari [west2375]':1)'Gujari [guja1253][gju]-l-':1,('Barmeri [barm1242]':1)'Marwari {India} [marw1260][rwr]-l-':1,'Mewati [mewa1250][wtm]-l-':1,'Parya [pary1242][paq]-l-':1)'Mewati-Gojri [mewa1254]':1,('Jhunjhunu-Churu [jhun1238]':1,'Sikar [sika1258]':1)'Shekhawati [shek1243][swv]-l-':1,('Kabutra [kabu1254][kbu]-l-':1)'Unclassified Rajasthani [uncl1534]':1,('Bhaya [bhay1238][bhe]-l-':1,'Goaria [goar1239][gig]-l-':1,(('Barage [bara1353]':1,'Central Dhatki [cent1979]':1,'Eastern Dhatki [east2310]':1,'Malhi [malh1242]':1,'Southern Dhatki [sout2654]':1)'Dhatki [dhat1238][mki]-l-':1,('Marwari Bhat [marw1258]':1,'Marwari Bhil [marw1259]':1,'Marwari Meghwar [marw1257]':1,'Northern Marwari [nort2653]':1,'Southern Marwari [sout2655]':1)'Marwari {Pakistan} [marw1256][mve]-l-':1,'Od [oddd1238][odk]-l-':1,'Parkari Koli [park1237][kvx]-l-':1)'Indus Rajasthani [indu1243]':1,('Andhra Pradesh Lamani [andh1241]':1,'Karnataka Lamani [karn1250]':1,'Maharashtra Lamani [maha1288]':1)'Lambadi [lamb1269][lmn]-l-':1)'Western Rajasthani [west2831]':1)'Rajasthani [raja1256]':1)'Gujarati-Rajasthani [guja1255]':1,'Late Middle Indo-Aryan [midd1350]-l-':1)'Apabhramsic [apab1234]':1,('Bauria [baur1251][bge]-l-':1,('Ahiri [ahir1242]':1,'Anarya [anar1243]':1,'Bhilodi [bhil1252]':1,'Bhim [bhim1238]':1,'Charani [char1267]':1,'Davar Varli [dava1244]':1,'Habura [habu1240]':1,'Konkani {Bhili} [konk1265]':1,'Kotali [kota1270]':1,'Magra Ki Boli [magr1238]':1,'Nahari {Bhili} [naha1260]':1,'Naikdi [naik1249]':1,'Panchali [panc1245]':1,'Patelia [pate1245]':1,'Ranawat [rana1245]':1,'Rani Bhil [rani1238]':1,'Siyalgir [siya1241]':1)'Bhili [bhil1251][bhb]-l-':1,'Chodri [chod1238][cdi]-l-':1,'Dhodia-Kukna [dhod1238][dho]-l-':1,'Dungra Bhil [dung1251][duh]-l-':1,'Gamit [gami1242][gbl]-l-':1,('Adiwasi Garasia [adiw1235][gas]-l-':1,'Rajput Garasia [rajp1235][gra]-l-':1)'Garasia Bhil [gara1268]':1,('Bachadi [bach1242]':1,'Bhoyari [bhoy1241]':1,'Dholewari [dhol1238]':1,'Hoshangabad [hosh1238]':1,'Jamral [jamr1238]':1,'Katiyai [kati1271]':1,'Malvi Proper [malv1244]':1,'Patvi [patv1238]':1,'Rajawadi [raja1250]':1,'Rangari {Malvi} [rang1262]':1,'Rangri [rang1263]':1,'Sondhwadi [sond1249]':1,'Ujjaini [ujja1238]':1,'Umadwadi [umad1240]':1)'Malvi [malv1243][mup]-l-':1,('Gamti [gamt1238]':1,'Nuclear Mawchi [nucl1282]':1,'Padvi [padv1238]':1)'Mawchi [mawc1242][mke]-l-':1,('Bhuani [bhua1238]':1)'Nimadi [nima1243][noe]-l-':1,('Neelishikari [neel1238]':1,'Pittala Bhasha [pitt1245]':1,'Takari [taka1260]':1)'Pardhi [pard1243][pcl]-l-':1,(('Parya Bhilali [pary1243]':1)'Bhilali [bhil1253][bhi]-l-':1,'Nahali-Baglani [naha1261][nlx]-l-':1,'Pauri Bareli [paur1238][bfb]-l-':1,'Rathwi Bareli [rath1242][bgd]-l-':1)'Pauri-Nahali [paur1240]':1,('Palya Bareli [paly1238][bpx]-l-':1,'Rathawi [rath1243][rtw]-l-':1)'Rathawi-Palya [rath1244]':1,'Vaagri Booli [vaag1238][vaa]-l-':1,(('Barutiya [baru1265]':1)'Noiri [noir1238][noi]-l-':1,('Ambodi [ambo1247]':1,'Dehvali [dehv1238]':1,'Dogri {Vasavi} [dogr1251]':1,'Khatalia [khat1247]':1,'Kotni [kotn1238]':1)'Vasavi [vasa1239][vas]-l-':1)'Vasave-Noiri [vasa1240]':1,('Adivasi Wagdi [adiv1238]':1,'Kherwara [kher1243]':1,'Sagwara [sagw1238]':1)'Wagdi [wagd1238][wbr]-l-':1)'Bhil [bhil1254]':1,((('Badhani [badh1238]':1,'Bangani [bang1335]':1,'Bhattiani [bhat1261]':1,'Chandpuri [chan1306]':1,'Dessaulya [dess1238]':1,'Gangadi [gang1264]':1,'Jaunpuri [jaun1244]':1,'Lohbya [lohb1238]':1,'Majh-Kumaiya [majh1251]':1,'Nagpuriya [nagp1247]':1,'Parvati [parv1238]':1,'Rathi [rath1241]':1,'Ravai [rava1238]':1,'Salani [sala1263]':1,'Srinagaria [srin1238]':1,'Tehri [tehr1243]':1)'Garhwali [garh1243][gbm]-l-':1,('Central Kumauni [cent1978]':1,'Northeastern Kumauni [nort2651]':1,'Southeastern Kumauni [sout2652]':1,'Western Kumauni [west2373]':1)'Kumaoni [kuma1273][kfy]-l-':1)'Central Pahari [cent1977]':1,('Dotyali [doty1234][dty]-l-':1,('Assi [assi1246]':1,'Chaudhabis [chau1257]':1,'Paachsai [paac1238]':1,'Sinja [sinj1240]':1)'Jumli [juml1238][jml]-l-':1,('Acchami [acch1238]':1,'Baitadi [bait1246]':1,'Bajhangi [bajh1238]':1,'Bajurali [baju1244]':1,'Darjula [darj1238]':1,'Doteli [dote1238]':1,'Gorkhali [gork1241]':1,'Nuclear Nepali [nucl1265]':1,'Soradi [sora1251]':1)'Nepali [nepa1254][npi]-l-':1)'Eastern Pahari [east1436][nep]':1)'Indo-Aryan Northern zone [indo1310]':1,('Dhanki [dhan1264][dhn]-l-':1,('Dangri [dang1259]':1,'Kotali Bhil [kota1271]':1,'Kundi {Khandesi} [kunb1248]':1,'Nuclear Khandesi [nucl1283]':1,'Rangari [rang1264]':1)'Khandesi [khan1272][khn]-l-':1)'Khandesic [khan1271]':1,((('Angika [angi1238][anp]-l-':1,(('Bhojpuri Tharu [bhoj1245]':1,'Bojpury [bojp1238]':1,'Domra [domr1239]':1,'Madhesi [madh1242]':1,'Mauritian Bhojpuri [maur1239]':1,'Musahari [musa1261]':1,('Basti [bast1245]':1,'Gorakhpuri [gora1260]':1,'Sarawaria [sara1310]':1)'Northern Standard Bhojpuri [nort2656]':1,'Southern Standard Bhojpuri [sout2661]':1,'Teli [teli1241]':1,'Tharu {Bhojpuri} [thar1278]':1,('Benarsi [bena1257]':1,'Purbi [purb1238]':1)'Western Standard Bhojpuri [west2379]':1)'Bhojpuri [bhoj1244][bho]-l-':1,('Sarnami Hindustani [sarn1238]':1,'Trinidad Bhojpuri [trin1268]':1)'Caribbean Hindustani [cari1275][hns]-l-':1)'Bhojpuric [bhoj1246]':1,('Central Magahi [cent1981]':1,'Northern Magahi [nort2657]':1,'Southern Magahi [sout2662]':1)'Magahi [maga1260][mag]-l-':1,('Bajjika [bajj1234][vjk]':1,'Bantar [bant1278]':1,'Barei [bare1271]':1,'Barmeli [barm1243]':1,'Central Colloquial Maithili [cent1982]':1,'Dehati [deha1238]':1,'Eastern Maithili [east2315]':1,'Jolaha [jola1259]':1,'Kawar [kawa1274]':1,'Kyabrat [kyab1238]':1,'Makrana [makr1244]':1,'Musar {Maithili} [musa1262]':1,'Sadri {Maithili} [sadr1247]':1,'Southern Standard Maithili [sout2663]':1,'Standard Maithili [stan1301]':1,'Tati {Maithili} [tati1242]':1,'Western Maithili [west2380]':1)'Maithili [mait1250][mai]-l-':1,('Kudmali [kudm1238][kyw]-l-':1,((('Borail Sadri [bora1261]':1,'Mokkan Tila Sadri [mokk1242]':1,'Nurpur Sadri [nurp1238]':1,'Uchai Sadri [ucha1239]':1)'Oraon Sadri [orao1237][sdr]-l-':1,('Common Sadri [comm1243]':1,'Kisan [kisa1260]':1,'Lower Sadri [lowe1391]':1)'Sadri [sadr1248][sck]-l-':1)'India-Nepal-Bangladesh Sadri [sada1242]':1,'Panchpargania [panc1246][tdb]-l-':1)'Sadri-Panchpargania [sadr1250]':1)'Sadanic [sada1243]':1)'Magadhan [mait1254]':1,('Buddhist Hybrid Sanskrit [budd1234]':1,'Magadhan Pali [maga1272]':1)'Pali [pali1273][pli]-l-':1,(('Chitwania Tharu [chit1274][the]-l-':1,(('Banke [bank1239]':1,'Bardiya [bard1252]':1,'Dang [dang1261]':1,'Deokhuri [deok1238]':1,'Kailali [kail1251]':1,'Kanchanpur [kanc1244]':1,'Surkhet [surk1238]':1)'Dangaura Tharu [dang1260][thl]-l-':1,'Sonha [sonh1238][soi]-l-':1)'Dangaura-Khuna-Sonaha [dang1277]':1,'Kathoriya Tharu [kath1250][tkt]-l-':1,('Dhanusa [dhan1266]':1,'Mahottari [maho1247]':1,'Morangia [mora1272]':1,'Morangiya [mora1271]':1,'Saptari [sapt1238]':1,'Sarlahi [sarl1242]':1,'Siraha [sira1261]':1,'Sunsari {Nepal} [suns1241]':1,'Udayapur [uday1238]':1)'Kochila Tharu [koch1247][thq]-l-':1)'Eastern Tharu [east2316]':1,'Rana Tharu [rana1246][thr]-l-':1,('Buksa [buks1238][tkb]-l-':1,'Majhi [majh1253][mjz]-l-':1,('Bantar {Nepal} [bant1279]':1)'Musasa [musa1263][smm]-l-':1)'Unclassified Tharu [unun9886]':1)'Tharuic [thar1284]':1,('Kumhali [kumh1238][kra]-l-':1,('Bote [bote1238][bmj]-l-':1,'Darai [dara1250][dry]-l-':1,('Dewas Rai [dewa1234]':1,'Done Danuwar [done1239]':1)'Dewas-Done Danuwar [dhan1265][dwz]-l-':1,('East Danuwar [east2831]':1,'Kochariya [koch1252]':1)'Kochariya-East Danuwar [koch1253][dhw]-l-':1)'Kuswaric [kusw1234]':1)'Unclassified Bihari [unun9885]':1)'Bihari [biha1245]':1,(((('Bahraich [bahr1250]':1,'Barabanki [bara1410]':1,'Rae Bareli [raeb1235]':1)'Central Awadhi [cent2393]':1,('Azamgarhi [azam1235]':1,'Gangapari [gang1265]':1,'Mirzapuri [mirz1238]':1,'Uttari [utta1238]':1)'Eastern Awadhi [east2875]':1,('Fatehpur [fate1235]':1,'Kheri [kher1247]':1,'Lucknow [luck1235]':1,'Sitapur [sita1239]':1,'Unnao [unna1235]':1)'Western Awadhi [pard1244]':1)'Awadhi [awad1243][awa]-l-':1,('Banapari [bana1282]':1,'Gahore [gaho1238]':1,'Godwani [godw1242]':1,'Ojhi [ojhi1238]':1,'Sonpari [sonp1238]':1,'Tirhari [tirh1246]':1)'Bagheli [bagh1251][bfy]-l-':1)'Awadhic [awad1245]':1,('Baigani [baig1238]':1,'Bhulia [bhul1238]':1,'Binjhwari [binj1247]':1,'Chhattisgarhi Proper [chha1250]':1,'Kalanga {Indo-European} [kala1371]':1,'Kavardi [kava1240]':1,'Khairagarhi [khai1247]':1,'Sadri Korwa [sadr1249]':1,'Surgujia [surg1246][sgj]':1)'Chhattisgarhi [chha1249][hne]-l-':1,('Bhoyar Powari [bhoy1242]':1,'Govari of Seoni [gova1250]':1,'Khalari [khal1272]':1,'Koshti [kosh1244]':1,'Kumbhari [kumb1266]':1,'Lodhi {Indo-European} [lodh1245]':1,'Marari [mara1376]':1,'Vyneganga Powari [vyne1238]':1)'Powari [powa1246][pwr]-l-':1)'Eastern Hindi [east2726]':1,(('Hunza Domaaki [hunz1249]':1,'Nager Domaaki [nage1239]':1)'Domaaki [doma1260][dmk]-l-':1,(('Dom of Beirut [beir1242]':1,'Dom of Syria [bara1354]':1,'Karachi [kara1460]':1,'Kurbat of Western Iran [kurb1242]':1,'Marashi [mara1375]':1)'Northern Domari [nort3360]':1,('Jerusalem Domari [nabl1238]':1,'Jordanian Domari [nawa1257]':1)'Southern Domari [sout3344]':1)'Domari [doma1258][rmt]-l-':1,((('Archaic Angloromani [angl1239][rme]-l-':1,'Welsh Romani [wels1246][rmw]-l-':1)'British Romani [brit1245]':1,(('Kaale [kaal1240]':1,'Lajenge Roma [esto1257]':1)'Kalo Finnish Romani [kalo1256][rmf]-l-':1,(('Praistiki [prai1243]':1,('Eftawagaria [efta1238]':1,'Witembergaria [wite1234]':1)'Western Gadschkene [west2928]':1)'Gadschkene [gads1256]':1,'Lallere [lall1238]':1,'Manouche [mano1274]':1,('Abbruzzesi [abbr1238]':1,'Estracharia [estr1244]':1,('Kranaria [kran1245]':1,'Krantiki [kran1246]':1)'Lombard-Venetian Sinti [lomb1263]':1,'Piedmont Sintí [pied1241]':1)'Southern Sinti [sout3309]':1)'Sinte-Manus Romani [sint1235][rmo]-l-':1)'Northwestern Romani [nort3197]':1)'Anglo-Northwestern Romani [roma1330]':1,('Abruzzese-Calabrian-Molisean Romani [abru1239]':1,('Arlija [arli1238]':1,'Slovenian-Croatian Romani [slov1272]':1)'Arli-Dolenjski [arli1239]':1,'Crimean Rom [crim1258]':1,('Bugurdži [bugu1249]':1,'Drindari [tins1238]':1,'Kalajdži [kala1408]':1)'Drindari–Kalajdži–Bugurdži [tinn1238]':1,'Erli of Sofia [erli1234]':1,'Prilep-Prizren-Serres [pril1234]':1,'Pyrgos-Peloponnese Romani [gree1277]':1,'Romacilikanes [roma1336]':1,'Romano [roma1337]':1,'Rumelian Romani [pasp1238]':1,'Sepečides [sepe1242]':1,'Serres-Saint Athanasios [serr1257]':1,'Ursári [ursa1238]':1,'Zargari [zarg1238]':1)'Balkan Romani [balk1252][rmn]-l-':1,('Chuxny [latv1250]':1,'Eastern Latvia-Lithuanian Romani [lith1252]':1,'North Russian Romani [nort2655]':1,('Chaladytka [chal1280]':1,'Pluniakitkes [sast1234]':1)'Polish Romani [poli1261]':1,'White Russian Romani [whit1261]':1)'Baltic Romani [balt1257][rml]-l-':1,('Brazilian Calão [braz1238]':1,'Catalonian Calo [cata1279]':1,'Galician Calo [basq1236]':1,'Portuguese Calão [port1238]':1,'Spanish Caló [span1238]':1)'Caló [calo1236][rmq]-l-':1,('Gurvari [gurv1234]':1,('Bohemian Romani [bohe1241]':1,'East Slovakian Romani [east2314]':1,'Galician Romani [gali1259]':1,'Moravian Romani [mora1270]':1,'North Transylvanian Romani [nort3372]':1,'West Slovakian Romani [west2376]':1)'North Central Romani [nort3324]':1,('Romungro [tran1280]':1,('Burgenland Romani [burg1246]':1,'Prekmurje Romani [prek1240]':1,'Western Hungarian Vend [west2927]':1)'Vend [vend1247]':1)'South Central Romani [sout3308]':1)'Central Romani [carp1235][rmc]-l-':1,(('Cerhari [cerh1234]':1,'Churari [chur1254]':1,'Ghagar of Egypt [ghag1238]':1,'Kalderash [kald1238]':1,'Lovari [lova1240]':1,'Machvano [mach1262]':1)'Northern Vlax [cent1980]':1,'Southeastern Ukraine Vlax [ukra1255]':1,(('North Albanian Vlax [nort2654]':1,'Serbo-Bosnian Vlax [roma1241][rsb]':1,'South Albanian Vlax [sout2656]':1,'Xoraxane [zagu1235]':1)'Gurbet-Dzambazi [dzam1241]':1,'Kalpazea-Filipidzía-Xandurja [grek1238]':1,('Sedentary Bulgaria [sede1247]':1,'Sedentary Romania [sede1246]':1)'Valachia-Muntenia-Northeastern Bulgaria [iron1243]':1)'Southern Vlax [sout2658]':1)'Vlax Romani [vlax1238][rmy]-l-':1)'Romani [roma1329][rom]':1,(('Bhariati [bhar1241][bha]-l-':1,('Aligarh [alig1238]':1,'Banaphari [bana1281]':1,'Bhadauri [bhad1242]':1,'Chhatapur [chha1248]':1,'Chhindwara Bundeli [chhi1243]':1,'Gaoli [gaol1242]':1,'Khatola [khat1248]':1,'Kirari [kira1246]':1,'Kundri [kund1251]':1,'Lodhanti [lodh1244]':1,'Nagpuri Hindi [nagp1248]':1,'Nibhatta [nibh1238]':1,'Pawari [pawa1253]':1,'Raghobansi [ragh1238]':1,'Southern Bharatpur [sout2660]':1,'Southern Morena [sout2659]':1,'Standard Braj of Bulandshahr [stan1297]':1,'Standard Braj of Eastern Agra [stan1300]':1,'Standard Braj of Mathura [stan1298]':1,'Standard Bundeli [stan1299]':1,'Tirhari {Bundeli} [tirh1245]':1,'Western Agra [west2378]':1)'Bundeli [bund1253][bns]-l-':1)'Bundeli-Bharia [bund1252]':1,(('Antarbedi [anta1252]':1,'Bhuksa [bhuk1238]':1,'Braj Bhasha [braj1243]':1,'Dangi [dang1258]':1,'Jadobafi [jado1238]':1,'Sikarwari [sika1259]':1)'Braj [braj1242][bra]-l-':1,('Bangru {Haryanvi} [bang1336]':1,'Deswali [desw1238]':1,'Kauravi [kaur1275]':1,'Mewati {Haryanvi} [mewa1251]':1)'Haryanvi [hary1238][bgc]-l-':1,('Kanauji Proper [kana1282]':1,'Tirhari {Kanauji} [tirh1244]':1,'Transitional Kanauji [tran1281]':1)'Kanauji [kana1281][bjj]-l-':1)'Haryanvic [hary1239]':1,('Andaman Creole Hindi [anda1280][hca]-l-':1,'Fiji Hindi [fiji1242][hif]-l-':1,('Dakhini [dakh1243]':1,'Khari Boli [khad1239]':1,'Literary Hindi [lite1247]':1,'Nuclear Hindi [nucl1281]':1,'Rekhta [rekh1239]':1)'Hindi [hind1269][hin]-l-':1,('Dakhini {Urdu} [dakh1244]':1,'Judeo-Urdu [jude1269]':1,'Karkhandari [kark1260]':1,'Pinjari [pinj1242]':1)'Urdu [urdu1245][urd]-l-':1)'Hindustani [hind1270]':1,(('Ghera [gher1238][ghr]-l-':1,'Gurgula [gurg1240][ggg]-l-':1)'Ghera-Gurgula [gher1240]':1)'Unclassified Western Hindi [unun9883]':1)'Western Hindi [west2812]':1)'Indo-Aryan Central zone [indo1322]':1,'Sauraseni Prakrit [saur1252][psu]-l-':1)'Shaurasenic [shau1239]':1)'Midlands Indo-Aryan [midl1245]':1`;
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 3b  –  GEOJSON
+════════════════════════════════════════════════════════════════ */
+const rawGeoJSON = {
+  "type": "FeatureCollection",
+  "properties": {
+    "layer": "midl1245"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15204,
+        "language": {
+          "pk": 15204,
+          "name": "Eastern Pahari",
+          "longitude": 87.6200833333,
+          "latitude": 27.5947033333,
+          "id": "east1436"
+        },
+        "name": "Eastern Pahari"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.6200833333,
+          27.5947033333
+        ]
+      },
+      "id": "east1436"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15204,
+        "language": {
+          "pk": 15204,
+          "name": "Garhwali",
+          "longitude": 78.7201,
+          "latitude": 30.5061,
+          "id": "garh1243"
+        },
+        "name": "Garhwali"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          78.7201,
+          30.5061
+        ]
+      },
+      "id": "garh1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15204,
+        "language": {
+          "pk": 15204,
+          "name": "Kumaoni",
+          "longitude": 80.0171,
+          "latitude": 29.5622,
+          "id": "kuma1273"
+        },
+        "name": "Kumaoni"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.0171,
+          29.5622
+        ]
+      },
+      "id": "kuma1273"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15204,
+        "language": {
+          "pk": 15204,
+          "name": "Nepali",
+          "longitude": 85,
+          "latitude": 28,
+          "id": "nepa1254"
+        },
+        "name": "Nepali"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          85,
+          28
+        ]
+      },
+      "id": "nepa1254"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15204,
+        "language": {
+          "pk": 15204,
+          "name": "Jumli",
+          "longitude": 82.437,
+          "latitude": 29.1708,
+          "id": "juml1238"
+        },
+        "name": "Jumli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          82.437,
+          29.1708
+        ]
+      },
+      "id": "juml1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15204,
+        "language": {
+          "pk": 15204,
+          "name": "Dotyali",
+          "longitude": 80.7252,
+          "latitude": 29.242,
+          "id": "doty1234"
+        },
+        "name": "Dotyali"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.7252,
+          29.242
+        ]
+      },
+      "id": "doty1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15204,
+        "language": {
+          "pk": 15204,
+          "name": "Bangani",
+          "longitude": 79.0686,
+          "latitude": 29.8692,
+          "id": "bang1335"
+        },
+        "name": "Bangani"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          79.0686,
+          29.8692
+        ]
+      },
+      "id": "bang1335"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Sauraseni Prakrit",
+          "longitude": 77.56,
+          "latitude": 27.46,
+          "id": "saur1252"
+        },
+        "name": "Sauraseni Prakrit"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.56,
+          27.46
+        ]
+      },
+      "id": "saur1252"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Chhattisgarhi",
+          "longitude": 82.0483,
+          "latitude": 20.3601,
+          "id": "chha1249"
+        },
+        "name": "Chhattisgarhi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          82.0483,
+          20.3601
+        ]
+      },
+      "id": "chha1249"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Powari",
+          "longitude": 79.239,
+          "latitude": 21.797,
+          "id": "powa1246"
+        },
+        "name": "Powari"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          79.239,
+          21.797
+        ]
+      },
+      "id": "powa1246"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Pali",
+          "longitude": 82.251,
+          "latitude": 24.5271,
+          "id": "pali1273"
+        },
+        "name": "Pali"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          82.251,
+          24.5271
+        ]
+      },
+      "id": "pali1273"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Domari",
+          "longitude": 35,
+          "latitude": 32,
+          "id": "doma1258"
+        },
+        "name": "Domari"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35,
+          32
+        ]
+      },
+      "id": "doma1258"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Domaaki",
+          "longitude": 74.7984,
+          "latitude": 36.3258,
+          "id": "doma1260"
+        },
+        "name": "Domaaki"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          74.7984,
+          36.3258
+        ]
+      },
+      "id": "doma1260"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Bagheli",
+          "longitude": 87.4994,
+          "latitude": 24.6837,
+          "id": "bagh1251"
+        },
+        "name": "Bagheli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.4994,
+          24.6837
+        ]
+      },
+      "id": "bagh1251"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Awadhi",
+          "longitude": 82.4663,
+          "latitude": 27.5907,
+          "id": "awad1243"
+        },
+        "name": "Awadhi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          82.4663,
+          27.5907
+        ]
+      },
+      "id": "awad1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Kumhali",
+          "longitude": 84.1357,
+          "latitude": 27.8297,
+          "id": "kumh1238"
+        },
+        "name": "Kumhali"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          84.1357,
+          27.8297
+        ]
+      },
+      "id": "kumh1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Rana Tharu",
+          "longitude": 80.4419,
+          "latitude": 28.6483,
+          "id": "rana1246"
+        },
+        "name": "Rana Tharu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.4419,
+          28.6483
+        ]
+      },
+      "id": "rana1246"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Maithili",
+          "longitude": 86.2211,
+          "latitude": 26.3817,
+          "id": "mait1250"
+        },
+        "name": "Maithili"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          86.2211,
+          26.3817
+        ]
+      },
+      "id": "mait1250"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Magahi",
+          "longitude": 85.3335,
+          "latitude": 25.0915,
+          "id": "maga1260"
+        },
+        "name": "Magahi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          85.3335,
+          25.0915
+        ]
+      },
+      "id": "maga1260"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Angika",
+          "longitude": 85.534,
+          "latitude": 26.0047,
+          "id": "angi1238"
+        },
+        "name": "Angika"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          85.534,
+          26.0047
+        ]
+      },
+      "id": "angi1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Balkan Romani",
+          "longitude": 21.17,
+          "latitude": 42.67,
+          "id": "balk1252"
+        },
+        "name": "Balkan Romani"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          21.17,
+          42.67
+        ]
+      },
+      "id": "balk1252"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Vlax Romani",
+          "longitude": 18.16,
+          "latitude": 46.09,
+          "id": "vlax1238"
+        },
+        "name": "Vlax Romani"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          18.16,
+          46.09
+        ]
+      },
+      "id": "vlax1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Central Romani",
+          "longitude": 20.3129,
+          "latitude": 48.1968,
+          "id": "carp1235"
+        },
+        "name": "Central Romani"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.3129,
+          48.1968
+        ]
+      },
+      "id": "carp1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Baltic Romani",
+          "longitude": 29.06,
+          "latitude": 57.29,
+          "id": "balt1257"
+        },
+        "name": "Baltic Romani"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          29.06,
+          57.29
+        ]
+      },
+      "id": "balt1257"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Caló",
+          "longitude": 0.6,
+          "latitude": 41.424,
+          "id": "calo1236"
+        },
+        "name": "Caló"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          0.6,
+          41.424
+        ]
+      },
+      "id": "calo1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Kochariya-East Danuwar",
+          "longitude": 85.910081,
+          "latitude": 27.094496,
+          "id": "koch1253"
+        },
+        "name": "Kochariya-East Danuwar"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          85.910081,
+          27.094496
+        ]
+      },
+      "id": "koch1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Dewas-Done Danuwar",
+          "longitude": 85.411517,
+          "latitude": 27.362013,
+          "id": "dhan1265"
+        },
+        "name": "Dewas-Done Danuwar"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          85.411517,
+          27.362013
+        ]
+      },
+      "id": "dhan1265"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Darai",
+          "longitude": 84.1357,
+          "latitude": 27.8623,
+          "id": "dara1250"
+        },
+        "name": "Darai"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          84.1357,
+          27.8623
+        ]
+      },
+      "id": "dara1250"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Bote",
+          "longitude": 84.348,
+          "latitude": 27.7074,
+          "id": "bote1238"
+        },
+        "name": "Bote"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          84.348,
+          27.7074
+        ]
+      },
+      "id": "bote1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Chitwania Tharu",
+          "longitude": 84.4082,
+          "latitude": 27.5825,
+          "id": "chit1274"
+        },
+        "name": "Chitwania Tharu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          84.4082,
+          27.5825
+        ]
+      },
+      "id": "chit1274"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Kochila Tharu",
+          "longitude": 84.6301,
+          "latitude": 26.7251,
+          "id": "koch1247"
+        },
+        "name": "Kochila Tharu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          84.6301,
+          26.7251
+        ]
+      },
+      "id": "koch1247"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Kathoriya Tharu",
+          "longitude": 80.8931,
+          "latitude": 28.5867,
+          "id": "kath1250"
+        },
+        "name": "Kathoriya Tharu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.8931,
+          28.5867
+        ]
+      },
+      "id": "kath1250"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Buksa",
+          "longitude": 79.4233,
+          "latitude": 29.0853,
+          "id": "buks1238"
+        },
+        "name": "Buksa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          79.4233,
+          29.0853
+        ]
+      },
+      "id": "buks1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Musasa",
+          "longitude": 87.5304,
+          "latitude": 26.7329,
+          "id": "musa1263"
+        },
+        "name": "Musasa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.5304,
+          26.7329
+        ]
+      },
+      "id": "musa1263"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Majhi",
+          "longitude": 80.3788,
+          "latitude": 29.4559,
+          "id": "majh1253"
+        },
+        "name": "Majhi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          80.3788,
+          29.4559
+        ]
+      },
+      "id": "majh1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Kudmali",
+          "longitude": 87.33,
+          "latitude": 25.92,
+          "id": "kudm1238"
+        },
+        "name": "Kudmali"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.33,
+          25.92
+        ]
+      },
+      "id": "kudm1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Bhojpuri",
+          "longitude": 84.817115,
+          "latitude": 26.458455,
+          "id": "bhoj1244"
+        },
+        "name": "Bhojpuri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          84.817115,
+          26.458455
+        ]
+      },
+      "id": "bhoj1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Caribbean Hindustani",
+          "longitude": -55.333168,
+          "latitude": 5.722918,
+          "id": "cari1275"
+        },
+        "name": "Caribbean Hindustani"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          304.666832,
+          5.722918
+        ]
+      },
+      "id": "cari1275"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Bundeli",
+          "longitude": 78.9542,
+          "latitude": 24.8982,
+          "id": "bund1253"
+        },
+        "name": "Bundeli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          78.9542,
+          24.8982
+        ]
+      },
+      "id": "bund1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Bhariati",
+          "longitude": 83.1071,
+          "latitude": 22.3429,
+          "id": "bhar1241"
+        },
+        "name": "Bhariati"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          83.1071,
+          22.3429
+        ]
+      },
+      "id": "bhar1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Kanauji",
+          "longitude": 79.2883,
+          "latitude": 27.1074,
+          "id": "kana1281"
+        },
+        "name": "Kanauji"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          79.2883,
+          27.1074
+        ]
+      },
+      "id": "kana1281"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Braj",
+          "longitude": 78.0813,
+          "latitude": 26.4758,
+          "id": "braj1242"
+        },
+        "name": "Braj"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          78.0813,
+          26.4758
+        ]
+      },
+      "id": "braj1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Haryanvi",
+          "longitude": 76.0432,
+          "latitude": 29.0166,
+          "id": "hary1238"
+        },
+        "name": "Haryanvi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          76.0432,
+          29.0166
+        ]
+      },
+      "id": "hary1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Hindi",
+          "longitude": 77,
+          "latitude": 25,
+          "id": "hind1269"
+        },
+        "name": "Hindi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77,
+          25
+        ]
+      },
+      "id": "hind1269"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Urdu",
+          "longitude": 67,
+          "latitude": 25,
+          "id": "urdu1245"
+        },
+        "name": "Urdu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          67,
+          25
+        ]
+      },
+      "id": "urdu1245"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Andaman Creole Hindi",
+          "longitude": 92.738,
+          "latitude": 11.676,
+          "id": "anda1280"
+        },
+        "name": "Andaman Creole Hindi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.738,
+          11.676
+        ]
+      },
+      "id": "anda1280"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Fiji Hindi",
+          "longitude": 177.772,
+          "latitude": -17.8148,
+          "id": "fiji1242"
+        },
+        "name": "Fiji Hindi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          177.772,
+          -17.8148
+        ]
+      },
+      "id": "fiji1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Sonha",
+          "longitude": 81.21849,
+          "latitude": 28.77817,
+          "id": "sonh1238"
+        },
+        "name": "Sonha"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          81.21849,
+          28.77817
+        ]
+      },
+      "id": "sonh1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Dangaura Tharu",
+          "longitude": 81.7761,
+          "latitude": 27.8834,
+          "id": "dang1260"
+        },
+        "name": "Dangaura Tharu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          81.7761,
+          27.8834
+        ]
+      },
+      "id": "dang1260"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Panchpargania",
+          "longitude": 85.7966,
+          "latitude": 23.447,
+          "id": "panc1246"
+        },
+        "name": "Panchpargania"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          85.7966,
+          23.447
+        ]
+      },
+      "id": "panc1246"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Ghera",
+          "longitude": 68.368,
+          "latitude": 25.383,
+          "id": "gher1238"
+        },
+        "name": "Ghera"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          68.368,
+          25.383
+        ]
+      },
+      "id": "gher1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Gurgula",
+          "longitude": 68.565,
+          "latitude": 25.737,
+          "id": "gurg1240"
+        },
+        "name": "Gurgula"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          68.565,
+          25.737
+        ]
+      },
+      "id": "gurg1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Sinte-Manus Romani",
+          "longitude": 9.4,
+          "latitude": 48.7,
+          "id": "sint1235"
+        },
+        "name": "Sinte-Manus Romani"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.4,
+          48.7
+        ]
+      },
+      "id": "sint1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Kalo Finnish Romani",
+          "longitude": 24.43,
+          "latitude": 60.45,
+          "id": "kalo1256"
+        },
+        "name": "Kalo Finnish Romani"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          24.43,
+          60.45
+        ]
+      },
+      "id": "kalo1256"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Welsh Romani",
+          "longitude": -3.7888,
+          "latitude": 52.1166,
+          "id": "wels1246"
+        },
+        "name": "Welsh Romani"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.7888,
+          52.1166
+        ]
+      },
+      "id": "wels1246"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Archaic Angloromani",
+          "longitude": -2.56,
+          "latitude": 51.75,
+          "id": "angl1239"
+        },
+        "name": "Archaic Angloromani"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.56,
+          51.75
+        ]
+      },
+      "id": "angl1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Oraon Sadri",
+          "longitude": 88.9157,
+          "latitude": 24.7458,
+          "id": "orao1237"
+        },
+        "name": "Oraon Sadri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          88.9157,
+          24.7458
+        ]
+      },
+      "id": "orao1237"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Sadri",
+          "longitude": 84.8114,
+          "latitude": 23.6585,
+          "id": "sadr1248"
+        },
+        "name": "Sadri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          84.8114,
+          23.6585
+        ]
+      },
+      "id": "sadr1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Serbo-Bosnian Vlax",
+          "longitude": 20.3762,
+          "latitude": 45.2552,
+          "id": "roma1241"
+        },
+        "name": "Serbo-Bosnian Vlax"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.3762,
+          45.2552
+        ]
+      },
+      "id": "roma1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15206,
+        "language": {
+          "pk": 15206,
+          "name": "Burgenland Romani",
+          "longitude": 16.222,
+          "latitude": 47.272,
+          "id": "burg1246"
+        },
+        "name": "Burgenland Romani"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          16.222,
+          47.272
+        ]
+      },
+      "id": "burg1246"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15205,
+        "language": {
+          "pk": 15205,
+          "name": "Dhanki",
+          "longitude": 73.7418,
+          "latitude": 20.7719,
+          "id": "dhan1264"
+        },
+        "name": "Dhanki"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.7418,
+          20.7719
+        ]
+      },
+      "id": "dhan1264"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15205,
+        "language": {
+          "pk": 15205,
+          "name": "Khandesi",
+          "longitude": 74.142,
+          "latitude": 21.3181,
+          "id": "khan1272"
+        },
+        "name": "Khandesi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          74.142,
+          21.3181
+        ]
+      },
+      "id": "khan1272"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Pardhi",
+          "longitude": 77.1234,
+          "latitude": 19.9989,
+          "id": "pard1243"
+        },
+        "name": "Pardhi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.1234,
+          19.9989
+        ]
+      },
+      "id": "pard1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Malvi",
+          "longitude": 75.562,
+          "latitude": 23.488,
+          "id": "malv1243"
+        },
+        "name": "Malvi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          75.562,
+          23.488
+        ]
+      },
+      "id": "malv1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Bauria",
+          "longitude": 75.8713,
+          "latitude": 25.2977,
+          "id": "baur1251"
+        },
+        "name": "Bauria"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          75.8713,
+          25.2977
+        ]
+      },
+      "id": "baur1251"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Bhili",
+          "longitude": 73.9592,
+          "latitude": 20.85,
+          "id": "bhil1251"
+        },
+        "name": "Bhili"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.9592,
+          20.85
+        ]
+      },
+      "id": "bhil1251"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Nimadi",
+          "longitude": 76.1264,
+          "latitude": 22.1263,
+          "id": "nima1243"
+        },
+        "name": "Nimadi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          76.1264,
+          22.1263
+        ]
+      },
+      "id": "nima1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Vaagri Booli",
+          "longitude": 79.5335,
+          "latitude": 12.215,
+          "id": "vaag1238"
+        },
+        "name": "Vaagri Booli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          79.5335,
+          12.215
+        ]
+      },
+      "id": "vaag1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Dhodia-Kukna",
+          "longitude": 73.2743,
+          "latitude": 21.0656,
+          "id": "dhod1238"
+        },
+        "name": "Dhodia-Kukna"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.2743,
+          21.0656
+        ]
+      },
+      "id": "dhod1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Dungra Bhil",
+          "longitude": 73.187,
+          "latitude": 22.306,
+          "id": "dung1251"
+        },
+        "name": "Dungra Bhil"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.187,
+          22.306
+        ]
+      },
+      "id": "dung1251"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Chodri",
+          "longitude": 73.5283,
+          "latitude": 20.8803,
+          "id": "chod1238"
+        },
+        "name": "Chodri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.5283,
+          20.8803
+        ]
+      },
+      "id": "chod1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Wagdi",
+          "longitude": 73.9022,
+          "latitude": 23.6888,
+          "id": "wagd1238"
+        },
+        "name": "Wagdi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.9022,
+          23.6888
+        ]
+      },
+      "id": "wagd1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Gamit",
+          "longitude": 73.6839,
+          "latitude": 21.0697,
+          "id": "gami1242"
+        },
+        "name": "Gamit"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.6839,
+          21.0697
+        ]
+      },
+      "id": "gami1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Mawchi",
+          "longitude": 73.9956,
+          "latitude": 21.5724,
+          "id": "mawc1242"
+        },
+        "name": "Mawchi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.9956,
+          21.5724
+        ]
+      },
+      "id": "mawc1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Palya Bareli",
+          "longitude": 75.233,
+          "latitude": 21.937,
+          "id": "paly1238"
+        },
+        "name": "Palya Bareli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          75.233,
+          21.937
+        ]
+      },
+      "id": "paly1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Rathawi",
+          "longitude": 73.186,
+          "latitude": 22.309,
+          "id": "rath1243"
+        },
+        "name": "Rathawi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.186,
+          22.309
+        ]
+      },
+      "id": "rath1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Rajput Garasia",
+          "longitude": 73.2472,
+          "latitude": 24.5451,
+          "id": "rajp1235"
+        },
+        "name": "Rajput Garasia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.2472,
+          24.5451
+        ]
+      },
+      "id": "rajp1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Adiwasi Garasia",
+          "longitude": 73.1426,
+          "latitude": 24.0712,
+          "id": "adiw1235"
+        },
+        "name": "Adiwasi Garasia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.1426,
+          24.0712
+        ]
+      },
+      "id": "adiw1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Vasavi",
+          "longitude": 73.8652,
+          "latitude": 21.3624,
+          "id": "vasa1239"
+        },
+        "name": "Vasavi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.8652,
+          21.3624
+        ]
+      },
+      "id": "vasa1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Noiri",
+          "longitude": 73.5486,
+          "latitude": 22.8781,
+          "id": "noir1238"
+        },
+        "name": "Noiri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.5486,
+          22.8781
+        ]
+      },
+      "id": "noir1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Nahali-Baglani",
+          "longitude": 74.827,
+          "latitude": 21.43,
+          "id": "naha1261"
+        },
+        "name": "Nahali-Baglani"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          74.827,
+          21.43
+        ]
+      },
+      "id": "naha1261"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Pauri Bareli",
+          "longitude": 74.337,
+          "latitude": 21.228,
+          "id": "paur1238"
+        },
+        "name": "Pauri Bareli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          74.337,
+          21.228
+        ]
+      },
+      "id": "paur1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Bhilali",
+          "longitude": 74.59014,
+          "latitude": 22.58346,
+          "id": "bhil1253"
+        },
+        "name": "Bhilali"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          74.59014,
+          22.58346
+        ]
+      },
+      "id": "bhil1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15207,
+        "language": {
+          "pk": 15207,
+          "name": "Rathwi Bareli",
+          "longitude": 74.9958,
+          "latitude": 21.4375,
+          "id": "rath1242"
+        },
+        "name": "Rathwi Bareli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          74.9958,
+          21.4375
+        ]
+      },
+      "id": "rath1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Late Middle Indo-Aryan",
+          "longitude": 78.97,
+          "latitude": 26.61,
+          "id": "midd1350"
+        },
+        "name": "Late Middle Indo-Aryan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          78.97,
+          26.61
+        ]
+      },
+      "id": "midd1350"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Saurashtra",
+          "longitude": 77.9427,
+          "latitude": 9.99172,
+          "id": "saur1248"
+        },
+        "name": "Saurashtra"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          77.9427,
+          9.99172
+        ]
+      },
+      "id": "saur1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Gujarati",
+          "longitude": 71.0962,
+          "latitude": 22.687,
+          "id": "guja1252"
+        },
+        "name": "Gujarati"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          71.0962,
+          22.687
+        ]
+      },
+      "id": "guja1252"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Dubli",
+          "longitude": 73.218,
+          "latitude": 21.5161,
+          "id": "dubl1239"
+        },
+        "name": "Dubli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.218,
+          21.5161
+        ]
+      },
+      "id": "dubl1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Shekhawati",
+          "longitude": 75.407,
+          "latitude": 27.34,
+          "id": "shek1243"
+        },
+        "name": "Shekhawati"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          75.407,
+          27.34
+        ]
+      },
+      "id": "shek1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Merwari",
+          "longitude": 74.095,
+          "latitude": 26.771,
+          "id": "merw1238"
+        },
+        "name": "Merwari"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          74.095,
+          26.771
+        ]
+      },
+      "id": "merw1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Aer",
+          "longitude": 69.029,
+          "latitude": 25.254,
+          "id": "aerr1238"
+        },
+        "name": "Aer"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          69.029,
+          25.254
+        ]
+      },
+      "id": "aerr1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Wadiyara Koli",
+          "longitude": 72.1312,
+          "latitude": 26.0713,
+          "id": "wadi1248"
+        },
+        "name": "Wadiyara Koli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          72.1312,
+          26.0713
+        ]
+      },
+      "id": "wadi1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Kachi Koli",
+          "longitude": 69.1901,
+          "latitude": 24.2966,
+          "id": "kach1272"
+        },
+        "name": "Kachi Koli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          69.1901,
+          24.2966
+        ]
+      },
+      "id": "kach1272"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Vaghri",
+          "longitude": 68.6051,
+          "latitude": 26.1404,
+          "id": "vagh1246"
+        },
+        "name": "Vaghri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          68.6051,
+          26.1404
+        ]
+      },
+      "id": "vagh1246"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Godwari",
+          "longitude": 72.846,
+          "latitude": 24.885,
+          "id": "godw1241"
+        },
+        "name": "Godwari"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          72.846,
+          24.885
+        ]
+      },
+      "id": "godw1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Parya",
+          "longitude": 69.26,
+          "latitude": 36.4922,
+          "id": "pary1242"
+        },
+        "name": "Parya"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          69.26,
+          36.4922
+        ]
+      },
+      "id": "pary1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Mewati",
+          "longitude": 76.947,
+          "latitude": 27.736,
+          "id": "mewa1250"
+        },
+        "name": "Mewati"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          76.947,
+          27.736
+        ]
+      },
+      "id": "mewa1250"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Gujari",
+          "longitude": 75.11,
+          "latitude": 33.7,
+          "id": "guja1253"
+        },
+        "name": "Gujari"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          75.11,
+          33.7
+        ]
+      },
+      "id": "guja1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Marwari (India)",
+          "longitude": 75.0656,
+          "latitude": 27.002,
+          "id": "marw1260"
+        },
+        "name": "Marwari (India)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          75.0656,
+          27.002
+        ]
+      },
+      "id": "marw1260"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Kabutra",
+          "longitude": 69.691,
+          "latitude": 25.292,
+          "id": "kabu1254"
+        },
+        "name": "Kabutra"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          69.691,
+          25.292
+        ]
+      },
+      "id": "kabu1254"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Kanjari",
+          "longitude": 74.7355,
+          "latitude": 25.6999,
+          "id": "kanj1259"
+        },
+        "name": "Kanjari"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          74.7355,
+          25.6999
+        ]
+      },
+      "id": "kanj1259"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Gade Lohar",
+          "longitude": 78.2187,
+          "latitude": 25.8583,
+          "id": "gade1236"
+        },
+        "name": "Gade Lohar"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          78.2187,
+          25.8583
+        ]
+      },
+      "id": "gade1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Mewari",
+          "longitude": 73.68,
+          "latitude": 24.57,
+          "id": "mewa1249"
+        },
+        "name": "Mewari"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          73.68,
+          24.57
+        ]
+      },
+      "id": "mewa1249"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Lambadi",
+          "longitude": 76.9717,
+          "latitude": 16.5734,
+          "id": "lamb1269"
+        },
+        "name": "Lambadi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          76.9717,
+          16.5734
+        ]
+      },
+      "id": "lamb1269"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Goaria",
+          "longitude": 68.363,
+          "latitude": 27.253,
+          "id": "goar1239"
+        },
+        "name": "Goaria"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          68.363,
+          27.253
+        ]
+      },
+      "id": "goar1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Bhaya",
+          "longitude": 69.31,
+          "latitude": 25.482,
+          "id": "bhay1238"
+        },
+        "name": "Bhaya"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          69.31,
+          25.482
+        ]
+      },
+      "id": "bhay1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Jandavra",
+          "longitude": 69.76,
+          "latitude": 25.617,
+          "id": "jand1246"
+        },
+        "name": "Jandavra"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          69.76,
+          25.617
+        ]
+      },
+      "id": "jand1246"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Bagri",
+          "longitude": 75.06,
+          "latitude": 31.4,
+          "id": "bagr1243"
+        },
+        "name": "Bagri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          75.06,
+          31.4
+        ]
+      },
+      "id": "bagr1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Hadothi",
+          "longitude": 75.8366,
+          "latitude": 24.8546,
+          "id": "hado1235"
+        },
+        "name": "Hadothi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          75.8366,
+          24.8546
+        ]
+      },
+      "id": "hado1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Dhundari",
+          "longitude": 76.198,
+          "latitude": 26.473,
+          "id": "dhun1238"
+        },
+        "name": "Dhundari"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          76.198,
+          26.473
+        ]
+      },
+      "id": "dhun1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Od",
+          "longitude": 67.84754,
+          "latitude": 27.53636,
+          "id": "oddd1238"
+        },
+        "name": "Od"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          67.84754,
+          27.53636
+        ]
+      },
+      "id": "oddd1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Parkari Koli",
+          "longitude": 69.9423,
+          "latitude": 24.486,
+          "id": "park1237"
+        },
+        "name": "Parkari Koli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          69.9423,
+          24.486
+        ]
+      },
+      "id": "park1237"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Marwari (Pakistan)",
+          "longitude": 71.5671,
+          "latitude": 28.3242,
+          "id": "marw1256"
+        },
+        "name": "Marwari (Pakistan)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          71.5671,
+          28.3242
+        ]
+      },
+      "id": "marw1256"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 15203,
+        "language": {
+          "pk": 15203,
+          "name": "Dhatki",
+          "longitude": 70.7826,
+          "latitude": 26.4156,
+          "id": "dhat1238"
+        },
+        "name": "Dhatki"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          70.7826,
+          26.4156
+        ]
+      },
+      "id": "dhat1238"
+    }
+  ]
+};
+
+/* ════════════════════════════════════════════════════════════════
+   AB HIER NICHTS MEHR ÄNDERN
+════════════════════════════════════════════════════════════════ */
+
+/* ── Farb-Palette ── */
+const _PALETTE = [
+  "#7ec8c8","#c87868","#a0b878","#787ec8",
+  "#c87898","#88b8a0","#c8b878","#b878c8",
+  "#78b8c8","#c8a878","#98c878","#c87848"
+];
+let _autoColorMap = {};
+
+function _buildColorMap(root) {
+  _autoColorMap = {};
+  if (!root) return;
+  _autoColorMap[root.id] = "#c8973a";
+  (root.children || []).forEach((g, i) =>
+    _assignCol(g, _PALETTE[i % _PALETTE.length])
+  );
+}
+function _assignCol(node, col) {
+  _autoColorMap[node.id] = col;
+  if (node.children) node.children.forEach(c => _assignCol(c, col));
+}
+
+/* ── Auto-Länder via Nominatim ── */
+const _autoCountry = {};
+const _geocodeDone = new Set();
+
+function _flagFromCode(cc) {
+  if (!cc || cc.length !== 2) return '';
+  return [...cc.toUpperCase()].map(c =>
+    String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))
+  ).join('');
+}
+
+async function _geocodeLang(id, lat, lon) {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=de`,
+      { headers: { 'User-Agent': 'SprachfamilienAtlas/4.0' } }
+    );
+    if (!r.ok) return;
+    const j    = await r.json();
+    const addr = j.address || {};
+    const cc   = (addr.country_code || '').toUpperCase();
+    const name = addr.country || '';
+    const reg  = addr.state || addr.province || addr.region || '';
+    if (cc && name) _autoCountry[id] = [{ flag: _flagFromCode(cc), name, region: reg }];
+  } catch(e) { /* silent */ } finally {
+    _geocodeDone.add(id);
+    if (selNode && selNode.data.id === id) showPanel(selNode);
+  }
+}
+
+function _startGeocoding() {
+  geoData.forEach((lang, i) => {
+    if (!countryData[lang.id])
+      setTimeout(() => _geocodeLang(lang.id, lang.lat, lang.lon), i * 1200);
+    else
+      _geocodeDone.add(lang.id);
+  });
+}
+
+function _getCountries(d) {
+  const id = d.data.id;
+  if (countryData[id]) return countryData[id];
+  if (_autoCountry[id]) return _autoCountry[id];
+  const seen = new Set(), res = [];
+  function collect(node) {
+    (_autoCountry[node.id] || []).forEach(e => {
+      if (!seen.has(e.name)) { seen.add(e.name); res.push({ flag: e.flag, name: e.name, region: '' }); }
+    });
+    if (node.children) node.children.forEach(collect);
+  }
+  collect(d.data);
+  return res.length ? res : null;
+}
+
+function _isPending(d) {
+  const id = d.data.id;
+  if (countryData[id] || _geocodeDone.has(id)) return false;
+  function hasCoord(node) {
+    if (_geocodeDone.has(node.id)) return false;
+    if (node.lat != null) return true;
+    return (node.children || []).some(hasCoord);
+  }
+  return hasCoord(d.data);
+}
+
+/* ── Hilfsfunktionen ── */
+function getDisplayName(id, fallback) { return nameTranslations[id] || fallback || id; }
+
+function colorByGroup(id) {
+  for (const g of mapLegendGroups)
+    if (g.ids && g.ids.includes(id)) return g.color;
+  return _autoColorMap[id] || "#c8973a";
+}
+
+const NODE_COLORS = { family:"#c8973a", language:"#7ec8c8", subgroup:"#c87868", dialect:"#a0b878" };
+function nodeRadius(type, fontSize) {
+  // Punkt-Radius proportional zur Schriftgröße
+  const base = { family: 9, language: 7, subgroup: 6, dialect: 5 };
+  const b = base[type] || 5;
+  return Math.max(3, Math.round(b * fontSize / 11));
+}
+function typeName(t) {
+  return { family:"Sprachfamilie", language:"Sprache", subgroup:"Untergruppe", dialect:"Dialekt / Varietät" }[t] || t;
+}
+
+/* ── Newick-Parser ── */
+function parseNewick(s) {
+  s = s.trim().replace(/;$/, '');
+  function parseNode(pos) {
+    const node = { children: [] };
+    if (s[pos] === '(') {
+      pos++;
+      while (pos < s.length) {
+        const r = parseNode(pos); node.children.push(r.node); pos = r.pos;
+        if (s[pos] === ',') { pos++; continue; }
+        if (s[pos] === ')') { pos++; break; }
+      }
+    }
+    let label = '';
+    if (s[pos] === "'") { pos++; while (pos < s.length && s[pos] !== "'") label += s[pos++]; pos++; }
+    else { while (pos < s.length && !/[,);:(]/.test(s[pos])) label += s[pos++]; }
+    if (s[pos] === ':') { pos++; while (pos < s.length && /[0-9.eE+\-]/.test(s[pos])) pos++; }
+    node.rawLabel = label.trim();
+    return { node, pos };
+  }
+  function parseLabel(raw) {
+    if (!raw) return { id:'unknown', nameOrig:'Unknown', iso:null, isLanguage:false };
+    const isLang = raw.includes('-l-');
+    const clean  = raw.replace(/-l-/g,'').trim();
+    const isoM   = clean.match(/\[([a-z]{3})\]\s*$/);
+    const glotMs = clean.match(/\[([a-z]+\d{4})\]/g);
+    const gid    = glotMs ? glotMs[0].replace(/[\[\]]/g,'') : null;
+    const nm     = clean.replace(/\[[^\]]*\]/g,'').replace(/\{[^}]*\}/g,'').trim();
+    return { id: gid || nm.toLowerCase().replace(/\s+/g,'_'), nameOrig: nm, iso: isoM ? isoM[1] : null, isLanguage: isLang };
+  }
+  function build(raw, depth) {
+    const { id, nameOrig, iso, isLanguage } = parseLabel(raw.rawLabel);
+    let type;
+    if      (depth === 0)                                type = 'family';
+    else if (isLanguage)                                 type = 'language';
+    else if (raw.children && raw.children.length > 0)   type = depth === 1 ? 'family' : 'subgroup';
+    else                                                 type = 'dialect';
+    const node = { id, nameOrig, type, iso: iso||null, lat:null, lon:null, name: getDisplayName(id, nameOrig) };
+    if (raw.children && raw.children.length > 0)
+      node.children = raw.children.map(c => build(c, depth + 1));
+    return node;
+  }
+  return build(parseNode(0).node, 0);
+}
+
+/* ── GeoJSON → internes Format ── */
+function geoJSONtoGeoData(geo) {
+  if (!geo || !geo.features) return [];
+  return geo.features.map(f => {
+    const lang = f.properties?.language || {};
+    const id   = f.id || lang.id || '';
+    const lat  = lang.latitude  ?? f.geometry?.coordinates?.[1] ?? null;
+    const lon  = lang.longitude ?? f.geometry?.coordinates?.[0] ?? null;
+    const raw  = lang.name || f.properties?.name || id;
+    return { id, name: getDisplayName(id, raw), nameOrig: raw, lat, lon, color: colorByGroup(id) };
+  }).filter(d => d.lat != null && d.lon != null);
+}
+
+function enrichCoords(node, map) {
+  if (map[node.id]) { node.lat = map[node.id].lat; node.lon = map[node.id].lon; }
+  if (node.children) node.children.forEach(c => enrichCoords(c, map));
+}
+
+/* ── Legende aufbauen ── */
+function _buildLegend() {
+  const el = document.getElementById('map-legend-items');
+  el.innerHTML = '';
+  const hasManual = mapLegendGroups.some(g => g.ids && g.ids.length > 0);
+  const source = hasManual
+    ? mapLegendGroups.map(g => ({ name: g.label, col: g.color }))
+    : (treeData && treeData.children
+        ? treeData.children.map((g, i) => ({ name: g.name, col: _PALETTE[i % _PALETTE.length] }))
+        : []);
+  source.forEach(s => {
+    const d = document.createElement('div'); d.className = 'ov-item';
+    d.innerHTML = `<div class="ov-dot" style="background:${s.col}"></div>${s.name}`;
+    el.appendChild(d);
+  });
+}
+
+/* ── Daten initialisieren ── */
+let treeData = null, geoData = [];
+
+function initData() {
+  try { treeData = parseNewick(rawNewick); }
+  catch(e) { console.error('Newick-Fehler:', e); return; }
+
+  _buildColorMap(treeData);
+  geoData = geoJSONtoGeoData(rawGeoJSON);
+  const cm = {};
+  geoData.forEach(d => { cm[d.id] = d; });
+  enrichCoords(treeData, cm);
+
+  document.getElementById('nav-glyph').textContent = familyGlyph;
+  const title = treeData ? getDisplayName(treeData.id, treeData.nameOrig) : 'Sprachfamilien-Atlas';
+  document.getElementById('nav-title-main').textContent = title;
+  document.title = title + ' – Atlas';
+  document.getElementById('chip-fam').textContent = familyMeta.families  + ' Familien';
+  document.getElementById('chip-lan').textContent = familyMeta.languages + ' Sprachen';
+  document.getElementById('chip-dia').textContent = familyMeta.dialects  + ' Dialekte';
+
+  _buildLegend();
+  _startGeocoding();
+}
+
+/* ── View umschalten ── */
+let mapReady = false;
+function switchView(id) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.view === id));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('visible', v.id === 'view-' + id));
+  if (id === 'map' && !mapReady) { initMap(); mapReady = true; }
+  if (id === 'tree') setTimeout(() => { if (rootNode) drawTree(rootNode); }, 80);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   D3 STAMMBAUM mit DRAG & DROP & DYNAMISCHEN LINIEN
+════════════════════════════════════════════════════════════════ */
+let svgSel, gSel, rootNode, zoomBeh;
+let currentZoom  = d3.zoomIdentity;
+let selNode      = null;
+let currentFontSize = 11;
+let _searchTimer = null;
+let _sliderTimer = null;
+let draggedNode  = null;
+let dragOffsets  = null;
+let textBboxes   = []; // Speichert Text-Positionen für Masking
+
+/* Spacing: automatisch aus Schriftgröße berechnen */
+function spacingFromFont(fs) {
+  return Math.round(fs * 2.4);
+}
+
+/* Textopazität – immer sichtbar */
+function getTextOpacity(d) {
+  if (d._searchMatch) return 1;
+  return 1;
+}
+
+function getTextFill(d) {
+  if (d._searchMatch) return '#f0c060';
+  if (d.depth === 0)  return '#f5d070';
+  if (d.data.type === 'family')   return '#e0b860';
+  if (d.data.type === 'language') return '#b0e0e0';
+  if (d.data.type === 'subgroup') return '#e0a898';
+  return '#c8c0a0';
+}
+
+function countTreeLeaves(node) {
+  if (!node.children || !node.children.length) return 1;
+  return node.children.reduce((s, c) => s + countTreeLeaves(c), 0);
+}
+
+function syncFontUI(val) {
+  const sl = document.getElementById('fontsize-sl');
+  const sv = document.getElementById('fs-val');
+  if (sl) sl.value = Math.round(val);
+  if (sv) sv.textContent = Math.round(val) + ' px';
+}
+
+function onFontsizeChange(v) {
+  currentFontSize = +v;
+  document.getElementById('fs-val').textContent = v + ' px';
+  clearTimeout(_sliderTimer);
+  _sliderTimer = setTimeout(() => { if (rootNode) drawTree(rootNode); }, 60);
+}
+
+/* Baum initialisieren */
+function initTree() {
+  svgSel = d3.select('#tree-svg');
+  gSel   = d3.select('#tree-g');
+
+  zoomBeh = d3.zoom().scaleExtent([0.02, 8]).on('zoom', ev => {
+    currentZoom = ev.transform;
+    gSel.attr('transform', currentZoom);
+    document.getElementById('zoom-info').textContent = Math.round(currentZoom.k * 100) + '%';
+    updateLineDynamics();
+  });
+  svgSel.call(zoomBeh);
+
+  if (!treeData) return;
+  rootNode = d3.hierarchy(treeData);
+
+  const total = countTreeLeaves(treeData);
+  const collapseFrom = total <= 25 ? 99 : total <= 80 ? 2 : 1;
+  rootNode.descendants().forEach((d, i) => {
+    d._uid = i; d._searchMatch = false;
+    if (d.depth >= collapseFrom && d.children) { d._ch = d.children; d.children = null; }
+  });
+
+  currentFontSize = 11;
+  syncFontUI(currentFontSize);
+  drawTree(rootNode);
+  setTimeout(() => fitView(false), 120);
+}
+
+/* Radialer Fächer-Layout-Algorithmus */
+function computeFanLayout(root, canvasW, canvasH, fontSize) {
+  const maxLabelLen = 18;
+  const charW = fontSize * 0.62;
+  const levelGap = Math.max(fontSize * 2.2 + maxLabelLen * charW * 0.5, 140);
+
+  let maxDepth = 0;
+  root.each(d => { if (d.depth > maxDepth) maxDepth = d.depth; });
+
+  root.each(d => {
+    d.y = d.depth * levelGap;
+  });
+
+  function countLeaves(node) {
+    if (!node.children || node.children.length === 0) return 1;
+    return node.children.reduce((s, c) => s + countLeaves(c), 0);
+  }
+
+  const leafSpacing = Math.max(fontSize * 2.0, 18);
+  const totalLeaves = countLeaves(root);
+
+  let leafIndex = 0;
+  function assignX(node) {
+    if (!node.children || node.children.length === 0) {
+      node.x = leafIndex * leafSpacing;
+      leafIndex++;
+      return;
+    }
+    node.children.forEach(c => assignX(c));
+    const first = node.children[0].x;
+    const last  = node.children[node.children.length - 1].x;
+    node.x = (first + last) / 2;
+  }
+  assignX(root);
+
+  const minX = Math.min(...root.descendants().map(d => d.x));
+  const maxX = Math.max(...root.descendants().map(d => d.x));
+  const offsetX = (canvasH / 2) - (minX + maxX) / 2;
+  root.each(d => { d.x += offsetX; });
+
+   return { levelGap };
+}
+
+/* Dynamische Liniendicke basierend auf Zoom */
+function calculateStrokeWidth(baseWidth = 3) {
+  if (!currentZoom) return baseWidth;
+  const zoomFactor = currentZoom.k || 1;
+  return Math.max(0.8, baseWidth / (zoomFactor * 0.8));
+}
+
+function updateLineDynamics() {
+  if (!gSel) return;
+  const sw = calculateStrokeWidth(3);
+  gSel.selectAll('path.link').style('stroke-width', sw + 'px');
+}
+
+/* Erfasse Text-Positionen für Clipping */
+function captureTextBboxes() {
+  textBboxes = [];
+  gSel.selectAll('g.node text').each(function(d) {
+    try {
+      const bbox = this.getBBox();
+      const transform = d3.select(this.parentNode).attr('transform');
+      const match = transform ? transform.match(/translate\(([-\d.]+),([-\d.]+)\)/) : null;
+      if (match) {
+        const tx = parseFloat(match[1]);
+        const ty = parseFloat(match[2]);
+        textBboxes.push({
+          x: tx + bbox.x,
+          y: ty + bbox.y,
+          width: bbox.width,
+          height: bbox.height,
+          padding: Math.max(3, currentFontSize * 0.4)
+        });
+      }
+    } catch(e) { /* ignore */ }
+  });
+}
+
+/* Prüfe ob Punkt in Text-Zone liegt */
+function isInTextZone(x, y) {
+  return textBboxes.some(box => 
+    x >= box.x - box.padding && 
+    x <= box.x + box.width + box.padding &&
+    y >= box.y - box.padding && 
+    y <= box.y + box.height + box.padding
+  );
+}
+
+/* Splitte Linie um Text zu vermeiden - nutzt Dashing statt echtem Clipping */
+function applyTextClipping() {
+  gSel.selectAll('path.link').style('stroke-dasharray', null);
+}
+
+/* Baum zeichnen */
+function drawTree(src) {
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const fs = currentFontSize;
+
+  computeFanLayout(rootNode, canvasW, canvasH, fs);
+
+  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+  const dur  = 320;
+
+  /* Links */
+  const link = gSel.selectAll('path.link').data(rootNode.links(), d => d.target._uid);
+  const linkE = link.enter().append('path').attr('class','link')
+    .attr('d', () => {
+      const o = { x: src.x0 ?? 0, y: src.y0 ?? 0 };
+      return diag({ source: o, target: o });
+    });
+  linkE.merge(link).transition().duration(dur)
+    .attr('d', diag)
+    .style('stroke', d => {
+      const col = NODE_COLORS[d.source.data.type] || '#c8973a';
+      return d.source.depth === 0 ? col + '55' : col + '30';
+    })
+    .style('stroke-width', () => calculateStrokeWidth(3) + 'px');
+  link.exit().transition().duration(dur)
+    .attr('d', () => {
+      const o = { x: src.x, y: src.y };
+      return diag({ source: o, target: o });
+    }).remove();
+
+  /* Nodes */
+  const node = gSel.selectAll('g.node').data(rootNode.descendants(), d => d._uid);
+  const enter = node.enter().append('g').attr('class','node')
+    .attr('transform', () => `translate(${src.y0 ?? 0},${src.x0 ?? 0})`)
+    .style('cursor','pointer')
+    .on('click', (ev, d) => {
+  ev.stopPropagation();
+  if (miniMap) { try { miniMap.remove(); } catch(e) {} miniMap = null; miniMarker = null; }
+  toggle(d);
+  showPanel(d);
+});
+
+  enter.append('circle').attr('class','halo')
+    .attr('r', d => nodeRadius(d.data.type, fs) + 5)
+    .style('fill', d => (NODE_COLORS[d.data.type] || '#c8973a') + '18')
+    .style('stroke','none');
+  enter.append('circle').attr('r', 0)
+    .style('fill',   d => d._ch
+      ? (NODE_COLORS[d.data.type] || '#7ec8c8') + '55'
+      : (NODE_COLORS[d.data.type] || '#7ec8c8'))
+    .style('stroke', d => d._searchMatch
+      ? '#f0c060'
+      : (NODE_COLORS[d.data.type] || '#c8973a'));
+  enter.append('text').attr('dy','0.35em');
+
+  const merged = enter.merge(node);
+  merged.transition().duration(dur)
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+
+  merged.select('circle.halo').transition().duration(dur)
+    .attr('r', d => nodeRadius(d.data.type, fs) + 5);
+
+  merged.select('circle:not(.halo)').transition().duration(dur)
+    .attr('r', d => nodeRadius(d.data.type, fs))
+    .style('fill', d => d._ch
+      ? (NODE_COLORS[d.data.type] || '#7ec8c8') + '55'
+      : (NODE_COLORS[d.data.type] || '#7ec8c8'))
+    .style('stroke', d => d._searchMatch
+      ? '#f0c060'
+      : (NODE_COLORS[d.data.type] || '#c8973a'))
+    .style('stroke-width', d =>
+      d._searchMatch ? '3px' : (d === selNode ? '3px' : '1.5px'));
+
+  merged.select('text').transition().duration(dur)
+    .attr('x', d => {
+      const r = nodeRadius(d.data.type, fs);
+      return (d.children || d._ch) ? -(r + 6) : (r + 6);
+    })
+    .attr('text-anchor', d => (d.children || d._ch) ? 'end' : 'start')
+    .style('font-size', d => {
+      if (d.depth === 0)                return Math.round(fs * 1.2) + 'px';
+      if (d.data.type === 'family')     return Math.round(fs * 1.1) + 'px';
+      if (d.data.type === 'dialect')    return Math.round(fs * 0.88) + 'px';
+      return fs + 'px';
+    })
+    .text(d => {
+      const n  = d.data.name;
+      const mx = d.depth === 0 ? 40 : d.depth <= 2 ? 32 : 26;
+      return n.length > mx ? n.slice(0, mx - 1) + '…' : n;
+    })
+    .style('fill', d => getTextFill(d))
+    .attr('opacity', 1);
+
+  merged.classed('sel', d => selNode && d.data.id === selNode.data.id);
+
+  /* DRAG BEHAVIOR */
+  merged.call(d3.drag()
+    .on('start', dragStarted)
+    .on('drag', dragging)
+    .on('end', dragEnded));
+
+  node.exit().transition().duration(dur)
+    .attr('transform', `translate(${src.y},${src.x})`).remove();
+
+  rootNode.descendants().forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+  
+  /* Text-Clipping nach Render */
+  setTimeout(() => {
+    captureTextBboxes();
+    applyTextClipping();
+  }, dur + 50);
+}
+
+/* DRAG FUNKTIONEN */
+function dragStarted(event, d) {
+  draggedNode = d;
+  dragOffsets = new Map();
+  
+  function collectOffsets(node, baseX, baseY) {
+    dragOffsets.set(node._uid, { x: node.x - baseX, y: node.y - baseY });
+    if (node.children) {
+      node.children.forEach(c => collectOffsets(c, baseX, baseY));
+    }
+  }
+  
+  collectOffsets(d, d.x, d.y);
+  d3.select(this).classed('dragging', true);
+  d3.select(this).select('circle:not(.halo)').style('filter', 'drop-shadow(0 0 8px rgba(240,192,96,.6))');
+}
+
+function dragging(event, d) {
+  if (!draggedNode || !dragOffsets) return;
+  
+  const dx = event.dx / currentZoom.k;
+  const dy = event.dy / currentZoom.k;
+  
+  dragOffsets.forEach((offset, uid) => {
+    const node = rootNode.descendants().find(n => n._uid === uid);
+    if (node) {
+      node.x += dy;
+      node.y += dx;
+    }
+  });
+  
+  // OPTIMIERUNG: Nur direkt die Knoten verschieben, nicht neu zeichnen!
+  // Das macht Drag & Drop 10x flüssiger
+  gSel.selectAll('g.node').transition().duration(0)
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+  
+  // Auch Links updaten
+  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+  gSel.selectAll('path.link').transition().duration(0)
+    .attr('d', diag);
+}
+
+function dragEnded(event, d) {
+  d3.select(this).classed('dragging', false);
+  d3.select(this).select('circle:not(.halo)').style('filter', null);
+  draggedNode = null;
+  dragOffsets = null;
+}
+
+/* Übersicht */
+function fitView(anim = true) {
+  if (!rootNode) return;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  const nodes   = rootNode.descendants().filter(d => d.x != null && d.y != null);
+  if (!nodes.length) return;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(d => {
+    if (d.x < minX) minX = d.x; if (d.x > maxX) maxX = d.x;
+    if (d.y < minY) minY = d.y; if (d.y > maxY) maxY = d.y;
+  });
+
+  const svgW    = Math.max(maxY - minY, 1);
+  const svgH    = Math.max(maxX - minX, 1);
+  const padL    = 80;
+  const padR    = currentFontSize * 18;
+  const padV    = 50;
+  const scaleX  = (canvasW - padL - padR) / svgW;
+  const scaleY  = (canvasH - 2 * padV)    / svgH;
+  const scale   = Math.min(scaleX, scaleY, 1.6);
+  const tx      = padL - minY * scale;
+  const ty      = canvasH / 2 - (minX + maxX) / 2 * scale;
+
+  const t = d3.zoomIdentity.translate(tx, ty).scale(scale);
+  (anim ? svgSel.transition().duration(450) : svgSel).call(zoomBeh.transform, t);
+}
+
+function fitToNodes(nodes) {
+  if (!nodes.length) return;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(d => {
+    if (d.x != null) { if (d.x < minX) minX = d.x; if (d.x > maxX) maxX = d.x; }
+    if (d.y != null) { if (d.y < minY) minY = d.y; if (d.y > maxY) maxY = d.y; }
+  });
+  if (!isFinite(minX)) return;
+  if (maxX === minX) { minX -= 40; maxX += 40; }
+  if (maxY === minY) { minY -= 100; maxY += 100; }
+  const svgW  = Math.max(maxY - minY, 1);
+  const svgH  = Math.max(maxX - minX, 1);
+  const scaleX = (canvasW - 80 - 220) / svgW;
+  const scaleY = (canvasH - 120)       / svgH;
+  const scale  = Math.min(scaleX, scaleY, 2.8);
+  const tx = (canvasW - svgW * scale) / 2 - minY * scale;
+  const ty = canvasH / 2 - (minX + maxX) / 2 * scale;
+  svgSel.transition().duration(550)
+    .call(zoomBeh.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+function toggle(d) {
+  if (d.children) { d._ch = d.children; d.children = null; }
+  else if (d._ch) { d.children = d._ch; d._ch = null; }
+  drawTree(d);
+}
+
+function expandAll() {
+  rootNode.descendants().forEach(d => { if (d._ch) { d.children = d._ch; d._ch = null; } });
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function collapseAll() {
+  rootNode.descendants().forEach(d => {
+    if (d.depth > 0 && d.children) { d._ch = d.children; d.children = null; }
+  });
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function _hasLanguageDescendant(node) {
+  // Hilfsfunktion: Prüft ob ein Knoten eine Sprache als Nachkomme hat
+  if (node.data.type === 'language') return true;
+  if (node.children) {
+    return node.children.some(child => _hasLanguageDescendant(child));
+  }
+  if (node._ch) {
+    return node._ch.some(child => _hasLanguageDescendant(child));
+  }
+  return false;
+}
+
+function toggleDialects() {
+  if (!rootNode) return;
+  
+  // Neue Strategie:
+  // - Alle Sprachen-Knoten (type === 'language') bleiben OFFEN
+  // - Alle Übergruppen, die Sprachen als Nachkommen haben, bleiben OFFEN
+  // - Alle Übergruppen, die KEINE Sprachen als Nachkommen haben, werden EINGEKLAPPT
+  // - Damit sind nur Sprachen und ihre direkten Vorfahren sichtbar
+  
+  rootNode.descendants().forEach(d => {
+    if (d.children) {
+      // Checke: Enthält dieser Knoten oder seine Kinder eine Sprache?
+      const hasLanguageChild = d.children.some(child => _hasLanguageDescendant(child));
+      
+      // Wenn KEINE Sprache als Nachkomme vorhanden: einklappen
+      if (!hasLanguageChild) {
+        d._ch = d.children;
+        d.children = null;
+      }
+      // Sonst: offen lassen (Sprachen bleiben sichtbar)
+    }
+  });
+  
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function zoomBy(f) {
+  svgSel.transition().duration(260).call(zoomBeh.scaleBy, f);
+}
+
+/* Suche */
+function onSearchInput(q) {
+  clearTimeout(_searchTimer);
+  if (!q.trim()) { clearSearch(); return; }
+  _searchTimer = setTimeout(() => doSearch(q.trim()), 320);
+}
+
+function doSearch(q) {
+  if (!rootNode) return;
+  const ql = q.toLowerCase();
+  const matches = [];
+  rootNode.descendants().forEach(d => {
+    const n  = (d.data.name     || '').toLowerCase();
+    const o  = (d.data.nameOrig || '').toLowerCase();
+    const id = (d.data.id       || '').toLowerCase();
+    d._searchMatch = n.includes(ql) || o.includes(ql) || id.includes(ql);
+    if (d._searchMatch) matches.push(d);
+  });
+  matches.forEach(m => {
+    let a = m.parent;
+    while (a) { if (a._ch) { a.children = a._ch; a._ch = null; } a = a.parent; }
+  });
+  drawTree(rootNode);
+  if (matches.length) setTimeout(() => fitToNodes(matches), 380);
+}
+
+function clearSearch() {
+  if (!rootNode) return;
+  rootNode.descendants().forEach(d => { d._searchMatch = false; });
+  drawTree(rootNode);
+}
+
+
+
+/* ════════════════════════════════════════════════════════════════
+   INFO-PANEL  (mit Mini-Karte)
+════════════════════════════════════════════════════════════════ */
+let miniMap = null;
+let miniMarker = null;
+
+function _initMiniMap(lat, lon, color) {
+  const wrap = document.getElementById('ip-minimap-wrap');
+  if (!wrap) return;
+
+  if (miniMap) { try { miniMap.remove(); } catch(e) {} miniMap = null; miniMarker = null; }
+
+  miniMap = L.map('ip-minimap', {
+    zoomControl: true,
+    scrollWheelZoom: true,
+    dragging: true,
+    attributionControl: false,
+    zoomSnap: 0.5
+  });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd', maxZoom: 18
+  }).addTo(miniMap);
+  L.control.attribution({ prefix: '© OSM · CARTO' }).addTo(miniMap);
+
+  const icon = L.divIcon({
+    html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 6px ${color}aa;"></div>`,
+    className: '', iconSize: [12,12], iconAnchor: [6,6]
+  });
+  miniMarker = L.marker([lat, lon], { icon }).addTo(miniMap);
+  miniMap.setView([lat, lon], 5, { animate: false });
+  setTimeout(() => miniMap.invalidateSize(), 100);
+  setTimeout(() => miniMap.invalidateSize(), 400);
+}
+
+function showPanel(d) {
+  selNode = d;
+  drawTree(d);
+  document.getElementById('ip-empty').style.display = 'none';
+  document.getElementById('ip-content').classList.add('on');
+
+  const data = d.data;
+  document.getElementById('ip-name').textContent = data.name;
+  const origEl = document.getElementById('ip-orig');
+  if (data.nameOrig && data.nameOrig !== data.name) {
+    origEl.textContent = data.nameOrig; origEl.style.display = 'block';
+  } else { origEl.style.display = 'none'; }
+
+  const body = document.getElementById('ip-body');
+  body.innerHTML = '';
+
+  const secKl = mkSec('Klassifikation');
+  const br = document.createElement('div'); br.className = 'ip-row';
+  br.innerHTML = `<span class="ip-key">Typ</span><span class="ip-badge badge-${data.type}">${typeName(data.type)}</span>`;
+  secKl.appendChild(br);
+  addRow(secKl, 'Ebene', d.depth);
+  body.appendChild(secKl);
+
+  const secId = mkSec('Identifikatoren');
+  addRow(secId, 'Glottolog', data.id, true);
+  if (data.iso) addRow(secId, 'ISO 639-3', data.iso, true);
+  body.appendChild(secId);
+
+  if (data.lat != null && data.lon != null) {
+    const secG = mkSec('Koordinaten');
+    addRow(secG, 'Breite', data.lat.toFixed(4) + '°');
+    addRow(secG, 'Länge',  data.lon.toFixed(4) + '°');
+    body.appendChild(secG);
+  }
+
+  if (data.lat != null && data.lon != null) {
+    const secM = mkSec('Karte');
+    const wrap = document.createElement('div');
+    wrap.id = 'ip-minimap-wrap';
+    wrap.innerHTML = '<div id="ip-minimap"></div>';
+    secM.appendChild(wrap);
+    body.appendChild(secM);
+    setTimeout(() => {
+      const col = NODE_COLORS[data.type] || '#c8973a';
+      _initMiniMap(data.lat, data.lon, col);
+    }, 60);
+  } else {
+    if (miniMap) { try { miniMap.remove(); } catch(e) {} miniMap = null; miniMarker = null; }
+  }
+
+  const countries = _getCountries(d);
+  const pending   = !countries && _isPending(d);
+  if (countries && countries.length) {
+    const secC = mkSec('Gesprochen in');
+    countries.forEach(c => {
+      const row = document.createElement('div'); row.className = 'ip-country';
+      row.innerHTML = `
+        <span class="ip-country-flag">${c.flag}</span>
+        <span class="ip-country-info">
+          <span class="ip-country-name">${c.name}</span>
+          ${c.region ? `<span class="ip-country-region">${c.region}</span>` : ''}
+        </span>`;
+      secC.appendChild(row);
+    });
+    body.appendChild(secC);
+  } else if (pending) {
+    const secC = mkSec('Gesprochen in');
+    const ld = document.createElement('div'); ld.className = 'ip-country-loading';
+    ld.textContent = 'Wird ermittelt…';
+    secC.appendChild(ld); body.appendChild(secC);
+  }
+
+  const kids = d.children || d._ch || [];
+  if (kids.length) {
+    const secK = mkSec(`Untereinheiten (${kids.length})`);
+    const ul = document.createElement('ul'); ul.className = 'ip-child-list';
+    kids.forEach(c => {
+      const li = document.createElement('li');
+      const dot = document.createElement('div'); dot.className = 'ip-child-dot';
+      dot.style.background = NODE_COLORS[c.data.type] || '#7a6a48';
+      li.appendChild(dot);
+      const sp = document.createElement('span'); sp.textContent = c.data.name;
+      li.appendChild(sp); ul.appendChild(li);
+    });
+    secK.appendChild(ul); body.appendChild(secK);
+  }
+
+  if (d.depth > 0) {
+    const ancs = d.ancestors().slice(1).reverse();
+    if (ancs.length) {
+      const secA = mkSec('Übergeordnet');
+      ancs.forEach((a, i) => {
+        const r = document.createElement('div'); r.className = 'ip-row';
+        r.innerHTML = `<span class="ip-key" style="padding-left:${i*8}px">${i?'└ ':''}${typeName(a.data.type)}</span><span class="ip-val">${a.data.name}</span>`;
+        secA.appendChild(r);
+      });
+      body.appendChild(secA);
+    }
+  }
+}
+
+function mkSec(title) {
+  const s = document.createElement('div'); s.className = 'ip-section';
+  const t = document.createElement('div'); t.className = 'ip-sec-title'; t.textContent = title;
+  s.appendChild(t); return s;
+}
+function addRow(p, key, val, mono=false) {
+  const r = document.createElement('div'); r.className = 'ip-row';
+  r.innerHTML = `<span class="ip-key">${key}</span><span class="ip-val${mono?' mono':''}">${val}</span>`;
+  p.appendChild(r);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   LEAFLET-HAUPTKARTE  (ohne Clustering, direkte Marker)
+════════════════════════════════════════════════════════════════ */
+let leafMap = null;
+
+function initMap() {
+  leafMap = L.map('map', {
+    center: mapConfig.center,
+    zoom:   mapConfig.zoom,
+    zoomControl: false
+  });
+
+  L.control.zoom({ position: 'bottomright' }).addTo(leafMap);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(leafMap);
+
+  geoData.forEach(lang => {
+    const col = lang.color || "#c8973a";
+    const icon = L.divIcon({
+      html: `<div style="
+        width:12px;height:12px;border-radius:50%;
+        background:${col};
+        border:2px solid rgba(255,255,255,0.85);
+        box-shadow:0 0 6px ${col}aa,0 1px 4px rgba(0,0,0,.5);
+        cursor:pointer;
+      "></div>`,
+      className: '', iconSize: [12,12], iconAnchor: [6,6], popupAnchor: [0,-8]
+    });
+    const popup = `
+      <div class="lp-name">${lang.name}</div>
+      ${lang.nameOrig !== lang.name ? `<div class="lp-orig">${lang.nameOrig}</div>` : ''}
+      <div class="lp-row"><span>Glottolog:</span><span class="lp-badge">${lang.id}</span></div>
+      <div class="lp-row" style="font-size:.63rem;color:#666">📍 ${lang.lat.toFixed(4)}° · ${lang.lon.toFixed(4)}°</div>`;
+    const m = L.marker([lang.lat, lang.lon], { icon });
+    m.bindPopup(popup, { maxWidth: 230 });
+    m.on('mouseover', () => m.openPopup());
+    m.addTo(leafMap);
+  });
+
+  setTimeout(() => leafMap.invalidateSize(), 150);
+}
+
+/* ── Start ── */
+window.addEventListener('resize', () => {
+  if (rootNode) drawTree(rootNode);
+  if (leafMap) leafMap.invalidateSize();
+  if (miniMap) miniMap.invalidateSize();
+});
+
+document.addEventListener('DOMContentLoaded', () => { initData(); initTree(); });
+</script>
+</body>
+</html>
