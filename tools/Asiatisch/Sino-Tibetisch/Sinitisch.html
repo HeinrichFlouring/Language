@@ -1,0 +1,3669 @@
+<!DOCTYPE html>
+<!--
+╔══════════════════════════════════════════════════════════════════════╗
+║  SPRACHFAMILIEN-ATLAS · VORLAGE v4                                  ║
+╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title id="page-title">Sprachfamilien-Atlas</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+  --bg-primary:  #0a0a0f;
+  --bg-nav:      #0d0d14;
+  --bg-panel:    #13131c;
+  --gold-bright: #f0c060;
+  --gold-mid:    #c8973a;
+  --gold-glow:   rgba(240,192,96,0.15);
+  --text-primary:#e8d5a0;
+  --text-dim:    #9a8a68;      /* heller als vorher (#7a6a48) */
+  --text-muted:  #7a6a52;      /* heller als vorher (#4a4030) */
+  --border:      #1e1e2e;
+  --border-gold: rgba(200,151,58,0.3);
+  --node-family: #c8973a;
+  --node-lang:   #7ec8c8;
+  --node-sub:    #c87868;
+  --node-dial:   #a0b878;
+  --nav-h:       52px;
+  --toolbar-h:   46px;
+  --panel-w:     300px;
+}
+    html, body { height:100%; width:100%; overflow:hidden; font-family:'Georgia',serif; background:var(--bg-primary); color:var(--text-primary); }
+
+    /* ── NAV ── */
+    #nav { position:fixed; top:0; left:0; right:0; height:var(--nav-h); background:var(--bg-nav); border-bottom:1px solid var(--border-gold); display:flex; align-items:center; justify-content:space-between; padding:0 24px; z-index:1000; box-shadow:0 2px 20px rgba(0,0,0,.6); }
+    #nav-left { display:flex; align-items:center; gap:10px; }
+    .title-glyph { font-size:1.3rem; color:var(--gold-bright); text-shadow:0 0 12px rgba(240,192,96,.4); }
+    .title-main  { font-size:1rem; color:var(--gold-bright); letter-spacing:2px; text-transform:uppercase; font-weight:normal; }
+    .title-sub   { font-size:.65rem; color:var(--text-dim); letter-spacing:1px; font-family:'Segoe UI',sans-serif; }
+    #nav-tabs { display:flex; gap:4px; background:rgba(0,0,0,.4); border:1px solid var(--border-gold); border-radius:8px; padding:4px; }
+    .nav-tab { display:flex; align-items:center; gap:7px; padding:6px 18px; border-radius:6px; border:1px solid transparent; cursor:pointer; font-family:'Segoe UI',sans-serif; font-size:.78rem; color:var(--text-dim); background:transparent; transition:all .25s; user-select:none; }
+    .nav-tab:hover  { color:var(--gold-mid); background:var(--gold-glow); }
+    .nav-tab.active { color:var(--gold-bright); background:rgba(200,151,58,.18); border-color:var(--border-gold); }
+    .nav-tab svg { width:14px; height:14px; fill:currentColor; flex-shrink:0; }
+    #nav-meta { display:flex; gap:10px; }
+    .meta-chip { font-family:'Segoe UI',sans-serif; font-size:.65rem; color:var(--text-dim); background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:10px; padding:2px 10px; letter-spacing:.5px; }
+
+    /* ── VIEWS ── */
+    #views { position:fixed; top:var(--nav-h); left:0; right:0; bottom:0; }
+    .view { position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity .4s; }
+    .view.visible { opacity:1; pointer-events:all; }
+
+    /* ── TREE VIEW ── */
+    #view-tree { background:var(--bg-primary); display:flex; flex-direction:column; }
+    #tree-toolbar { min-height:var(--toolbar-h); height:auto; background:var(--bg-panel); border-bottom:1px solid var(--border); display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:6px 16px; flex-shrink:0; }
+    .tb-label { font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-muted); letter-spacing:1px; white-space:nowrap; }
+    .tb-btn { display:flex; align-items:center; gap:5px; padding:4px 12px; border-radius:6px; border:1px solid var(--border-gold); background:transparent; color:var(--gold-mid); font-family:'Segoe UI',sans-serif; font-size:.72rem; cursor:pointer; transition:all .2s; white-space:nowrap; }
+    .tb-btn:hover { background:var(--gold-glow); color:var(--gold-bright); border-color:var(--gold-bright); }
+    .tb-btn svg { width:11px; height:11px; fill:currentColor; }
+    .tb-divider { width:1px; height:22px; background:var(--border); flex-shrink:0; }
+    #zoom-info { font-family:monospace; font-size:.7rem; color:var(--text-muted); min-width:38px; text-align:center; }
+    .tb-input { background:rgba(255,255,255,.05); border:1px solid var(--border-gold); border-radius:6px; color:var(--text-primary); font-family:'Segoe UI',sans-serif; font-size:.72rem; padding:4px 10px; width:145px; outline:none; transition:border-color .2s, background .2s; }
+    .tb-input:focus { border-color:var(--gold-bright); background:rgba(240,192,96,.07); }
+    .tb-input::placeholder { color:var(--text-muted); }
+    #tree-legend { display:flex; align-items:center; gap:12px; margin-left:auto; }
+    .leg-item { display:flex; align-items:center; gap:5px; font-family:'Segoe UI',sans-serif; font-size:.65rem; color:var(--text-dim); }
+    .leg-dot  { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+    #tree-main { flex:1; display:flex; overflow:hidden; min-height:0; }
+    #tree-canvas { flex:1; overflow:hidden; position:relative; }
+    #tree-canvas svg { width:100%; height:100%; cursor:grab; }
+    #tree-canvas svg:active { cursor:grabbing; }
+
+    /* ── INFO PANEL ── */
+    #info-panel { width:var(--panel-w); flex-shrink:0; background:var(--bg-panel); border-left:1px solid var(--border-gold); display:flex; flex-direction:column; overflow:hidden; }
+    #ip-header { padding:14px 16px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+    .ip-label { font-family:'Segoe UI',sans-serif; font-size:.62rem; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; }
+    #ip-name  { font-family:'Georgia',serif; font-size:1.05rem; color:var(--gold-bright); line-height:1.3; word-break:break-word; }
+    #ip-orig  { font-family:'Segoe UI',sans-serif; font-size:.7rem; color:var(--text-dim); font-style:italic; margin-top:3px; display:none; }
+    #ip-body  { flex:1; overflow-y:auto; padding:12px 16px; }
+    .ip-section { margin-bottom:14px; }
+    .ip-sec-title { font-family:'Segoe UI',sans-serif; font-size:.6rem; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    .ip-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:5px; font-family:'Segoe UI',sans-serif; font-size:.72rem; }
+    .ip-key { color:var(--text-muted); flex-shrink:0; }
+    .ip-val { color:var(--text-dim); text-align:right; word-break:break-word; }
+    .ip-val.mono { color:var(--node-lang); font-family:monospace; font-size:.75rem; }
+    .ip-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-family:'Segoe UI',sans-serif; font-size:.65rem; letter-spacing:.5px; border:1px solid; }
+    .badge-family   { color:var(--node-family); border-color:var(--node-family); background:rgba(200,151,58,.1); }
+    .badge-language { color:var(--node-lang);   border-color:var(--node-lang);   background:rgba(126,200,200,.1); }
+    .badge-subgroup { color:var(--node-sub);    border-color:var(--node-sub);    background:rgba(200,120,104,.1); }
+    .badge-dialect  { color:var(--node-dial);   border-color:var(--node-dial);   background:rgba(160,184,120,.1); }
+    .ip-country { display:flex; align-items:flex-start; gap:9px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,.04); font-family:'Segoe UI',sans-serif; font-size:.72rem; }
+    .ip-country:last-child { border-bottom:none; }
+    .ip-country-flag   { font-size:1.25rem; line-height:1.1; flex-shrink:0; }
+    .ip-country-info   { display:flex; flex-direction:column; gap:1px; }
+    .ip-country-name   { color:var(--text-dim); line-height:1.4; }
+    .ip-country-region { font-size:.62rem; color:var(--text-muted); }
+    .ip-country-loading { font-size:.68rem; color:var(--text-muted); font-style:italic; padding:3px 0; }
+    .ip-child-list { list-style:none; }
+    .ip-child-list li { display:flex; align-items:center; gap:6px; padding:3px 0; font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-dim); border-bottom:1px solid rgba(255,255,255,.03); }
+    .ip-child-list li:last-child { border-bottom:none; }
+    .ip-child-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    #ip-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:10px; color:var(--text-muted); font-family:'Segoe UI',sans-serif; font-size:.72rem; text-align:center; padding:20px; }
+    #ip-empty .ei { font-size:2rem; opacity:.3; }
+    #ip-content { display:none; height:100%; flex-direction:column; overflow:hidden; }
+    #ip-content.on { display:flex; }
+
+    /* Mini-Karte im Info-Panel */
+    #ip-minimap-wrap { width:100%; height:160px; border-radius:8px; overflow:hidden; border:1px solid var(--border-gold); margin-top:6px; flex-shrink:0; position:relative; }
+    #ip-minimap { width:100%; height:100%; }
+
+    /* ── D3 ELEMENTE ── */
+    .link { fill:none; stroke:rgba(200,151,58,.22); stroke-width:3px; }
+    /* Trennlinie zwischen Haupt-Familienästen */
+    .family-sep { fill:none; stroke:rgba(200,151,58,.12); stroke-width:1px; stroke-dasharray:4,4; }
+    .node circle { stroke-width:1.5px; transition:all .25s; }
+    .node:hover circle { stroke-width:2.5px; }
+    .node.dragging circle { filter: drop-shadow(0 0 8px rgba(240,192,96,.6)); stroke-width:3px; }
+    /* Textgröße wird dynamisch per inline-style gesetzt */
+    .node text { font-family:'Georgia',serif; pointer-events:none; }
+    .node.sel circle { stroke-width:3px; }
+    #tree-bar { height:34px; background:var(--bg-panel); border-top:1px solid var(--border); display:flex; align-items:center; padding:0 20px; gap:20px; flex-shrink:0; }
+    #tree-bar .bi { font-family:'Segoe UI',sans-serif; font-size:.67rem; color:var(--text-muted); }
+    #tree-bar .bi span { color:var(--text-dim); }
+
+    /* ── MAP VIEW ── */
+    #view-map { background:#1a1a2e; }
+    #map { width:100%; height:100%; }
+    /* Legende links unten */
+    #map-overlay {
+      position:absolute;
+      bottom:32px; left:16px;
+      z-index:900;
+      background:rgba(10,10,15,.88);
+      border:1px solid var(--border-gold);
+      border-radius:10px;
+      padding:12px 16px;
+      backdrop-filter:blur(8px);
+      min-width:180px;
+    }
+    .ov-title { font-size:.7rem; color:var(--gold-mid); letter-spacing:1.5px; text-transform:uppercase; font-family:'Segoe UI',sans-serif; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border-gold); }
+    .ov-item  { display:flex; align-items:center; gap:8px; margin-bottom:5px; font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-dim); }
+    .ov-dot   { width:10px; height:10px; border-radius:50%; flex-shrink:0; border:1.5px solid rgba(255,255,255,.2); }
+
+    /* ── LEAFLET OVERRIDES ── */
+    .leaflet-container { background:#2a3a4a !important; }
+    .leaflet-popup-content-wrapper { background:var(--bg-panel) !important; color:var(--text-primary) !important; border:1px solid var(--border-gold) !important; border-radius:10px !important; box-shadow:0 8px 32px rgba(0,0,0,.7) !important; }
+    .leaflet-popup-tip { background:var(--bg-panel) !important; }
+    .leaflet-popup-close-button { color:var(--text-dim) !important; }
+    .lp-name  { font-family:'Georgia',serif; font-size:1rem; color:var(--gold-bright); margin-bottom:4px; }
+    .lp-orig  { font-size:.68rem; color:var(--text-dim); font-style:italic; margin-bottom:6px; }
+    .lp-row   { display:flex; gap:6px; align-items:center; font-size:.7rem; color:var(--text-dim); margin-bottom:3px; }
+    .lp-badge { font-size:.62rem; background:rgba(200,151,58,.2); border:1px solid var(--border-gold); border-radius:4px; padding:1px 6px; color:var(--gold-mid); font-family:monospace; }
+    /* Zoom-Buttons: rechts unten auf der Karte */
+    .leaflet-control-zoom { margin-right:16px !important; margin-bottom:16px !important; }
+    .leaflet-bottom.leaflet-right { bottom:0; right:0; }
+    .leaflet-control-zoom a { background:rgba(13,13,20,0.92) !important; color:var(--gold-mid) !important; border-color:var(--border-gold) !important; }
+    .leaflet-control-attribution { background:rgba(10,10,15,.7) !important; color:var(--text-muted) !important; font-size:.55rem !important; }
+
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+    * { scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+
+    /* Mini-Map Leaflet overrides */
+    #ip-minimap .leaflet-control-zoom { display:none !important; }
+    #ip-minimap .leaflet-control-attribution { font-size:.45rem !important; }
+
+    /* ── ERROR SCREEN ── */
+    #error-screen { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:var(--bg-primary); z-index:10000; flex-direction:column; align-items:center; justify-content:center; padding:40px; text-align:center; }
+    #error-screen.visible { display:flex; }
+    .error-icon { font-size:3rem; margin-bottom:20px; }
+    .error-title { font-size:1.4rem; color:var(--gold-bright); margin-bottom:10px; font-weight:700; }
+    .error-message { font-size:0.95rem; color:var(--text-dim); max-width:600px; line-height:1.6; margin-bottom:20px; font-family:'Segoe UI',monospace; background:rgba(255,0,0,.1); border:1px solid rgba(200,100,100,.3); border-radius:8px; padding:15px; }
+    .error-details { font-size:0.8rem; color:var(--text-muted); max-width:700px; }
+
+    @media (max-width:700px) { #nav-meta{display:none;} .nav-tab{padding:5px 10px;} #tree-legend{display:none;} }
+    @media (max-width:480px) { #info-panel{display:none;} }
+  </style>
+</head>
+<body>
+
+<nav id="nav">
+  <div id="nav-left">
+    <span class="title-glyph" id="nav-glyph">◈</span>
+    <div>
+      <div class="title-main" id="nav-title-main">Sprachfamilien-Atlas</div>
+      <div class="title-sub">Interaktiver Sprach-Atlas</div>
+    </div>
+  </div>
+  <div id="nav-tabs">
+    <div class="nav-tab active" data-view="tree" onclick="switchView('tree')">
+      <svg viewBox="0 0 16 16"><path d="M1 1h5v3H4v2h2v3H1V7h2V4H1zm7 0h5v3h-2v2h2v3H8V7h2V4H8zm0 7h5v3h-2v2h2v3H8v-3h2v-2H8z"/></svg>
+      Stammbaum
+    </div>
+    <div class="nav-tab" data-view="map" onclick="switchView('map')">
+      <svg viewBox="0 0 16 16"><path d="M8 0a5 5 0 0 0-5 5c0 3.5 5 11 5 11s5-7.5 5-11a5 5 0 0 0-5-5zm0 7.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+      Verbreitungskarte
+    </div>
+  </div>
+  <div id="nav-meta">
+    <span class="meta-chip" id="chip-fam">– Familien</span>
+    <span class="meta-chip" id="chip-lan">– Sprachen</span>
+    <span class="meta-chip" id="chip-dia">– Dialekte</span>
+  </div>
+</nav>
+
+<div id="views">
+
+  <!-- STAMMBAUM -->
+  <div id="view-tree" class="view visible">
+    <div id="tree-toolbar">
+      <button class="tb-btn" onclick="expandAll()">
+        <svg viewBox="0 0 12 12"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        Aufklappen
+      </button>
+      <button class="tb-btn" onclick="collapseAll()">
+        <svg viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        Einklappen
+      </button>
+      <button class="tb-btn" onclick="toggleDialects()">
+        <svg viewBox="0 0 12 12"><path d="M2 3h3v3H2zm5 0h3v3H7zm-5 5h3v3H2zm5 0h3v3H7z" stroke="currentColor" stroke-width="0.8" fill="currentColor"/></svg>
+        Dialekte verbergen
+      </button>
+      <button class="tb-btn" onclick="fitView()">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><polyline points="1,4 1,1 4,1"/><polyline points="8,1 11,1 11,4"/><polyline points="11,8 11,11 8,11"/><polyline points="4,11 1,11 1,8"/></svg>
+        Übersicht
+      </button>
+      <div class="tb-divider"></div>
+      <button class="tb-btn" onclick="zoomBy(1.3)">＋</button>
+      <span id="zoom-info">100%</span>
+      <button class="tb-btn" onclick="zoomBy(0.77)">－</button>
+      <div class="tb-divider"></div>
+      <input id="tree-search" type="text" class="tb-input" placeholder="🔍  Sprache suchen…"
+             oninput="onSearchInput(this.value)"
+             onkeydown="if(event.key==='Escape'){this.value='';clearSearch();}"/>
+      <div class="tb-divider"></div>
+      <!-- Schriftgröße-Regler (ersetzt Abstand-Regler) -->
+      <span class="tb-label">Schriftgröße</span>
+      <input type="range" id="fontsize-sl" min="5" max="20" value="11" step="1"
+             style="width:72px;accent-color:var(--gold-mid);cursor:pointer;vertical-align:middle;"
+             oninput="onFontsizeChange(this.value)"/>
+      <span id="fs-val" style="font-size:.65rem;color:var(--text-muted);min-width:32px">11 px</span>
+      <div id="tree-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#c8973a"></div>Familie</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#7ec8c8"></div>Sprache</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#c87868"></div>Gruppe</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#a0b878"></div>Dialekt</div>
+      </div>
+    </div>
+
+    <div id="tree-main">
+      <div id="tree-canvas">
+        <svg id="tree-svg">
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <clipPath id="text-clip">
+              <!-- Wird dynamisch gefüllt -->
+            </clipPath>
+          </defs>
+          <g id="tree-g"></g>
+        </svg>
+      </div>
+      <div id="info-panel">
+        <div id="ip-empty">
+          <div class="ei">◈</div>
+          <div>Knoten anklicken<br>für Details</div>
+        </div>
+        <div id="ip-content">
+          <div id="ip-header">
+            <div class="ip-label">Details</div>
+            <div id="ip-name">–</div>
+            <div id="ip-orig"></div>
+          </div>
+          <div id="ip-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tree-bar">
+      <div class="bi">Klick: <span>Details / Ein-/Ausklappen</span></div>
+      <div class="bi">Ziehen: <span>Verschieben (Knoten + Astgruppe)</span></div>
+      <div class="bi">Scroll: <span>Zoom</span></div>
+      <div class="bi">Regler: <span>Schriftgröße &amp; Abstände</span></div>
+    </div>
+  </div>
+
+  <!-- KARTE -->
+  <div id="view-map" class="view">
+    <div id="map"></div>
+    <div id="map-overlay">
+      <div class="ov-title">Sprachgruppen</div>
+      <div id="map-legend-items"></div>
+    </div>
+  </div>
+
+</div><!-- #views -->
+
+<!-- ERROR SCREEN -->
+<div id="error-screen">
+  <div class="error-icon">⚠️</div>
+  <div class="error-title">Syntax-Fehler im Newick-String</div>
+  <div class="error-message" id="error-msg"></div>
+  <div class="error-details">
+    <p>Überprüfen Sie Ihren Newick-String auf:</p>
+    <ul style="text-align:left;display:inline-block;margin-top:10px;">
+      <li>✓ Backticks: const rawNewick = `...` (nicht "..." oder '...')</li>
+      <li>✓ Korrekte Klammer-Balance: ( und )</li>
+      <li>✓ Text mit Leerzeichen in Quotes: 'Name mit Leerzeichen'</li>
+      <li>✓ Sprachen markieren mit: -l-</li>
+    </ul>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1a  –  GLYPH
+════════════════════════════════════════════════════════════════ */
+const familyGlyph = "鳥飛體";
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1b  –  ZÄHLER
+════════════════════════════════════════════════════════════════ */
+const familyMeta = {
+  families:  16,
+  languages: 30,
+  dialects:  195
+};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1c  –  KARTEN-KONFIGURATION
+════════════════════════════════════════════════════════════════ */
+const mapConfig = {
+  center: [35.08825832422155,100.59879031316255],
+  zoom:   5
+};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1d  –  KARTEN-LEGENDE (OPTIONAL)
+════════════════════════════════════════════════════════════════ */
+const mapLegendGroups = [];
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 2a  –  DEUTSCHE NAMEN
+════════════════════════════════════════════════════════════════ */
+const nameTranslations = {'lite1248': 'Klassisches Chinesisch',
+'anyi1247': 'Anyi',
+'nanc1254': 'Nanchang',
+'ping1246': 'Pingjiang',
+'chan1317': 'Chang-Jing',
+'fugu1238': 'Fu-Guang',
+'jich1238': 'Ji-Cha',
+'yili1247': 'Yi-Liu',
+'ying1246': 'Ying-Yi',
+'ganc1239': 'Gan',
+'hail1247': 'Hailu',
+'huiz1243': 'Huizhou',
+'yuet1238': 'Meixian',
+'ning1269': 'Ning-Long',
+'raop1234': 'Raoping',
+'liud1234': 'Liudui-Pingtung',
+'taoy1234': 'Taoyuan-Miaoli',
+'sanh1239': 'Sixian',
+'chan1325': 'Changting',
+'lian1259': 'Liancheng',
+'ming1255': 'Mingxi',
+'ning1278': 'Ninghua',
+'qing1239': 'Qingliu',
+'shan1292': 'Shanghang',
+'wupi1239': 'Wuping',
+'yong1284': 'Yongding',
+'ting1250': 'Tingzhou',
+'tong1314': 'Tonggu',
+'yueb1238': 'Yuebei',
+'yuez1238': 'Yuezhong',
+'yugu1248': 'Yugui',
+'hakk1236': 'Hakka',
+'comm1247': 'Gemeinchinesisch',
+'zhon1237': 'Zhongguo Hanyu',
+'midd1344': 'Mittelchinesisch',
+'huhe1234': 'Huhehaote',
+'ping1247': 'Pingyao',
+'taiy1243': 'Taiyuan',
+'jiny1235': 'Jin',
+'daoh1239': 'Daohua',
+'hezh1244': 'Hezhou',
+'beij1234': 'Peking-Mandarin',
+'taib1240': 'Taipeh-Mandarin',
+'beij1235': 'Pekingisch',
+'xian1253': "Xi'an-Mandarin",
+'xini1234': 'Xining-Mandarin',
+'zhen1241': 'Zhengzhou-Mandarin',
+'huab1238': 'Zentraler Plain-Guanhua',
+'hefe1234': 'Hefei-Mandarin',
+'nanj1234': 'Nanking-Mandarin',
+'yang1306': 'Yangzhou-Mandarin',
+'jing1262': 'Jianghuai-Guanhua',
+'jina1245': 'Jinan-Mandarin',
+'tian1238': 'Tianjin-Mandarin',
+'jilu1239': 'Jilu-Guanhua',
+'lanz1234': 'Lanzhou-Mandarin',
+'wulu1243': 'Wulumuqi-Mandarin',
+'yinc1239': 'Yinchuan-Mandarin',
+'xibe1241': 'Lanyin',
+'ning1279': 'Ningxia-Mandarin',
+'haer1234': 'Harbin-Mandarin',
+'shen1252': 'Shenyang-Mandarin',
+'nort3283': 'Nordost-Mandarin',
+'qing1240': 'Qingdao-Mandarin',
+'rong1271': 'Rongcheng-Mandarin',
+'chen1267': 'Chengdu-Mandarin',
+'guiy1236': 'Guiyang-Mandarin',
+'kunm1234': 'Kunming-Chinesisch',
+'wuha1234': 'Wuhan-Mandarin',
+'xina1239': 'Südwest-Guanhua',
+'ying1249': 'Yingshan-Mandarin',
+'yuci1234': 'Yuci-Mandarin',
+'mand1415': 'Mandarin',
+'tang1373': 'Tangwang',
+'wutu1241': 'Wutunhua',
+'ganz1245': 'Ganzu',
+'shaa1242': 'Shaanxi',
+'yage1238': 'Yage',
+'dung1253': 'Dunganisch',
+'gang1272': 'Gangou',
+'zhon1236': 'Zhongyuan',
+'mand1471': 'Mandarinisch',
+'nort3155': 'Nordchinesisch',
+'quji1234': 'Qujiang Hakka-Shibei Shaoguan Tuhua',
+'jing1261': 'Jingzhan',
+'hong1243': 'Hongchuan',
+'hong1244': 'Hongmen',
+'shex1234': 'Shexian',
+'tang1380': 'Tangcun',
+'jixi1238': 'Jixi',
+'qide1238': 'Qide',
+'huan1251': 'Huangshan',
+'sout3255': 'Südost-Qimen',
+'tunx1234': 'Tunxi',
+'wuyu1234': 'Wuyuan',
+'xiun1234': 'Xiuning',
+'yixi1234': 'Yixian',
+'xiuy1238': 'Xiuyi',
+'yanz1241': 'Yanzhou',
+'huiz1242': 'Hui',
+'ouji1238': 'Wenzhou',
+'long1386': 'Jiangshan',
+'qing1241': 'Qingtian',
+'chuz1238': 'Quzhou',
+'chuq1241': 'Chuqu',
+'jinh1238': 'Jinhua',
+'lins1238': 'Lin-Shao',
+'ning1280': 'Ningbo',
+'zhou1235': 'Zhoushan',
+'yong1273': 'Yongjiang',
+'nort3273': 'Nord-Zhejiang',
+'hang1257': 'Hangzhou',
+'pili1238': 'Piling',
+'nort3274': 'Nordwest-Wu',
+'jiax1234': 'Jiaxing',
+'shan1293': 'Shanghaiisch',
+'suzh1234': 'Suzhou',
+'wuxi1234': 'Wuxi',
+'suhu1238': 'Su-Hu-Jia',
+'huzh1239': 'Huzhou',
+'sout3256': 'Südost-Guangde',
+'tiao1238': 'Tiaoxi',
+'taih1244': 'Taihu',
+'taiz1238': 'Taizhou',
+'wuzh1238': 'Wuzhou-Wu',
+'shil1262': 'Shiling',
+'taig1246': 'Taigao',
+'tong1313': 'Tongjing',
+'xuan1238': 'Xuanzhou',
+'wuch1236': 'Wu',
+'wuic1234': 'Wuisch',
+'wuhu1234': 'Wu-Hui',
+'chan1326': 'Changsha',
+'yiyu1234': 'Yi-Yuan',
+'yuey1234': 'Yueyang',
+'chan1316': 'Changyi',
+'baoj1239': 'Baojing',
+'chen1269': 'Chenxi',
+'guzh1234': 'Guzhang',
+'huay1242': 'Huayuan',
+'jish1242': 'Jishu',
+'luxi1239': 'Luxi',
+'xupu1234': 'Xupu',
+'yuan1243': 'Yuanling',
+'chen1268': 'Chen-Xu',
+'heng1239': 'Hengzhou',
+'loud1234': 'Loudi',
+'shua1258': 'Shuangfeng',
+'xian1254': 'Xiangtan',
+'luos1238': 'Loushao',
+'dong1298': 'Dong-Qi',
+'jian1243': 'Jiangyong',
+'quan1243': 'Quan-Zi',
+'yong1285': 'Yong-Quan',
+'xian1251': 'Xiang',
+'dong1299': 'Dong (Xinning)',
+'guil1241': 'Guilin-Pinghua',
+'nort3268': 'Nördliches Pinghua',
+'nann1239': 'Nanning-Pinghua',
+'nann1240': 'Nanning-Liuzhou-Pinghua',
+'upri1240': 'Oberer-Liuzhou-Pinghua',
+'sout3250': 'Südliches Pinghua',
+'ping1245': 'Pinghua',
+'gaoz1234': 'Gaozhou',
+'yang1307': 'Yangjiang',
+'gaol1235': 'Gaoyang',
+'guin1237': 'Goulou',
+'qinl1235': 'Qinlian',
+'danc1234': 'Dancun',
+'jian1244': 'Jiangmen',
+'tois1237': 'Toisanese',
+'vanc1237': 'Vancouver-Kantonisch',
+'siyi1236': 'Siyi',
+'wuhu1235': 'Wuhua',
+'yong1286': 'Yongxun',
+'guan1279': 'Guangzhou',
+'xian1255': 'Hongkong-Kantonisch',
+'tank1239': 'Tanka-Kantonisch',
+'wuzh1239': 'Wuzhou-Yue',
+'xigu1234': 'Xiguan',
+'cant1236': 'Kantonisch',
+'guan1280': 'Guan-Bao',
+'samy1234': 'Samyap',
+'zhon1239': 'Zhongshan',
+'yueh1236': 'Yuehai',
+'yuec1235': 'Yue',
+'yuep1234': 'Yue-Pinghua',
+'midd1354': 'Mittel-Modernes Sinitisch',
+'clas1255': 'Klassisch-Mittel-Modernes Sinitisch',
+'funi1234': 'Funing',
+'fuzh1239': 'Houguan',
+'long1252': 'Longdu',
+'manj1252': 'Manjiang',
+'nanl1234': 'Nanlang',
+'mind1253': 'Min Dong',
+'puti1238': 'Putian',
+'xian1252': 'Xianyou',
+'puxi1243': 'Pu-Xian',
+'chan1329': 'Changgan',
+'hain1237': 'Fucheng',
+'wann1243': 'Wanning',
+'wenc1234': 'Wenchang',
+'yaxi1234': 'Yaxian',
+'hain1238': 'Hainanisch',
+'leiz1236': 'Leizhou',
+'qion1239': 'Leiqiong',
+'chao1238': 'Chaozhou',
+'shan1244': 'Shantou',
+'chao1239': 'Chaoshan',
+'dati1239': 'Datian',
+'chae1235': 'Quanzhou',
+'taib1242': 'Taipeh-Hokkien',
+'xiam1236': 'Xiamen',
+'zhan1240': 'Zhangping-Longyan',
+'fuji1236': 'Zhangzhou',
+'hokk1242': 'Quanzhang',
+'sanx1234': 'Sanxiang',
+'zhen1239': 'Zhenan-Min',
+'zhon1238': 'Zhongshan-Min',
+'minn1241': 'Min Nan',
+'sout3424': 'Südliches Min',
+'sout3421': 'Südliches Min-Pu-Xian',
+'coas1318': 'Küsten-Min',
+'chon1289': "Chong'an",
+'jian1240': "Jian'ou",
+'jian1241': 'Jianyang',
+'song1309': 'Songxi',
+'zhen1242': 'Zhenghe',
+'minb1236': 'Min Bei',
+'jian1242': 'Jiangle',
+'shao1235': 'Shaowu',
+'shun1239': 'Shunchang',
+'shao1234': 'Shaojiang',
+'minb1244': 'Min Beic',
+'minz1235': 'Min Zhong',
+'inla1267': 'Inland-Min',
+'minn1248': 'Min',
+'late1251': 'Spätes Han-Chinesisch',
+'shan1294': 'Shanggu Hanyu',
+'oldc1244': 'Altchinesisch',
+'waxi1236': 'Waxianghua',
+'sini1245': 'Sinitisch',};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 2b  –  LÄNDER-OVERRIDE (OPTIONAL)
+════════════════════════════════════════════════════════════════ */
+const countryData = {};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 3a  –  NEWICK-STRING
+   ⚠ IMMER BACKTICKS verwenden!
+════════════════════════════════════════════════════════════════ */
+const rawNewick = `(('Classical Chinese [lite1248][lzh]-l-':1,((('Anyi [anyi1247]':1,'Nanchang [nanc1254]':1,'Pingjiang [ping1246]':1)'Chang-Jing [chan1317]':1,'Fu-Guang [fugu1238]':1,'Ji-Cha [jich1238]':1,'Yi-Liu [yili1247]':1,'Ying-Yi [ying1246]':1)'Gan Chinese [ganc1239][gan]-l-':1,('Hailu [hail1247]':1,'Huizhou [huiz1243]':1,'Meixian [yuet1238]':1,'Ning-Long [ning1269]':1,'Raoping [raop1234]':1,('Liudui-Pingtung [liud1234]':1,'Taoyuan-Miaoli [taoy1234]':1)'Sixian [sanh1239]':1,('Changting [chan1325]':1,'Liancheng [lian1259]':1,'Mingxi [ming1255]':1,'Ninghua [ning1278]':1,'Qingliu [qing1239]':1,'Shanghang [shan1292]':1,'Wuping [wupi1239]':1,'Yongding [yong1284]':1)'Tingzhou [ting1250]':1,'Tonggu [tong1314]':1,'Yuebei [yueb1238]':1,'Yuezhong [yuez1238]':1,'Yugui [yugu1248]':1)'Hakka Chinese [hakk1236][hak]-l-':1,('Common Chinese [comm1247]':1,'Zhongguo Hanyu [zhon1237]':1)'Middle Chinese [midd1344][ltc]-l-':1,(('Huhehaote [huhe1234]':1,'Pingyao [ping1247]':1,'Taiyuan [taiy1243]':1)'Jinyu Chinese [jiny1235][cjy]-l-':1,('Daohua [daoh1239]-l-':1,'Hezhou [hezh1244]-l-':1,(('Beijing Mandarin [beij1234]':1,'Taibei Mandarin [taib1240]':1)'Beijingic [beij1235]':1,('Xi''an Mandarin [xian1253]':1,'Xining Mandarin [xini1234]':1,'Zhengzhou Mandarin [zhen1241]':1)'Central Plain Guanhua [huab1238]':1,('Hefei Mandarin [hefe1234]':1,'Nanjing Mandarin [nanj1234]':1,'Yangzhou Mandarin [yang1306]':1)'Jianghuai Guanhua [jing1262]':1,('Jinan Mandarin [jina1245]':1,'Tianjin Mandarin [tian1238]':1)'Jilu Guanhua [jilu1239]':1,('Lanzhou Mandarin [lanz1234]':1,'Wulumuqi Mandarin [wulu1243]':1,'Yinchuan Mandarin [yinc1239]':1)'Lanyin [xibe1241]':1,'Ningxia Mandarin [ning1279]':1,('Ha''erbin Mandarin [haer1234]':1,'Shenyang Mandarin [shen1252]':1)'Northeastern Mandarin [nort3283]':1,'Qingdao Mandarin [qing1240]':1,'Rongcheng Mandarin [rong1271]':1,('Chengdu Mandarin [chen1267]':1,'Guiyang Mandarin [guiy1236]':1,'Kunming Chinese [kunm1234]':1,'Wuhan Mandarin [wuha1234]':1)'Southwestern Guanhua [xina1239]':1,'Yingshan Mandarin [ying1249]':1,'Yuci Mandarin [yuci1234]':1)'Mandarin Chinese [mand1415][cmn]-l-':1,'Tangwang [tang1373]-l-':1,'Wutunhua [wutu1241][wuh]-l-':1,(('Ganzu [ganz1245]':1,'Shaanxi [shaa1242]':1,'Yage [yage1238]':1)'Dungan [dung1253][dng]-l-':1,'Gangou [gang1272]-l-':1)'Zhongyuan [zhon1236]':1)'Mandarinic [mand1471]':1)'Northern Chinese [nort3155]':1,'Qujiang Hakka-Shibei Shaoguan Tuhua [quji1234]-l-':1,(('Jingzhan [jing1261]':1,('Hongchuan [hong1243]':1,'Hongmen [hong1244]':1,'Shexian [shex1234]':1,'Tangcun [tang1380]':1)'Jixi [jixi1238]':1,'Qide [qide1238]':1,('Huangshan [huan1251]':1,'Southeastern Qimen [sout3255]':1,'Tunxi [tunx1234]':1,'Wuyuan [wuyu1234]':1,'Xiuning [xiun1234]':1,'Yixian [yixi1234]':1)'Xiuyi [xiuy1238]':1,'Yanzhou [yanz1241]':1)'Hui Chinese [huiz1242][czh]-l-':1,('Wenzhou [ouji1238]-l-':1,(('Jiangshan [long1386]':1,'Qingtian [qing1241]':1,'Quzhou [chuz1238]':1)'Chuqu [chuq1241]':1,'Jinhua [jinh1238]':1,(('Lin-Shao [lins1238]':1,('Ningbo [ning1280]':1,'Zhoushan [zhou1235]':1)'Yongjiang [yong1273]':1)'Northern Zhejiang [nort3273]':1,('Hangzhou [hang1257]':1,'Piling [pili1238]':1)'Northwestern Wu [nort3274]':1,('Jiaxing [jiax1234]':1,'Shanghainese [shan1293]':1,'Suzhou [suzh1234]':1,'Wuxi [wuxi1234]':1)'Su-Hu-Jia [suhu1238]':1,('Huzhou [huzh1239]':1,'Southeast Guangde [sout3256]':1)'Tiaoxi [tiao1238]':1)'Taihu [taih1244]':1,'Taizhou [taiz1238]':1,'Wuzhou Wu [wuzh1238]':1,('Shiling [shil1262]':1,'Taigao [taig1246]':1,'Tongjing [tong1313]':1)'Xuanzhou [xuan1238]':1)'Wu Chinese [wuch1236][wuu]-l-':1)'Wuic [wuic1234]':1)'Wu-Hui Chinese [wuhu1234]':1,(('Changsha [chan1326]':1,'Yi-Yuan [yiyu1234]':1,'Yueyang [yuey1234]':1)'Changyi [chan1316]':1,('Baojing [baoj1239]':1,'Chenxi [chen1269]':1,'Guzhang [guzh1234]':1,'Huayuan [huay1242]':1,'Jishu [jish1242]':1,'Luxi [luxi1239]':1,'Xupu [xupu1234]':1,'Yuanling [yuan1243]':1)'Chen-Xu [chen1268]':1,'Hengzhou [heng1239]':1,('Loudi [loud1234]':1,'Shuangfeng [shua1258]':1,'Xiangtan [xian1254]':1)'Loushao [luos1238]':1,('Dong-Qi [dong1298]':1,'Jiangyong [jian1243]':1,'Quan-Zi [quan1243]':1)'Yong-Quan [yong1285]':1)'Xiang Chinese [xian1251][hsn]-l-':1,((('Dong of Xinning [dong1299]':1,'Guilin Pinghua [guil1241]':1)'Northern Pinghua [nort3268][cnp]-l-':1,('Nanning Pinghua [nann1239]':1,'Nanning-Liuzhou Road Pinghua [nann1240]':1,'Upriver Liuzhou Pinghua [upri1240]':1)'Southern Pinghua [sout3250][csp]-l-':1)'Pinghua [ping1245]':1,(('Gaozhou [gaoz1234]':1,'Yangjiang [yang1307]':1)'Gaoyang [gaol1235]':1,'Goulou [guin1237]':1,'Qinlian [qinl1235]':1,('Dancun [danc1234]':1,'Jiangmen [jian1244]':1,'Toishanese [tois1237]':1,'Vancouver Cantonese [vanc1237]':1)'Siyi [siyi1236]':1,'Wuhua [wuhu1235]':1,'Yongxun [yong1286]':1,(('Guangzhou [guan1279]':1,'Hong Kong [xian1255]':1,'Tanka Cantonese [tank1239]':1,'Wuzhou Yue [wuzh1239]':1,'Xiguan [xigu1234]':1)'Cantonese [cant1236]':1,'Guan-Bao [guan1280]':1,'Samyap [samy1234]':1,'Zhongshan [zhon1239]':1)'Yuehai [yueh1236]':1)'Yue Chinese [yuec1235][yue]-l-':1)'Yue-Pinghua [yuep1234]':1)'Middle-Modern Sinitic [midd1354]':1)'Classical-Middle-Modern Sinitic [clas1255]':1,((('Funing [funi1234]':1,'Houguan [fuzh1239]':1,'Longdu [long1252]':1,'Manjiang [manj1252]':1,'Nanlang [nanl1234]':1)'Min Dong Chinese [mind1253][cdo]-l-':1,(('Putian [puti1238]':1,'Xianyou [xian1252]':1)'Pu-Xian Chinese [puxi1243][cpx]-l-':1,((('Changgan [chan1329]':1,'Fucheng [hain1237]':1,'Wanning [wann1243]':1,'Wenchang [wenc1234]':1,'Yaxian [yaxi1234]':1)'Hainanese [hain1238][hnm]-l-':1,'Leizhou Chinese [leiz1236][luh]-l-':1)'Leiqiong [qion1239]':1,(('Chaozhou [chao1238]':1,'Shantou [shan1244]':1)'Chaoshan [chao1239]':1,'Datian [dati1239]':1,('Quanzhou [chae1235]':1,'Taibei Hokkien [taib1242]':1,'Xiamen [xiam1236]':1,'Zhangping-Longyan [zhan1240]':1,'Zhangzhou [fuji1236]':1)'Quanzhang [hokk1242]':1,'Sanxiang [sanx1234]':1,'Zhenan Min [zhen1239]':1,'Zhongshan Min [zhon1238]':1)'Min Nan Chinese [minn1241][nan]-l-':1)'Southern Min [sout3424]':1)'Southern Min-Pu-Xian [sout3421]':1)'Coastal Min [coas1318]':1,((('Chong''an [chon1289]':1,'Jian''ou [jian1240]':1,'Jianyang [jian1241]':1,'Songxi [song1309]':1,'Zhenghe [zhen1242]':1)'Min Bei Chinese [minb1236][mnp]-l-':1,('Jiangle [jian1242]':1,'Shaowu [shao1235]':1,'Shunchang [shun1239]':1)'Shaojiang Chinese [shao1234][sjc]-l-':1)'Min Beic [minb1244]':1,'Min Zhong Chinese [minz1235][czo]-l-':1)'Inland Min [inla1267]':1)'Min [minn1248]':1,('Late Han Chinese [late1251]':1,'Shanggu Hanyu [shan1294]':1)'Old Chinese [oldc1244][och]-l-':1,'Waxianghua [waxi1236][wxa]-l-':1)'Sinitic [sini1245]':1`;
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 3b  –  GEOJSON
+════════════════════════════════════════════════════════════════ */
+const rawGeoJSON = {
+  "type": "FeatureCollection",
+  "properties": {
+    "layer": "sini1245"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2191,
+        "language": {
+          "pk": 2191,
+          "name": "Old Chinese",
+          "longitude": 114.32,
+          "latitude": 36.12,
+          "id": "oldc1244"
+        },
+        "name": "Old Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.32,
+          36.12
+        ]
+      },
+      "id": "oldc1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Classical Chinese",
+          "longitude": 109.05,
+          "latitude": 34.09,
+          "id": "lite1248"
+        },
+        "name": "Classical Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          109.05,
+          34.09
+        ]
+      },
+      "id": "lite1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Xiang Chinese",
+          "longitude": 111.47112,
+          "latitude": 27.66847,
+          "id": "xian1251"
+        },
+        "name": "Xiang Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.47112,
+          27.66847
+        ]
+      },
+      "id": "xian1251"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Middle Chinese",
+          "longitude": 108.9,
+          "latitude": 34.27,
+          "id": "midd1344"
+        },
+        "name": "Middle Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.9,
+          34.27
+        ]
+      },
+      "id": "midd1344"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Hakka Chinese",
+          "longitude": 116,
+          "latitude": 25,
+          "id": "hakk1236"
+        },
+        "name": "Hakka Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116,
+          25
+        ]
+      },
+      "id": "hakk1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Qujiang Hakka-Shibei Shaoguan Tuhua",
+          "longitude": 113.6,
+          "latitude": 24.816667,
+          "id": "quji1234"
+        },
+        "name": "Qujiang Hakka-Shibei Shaoguan Tuhua"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.6,
+          24.816667
+        ]
+      },
+      "id": "quji1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Gan Chinese",
+          "longitude": 115.166,
+          "latitude": 27.9896,
+          "id": "ganc1239"
+        },
+        "name": "Gan Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.166,
+          27.9896
+        ]
+      },
+      "id": "ganc1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Yue Chinese",
+          "longitude": 113,
+          "latitude": 23,
+          "id": "yuec1235"
+        },
+        "name": "Yue Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113,
+          23
+        ]
+      },
+      "id": "yuec1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Jinyu Chinese",
+          "longitude": 111.278,
+          "latitude": 38.8284,
+          "id": "jiny1235"
+        },
+        "name": "Jinyu Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.278,
+          38.8284
+        ]
+      },
+      "id": "jiny1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Meixian",
+          "longitude": 115.8903375,
+          "latitude": 24.3522958,
+          "id": "yuet1238"
+        },
+        "name": "Meixian"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.8903375,
+          24.3522958
+        ]
+      },
+      "id": "yuet1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Hui Chinese",
+          "longitude": 118.232,
+          "latitude": 29.7646,
+          "id": "huiz1242"
+        },
+        "name": "Hui Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.232,
+          29.7646
+        ]
+      },
+      "id": "huiz1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Loudi",
+          "longitude": 111.9281883,
+          "latitude": 27.733333,
+          "id": "loud1234"
+        },
+        "name": "Loudi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.9281883,
+          27.733333
+        ]
+      },
+      "id": "loud1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Xiangtan",
+          "longitude": 112.7688127,
+          "latitude": 27.8482649,
+          "id": "xian1254"
+        },
+        "name": "Xiangtan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.7688127,
+          27.8482649
+        ]
+      },
+      "id": "xian1254"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Shuangfeng",
+          "longitude": 111.916486,
+          "latitude": 27.4569781,
+          "id": "shua1258"
+        },
+        "name": "Shuangfeng"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.916486,
+          27.4569781
+        ]
+      },
+      "id": "shua1258"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Changsha",
+          "longitude": 112.943344,
+          "latitude": 28.85032,
+          "id": "chan1326"
+        },
+        "name": "Changsha"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.943344,
+          28.85032
+        ]
+      },
+      "id": "chan1326"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Southern Pinghua",
+          "longitude": 108.093,
+          "latitude": 23.011,
+          "id": "sout3250"
+        },
+        "name": "Southern Pinghua"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.093,
+          23.011
+        ]
+      },
+      "id": "sout3250"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Northern Pinghua",
+          "longitude": 110.045,
+          "latitude": 25.218,
+          "id": "nort3268"
+        },
+        "name": "Northern Pinghua"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.045,
+          25.218
+        ]
+      },
+      "id": "nort3268"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Pingyao",
+          "longitude": 111.9656111,
+          "latitude": 37.1390706,
+          "id": "ping1247"
+        },
+        "name": "Pingyao"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.9656111,
+          37.1390706
+        ]
+      },
+      "id": "ping1247"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Taiyuan",
+          "longitude": 112.4024883,
+          "latitude": 37.8632119,
+          "id": "taiy1243"
+        },
+        "name": "Taiyuan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.4024883,
+          37.8632119
+        ]
+      },
+      "id": "taiy1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Huhehaote",
+          "longitude": 111.743889,
+          "latitude": 40.855526,
+          "id": "huhe1234"
+        },
+        "name": "Huhehaote"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.743889,
+          40.855526
+        ]
+      },
+      "id": "huhe1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Mandarin Chinese",
+          "longitude": 116.228,
+          "latitude": 40.0209,
+          "id": "mand1415"
+        },
+        "name": "Mandarin Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.228,
+          40.0209
+        ]
+      },
+      "id": "mand1415"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Tangwang",
+          "longitude": 103.54273,
+          "latitude": 35.803799,
+          "id": "tang1373"
+        },
+        "name": "Tangwang"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.54273,
+          35.803799
+        ]
+      },
+      "id": "tang1373"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Daohua",
+          "longitude": 101.007222,
+          "latitude": 30.0325,
+          "id": "daoh1239"
+        },
+        "name": "Daohua"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.007222,
+          30.0325
+        ]
+      },
+      "id": "daoh1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Hezhou",
+          "longitude": 103.197,
+          "latitude": 35.59,
+          "id": "hezh1244"
+        },
+        "name": "Hezhou"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.197,
+          35.59
+        ]
+      },
+      "id": "hezh1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Wutunhua",
+          "longitude": 101.957,
+          "latitude": 35.269,
+          "id": "wutu1241"
+        },
+        "name": "Wutunhua"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.957,
+          35.269
+        ]
+      },
+      "id": "wutu1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Taoyuan-Miaoli",
+          "longitude": 120.9520006,
+          "latitude": 24.854549,
+          "id": "taoy1234"
+        },
+        "name": "Taoyuan-Miaoli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.9520006,
+          24.854549
+        ]
+      },
+      "id": "taoy1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Liancheng",
+          "longitude": 116.783333,
+          "latitude": 25.566667,
+          "id": "lian1259"
+        },
+        "name": "Liancheng"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.783333,
+          25.566667
+        ]
+      },
+      "id": "lian1259"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Wenzhou",
+          "longitude": 120.63338,
+          "latitude": 27.94043,
+          "id": "ouji1238"
+        },
+        "name": "Wenzhou"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.63338,
+          27.94043
+        ]
+      },
+      "id": "ouji1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Wu Chinese",
+          "longitude": 119.682,
+          "latitude": 29.8621,
+          "id": "wuch1236"
+        },
+        "name": "Wu Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.682,
+          29.8621
+        ]
+      },
+      "id": "wuch1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Jixi",
+          "longitude": 118.592222,
+          "latitude": 30.071111,
+          "id": "jixi1238"
+        },
+        "name": "Jixi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.592222,
+          30.071111
+        ]
+      },
+      "id": "jixi1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Anyi",
+          "longitude": 115.54773,
+          "latitude": 28.84359,
+          "id": "anyi1247"
+        },
+        "name": "Anyi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.54773,
+          28.84359
+        ]
+      },
+      "id": "anyi1247"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Nanchang",
+          "longitude": 115.857468,
+          "latitude": 28.706609,
+          "id": "nanc1254"
+        },
+        "name": "Nanchang"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.857468,
+          28.706609
+        ]
+      },
+      "id": "nanc1254"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Nanning Pinghua",
+          "longitude": 108.366165,
+          "latitude": 22.848716,
+          "id": "nann1239"
+        },
+        "name": "Nanning Pinghua"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.366165,
+          22.848716
+        ]
+      },
+      "id": "nann1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Guilin Pinghua",
+          "longitude": 110.283333,
+          "latitude": 25.266667,
+          "id": "guil1241"
+        },
+        "name": "Guilin Pinghua"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.283333,
+          25.266667
+        ]
+      },
+      "id": "guil1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Dancun",
+          "longitude": 112.7199202,
+          "latitude": 22.2750324,
+          "id": "danc1234"
+        },
+        "name": "Dancun"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.7199202,
+          22.2750324
+        ]
+      },
+      "id": "danc1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Yangjiang",
+          "longitude": 111.966667,
+          "latitude": 21.7895612,
+          "id": "yang1307"
+        },
+        "name": "Yangjiang"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          111.966667,
+          21.7895612
+        ]
+      },
+      "id": "yang1307"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Cantonese",
+          "longitude": 113.2021,
+          "latitude": 23.0118,
+          "id": "cant1236"
+        },
+        "name": "Cantonese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.2021,
+          23.0118
+        ]
+      },
+      "id": "cant1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Yuci Mandarin",
+          "longitude": 112.5650222,
+          "latitude": 37.6394177,
+          "id": "yuci1234"
+        },
+        "name": "Yuci Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.5650222,
+          37.6394177
+        ]
+      },
+      "id": "yuci1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Qingdao Mandarin",
+          "longitude": 120.379715,
+          "latitude": 36.089393,
+          "id": "qing1240"
+        },
+        "name": "Qingdao Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.379715,
+          36.089393
+        ]
+      },
+      "id": "qing1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Yingshan Mandarin",
+          "longitude": 115.3468074,
+          "latitude": 30.7462984,
+          "id": "ying1249"
+        },
+        "name": "Yingshan Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          115.3468074,
+          30.7462984
+        ]
+      },
+      "id": "ying1249"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Ningxia Mandarin",
+          "longitude": 106.240082,
+          "latitude": 38.546662,
+          "id": "ning1279"
+        },
+        "name": "Ningxia Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.240082,
+          38.546662
+        ]
+      },
+      "id": "ning1279"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Rongcheng Mandarin",
+          "longitude": 122.434269,
+          "latitude": 37.130642,
+          "id": "rong1271"
+        },
+        "name": "Rongcheng Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          122.434269,
+          37.130642
+        ]
+      },
+      "id": "rong1271"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Dungan",
+          "longitude": 76.8382,
+          "latitude": 42.7292,
+          "id": "dung1253"
+        },
+        "name": "Dungan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          76.8382,
+          42.7292
+        ]
+      },
+      "id": "dung1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Gangou",
+          "longitude": 102.43,
+          "latitude": 35.55,
+          "id": "gang1272"
+        },
+        "name": "Gangou"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.43,
+          35.55
+        ]
+      },
+      "id": "gang1272"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Shexian",
+          "longitude": 118.428268,
+          "latitude": 30.589829,
+          "id": "shex1234"
+        },
+        "name": "Shexian"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.428268,
+          30.589829
+        ]
+      },
+      "id": "shex1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Tunxi",
+          "longitude": 118.2294365,
+          "latitude": 29.7201616,
+          "id": "tunx1234"
+        },
+        "name": "Tunxi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.2294365,
+          29.7201616
+        ]
+      },
+      "id": "tunx1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Hong Kong",
+          "longitude": 114.098396,
+          "latitude": 22.422645,
+          "id": "xian1255"
+        },
+        "name": "Hong Kong"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.098396,
+          22.422645
+        ]
+      },
+      "id": "xian1255"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Tanka Cantonese",
+          "longitude": 113.7229,
+          "latitude": 22.16455,
+          "id": "tank1239"
+        },
+        "name": "Tanka Cantonese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.7229,
+          22.16455
+        ]
+      },
+      "id": "tank1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Guangzhou",
+          "longitude": 112.9476548,
+          "latitude": 23.1253503,
+          "id": "guan1279"
+        },
+        "name": "Guangzhou"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          112.9476548,
+          23.1253503
+        ]
+      },
+      "id": "guan1279"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Wulumuqi Mandarin",
+          "longitude": 87.4226688,
+          "latitude": 43.8216271,
+          "id": "wulu1243"
+        },
+        "name": "Wulumuqi Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          87.4226688,
+          43.8216271
+        ]
+      },
+      "id": "wulu1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Yinchuan Mandarin",
+          "longitude": 106.240082,
+          "latitude": 38.546662,
+          "id": "yinc1239"
+        },
+        "name": "Yinchuan Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          106.240082,
+          38.546662
+        ]
+      },
+      "id": "yinc1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Lanzhou Mandarin",
+          "longitude": 103.838425,
+          "latitude": 36.080515,
+          "id": "lanz1234"
+        },
+        "name": "Lanzhou Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.838425,
+          36.080515
+        ]
+      },
+      "id": "lanz1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Kunming Chinese",
+          "longitude": 102.72274,
+          "latitude": 25.049711,
+          "id": "kunm1234"
+        },
+        "name": "Kunming Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          102.72274,
+          25.049711
+        ]
+      },
+      "id": "kunm1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Chengdu Mandarin",
+          "longitude": 103.970947,
+          "latitude": 30.605768,
+          "id": "chen1267"
+        },
+        "name": "Chengdu Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          103.970947,
+          30.605768
+        ]
+      },
+      "id": "chen1267"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Wuhan Mandarin",
+          "longitude": 114.305649,
+          "latitude": 30.624086,
+          "id": "wuha1234"
+        },
+        "name": "Wuhan Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          114.305649,
+          30.624086
+        ]
+      },
+      "id": "wuha1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Xi'an Mandarin",
+          "longitude": 108.960571,
+          "latitude": 34.228154,
+          "id": "xian1253"
+        },
+        "name": "Xi'an Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          108.960571,
+          34.228154
+        ]
+      },
+      "id": "xian1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Xining Mandarin",
+          "longitude": 101.776886,
+          "latitude": 36.671283,
+          "id": "xini1234"
+        },
+        "name": "Xining Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          101.776886,
+          36.671283
+        ]
+      },
+      "id": "xini1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Zhengzhou Mandarin",
+          "longitude": 113.639374,
+          "latitude": 34.807715,
+          "id": "zhen1241"
+        },
+        "name": "Zhengzhou Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          113.639374,
+          34.807715
+        ]
+      },
+      "id": "zhen1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Shenyang Mandarin",
+          "longitude": 123.1563167,
+          "latitude": 41.8049906,
+          "id": "shen1252"
+        },
+        "name": "Shenyang Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          123.1563167,
+          41.8049906
+        ]
+      },
+      "id": "shen1252"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Ha'erbin Mandarin",
+          "longitude": 126.551056,
+          "latitude": 45.846595,
+          "id": "haer1234"
+        },
+        "name": "Ha'erbin Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          126.551056,
+          45.846595
+        ]
+      },
+      "id": "haer1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Jinan Mandarin",
+          "longitude": 116.997299,
+          "latitude": 36.690777,
+          "id": "jina1245"
+        },
+        "name": "Jinan Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.997299,
+          36.690777
+        ]
+      },
+      "id": "jina1245"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Tianjin Mandarin",
+          "longitude": 117.215424,
+          "latitude": 39.186072,
+          "id": "tian1238"
+        },
+        "name": "Tianjin Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.215424,
+          39.186072
+        ]
+      },
+      "id": "tian1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Beijing Mandarin",
+          "longitude": 116.1172766,
+          "latitude": 39.9385466,
+          "id": "beij1234"
+        },
+        "name": "Beijing Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.1172766,
+          39.9385466
+        ]
+      },
+      "id": "beij1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Yangzhou Mandarin",
+          "longitude": 119.209227,
+          "latitude": 32.4171449,
+          "id": "yang1306"
+        },
+        "name": "Yangzhou Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.209227,
+          32.4171449
+        ]
+      },
+      "id": "yang1306"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Hefei Mandarin",
+          "longitude": 117.223663,
+          "latitude": 31.873593,
+          "id": "hefe1234"
+        },
+        "name": "Hefei Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.223663,
+          31.873593
+        ]
+      },
+      "id": "hefe1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Nanjing Mandarin",
+          "longitude": 118.4575646,
+          "latitude": 32.0989607,
+          "id": "nanj1234"
+        },
+        "name": "Nanjing Mandarin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.4575646,
+          32.0989607
+        ]
+      },
+      "id": "nanj1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Jiangshan",
+          "longitude": 118.3206425,
+          "latitude": 28.5629681,
+          "id": "long1386"
+        },
+        "name": "Jiangshan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.3206425,
+          28.5629681
+        ]
+      },
+      "id": "long1386"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Shanghainese",
+          "longitude": 121.475372,
+          "latitude": 31.222902,
+          "id": "shan1293"
+        },
+        "name": "Shanghainese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.475372,
+          31.222902
+        ]
+      },
+      "id": "shan1293"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Suzhou",
+          "longitude": 120.364116,
+          "latitude": 31.3280439,
+          "id": "suzh1234"
+        },
+        "name": "Suzhou"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.364116,
+          31.3280439
+        ]
+      },
+      "id": "suzh1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Hangzhou",
+          "longitude": 120.0318057,
+          "latitude": 30.261316,
+          "id": "hang1257"
+        },
+        "name": "Hangzhou"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          120.0318057,
+          30.261316
+        ]
+      },
+      "id": "hang1257"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2192,
+        "language": {
+          "pk": 2192,
+          "name": "Ningbo",
+          "longitude": 121.533333,
+          "latitude": 29.866667,
+          "id": "ning1280"
+        },
+        "name": "Ningbo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.533333,
+          29.866667
+        ]
+      },
+      "id": "ning1280"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Min Dong Chinese",
+          "longitude": 119.5,
+          "latitude": 26,
+          "id": "mind1253"
+        },
+        "name": "Min Dong Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.5,
+          26
+        ]
+      },
+      "id": "mind1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Min Beic",
+          "longitude": 118.32,
+          "latitude": 27.05,
+          "id": "minb1244"
+        },
+        "name": "Min Beic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.32,
+          27.05
+        ]
+      },
+      "id": "minb1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Min Zhong Chinese",
+          "longitude": 117.376,
+          "latitude": 26.0686,
+          "id": "minz1235"
+        },
+        "name": "Min Zhong Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.376,
+          26.0686
+        ]
+      },
+      "id": "minz1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Houguan",
+          "longitude": 119.294243,
+          "latitude": 26.08904,
+          "id": "fuzh1239"
+        },
+        "name": "Houguan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.294243,
+          26.08904
+        ]
+      },
+      "id": "fuzh1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Pu-Xian Chinese",
+          "longitude": 118.68,
+          "latitude": 25.37,
+          "id": "puxi1243"
+        },
+        "name": "Pu-Xian Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.68,
+          25.37
+        ]
+      },
+      "id": "puxi1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Shaojiang Chinese",
+          "longitude": 117.49351,
+          "latitude": 27.18529,
+          "id": "shao1234"
+        },
+        "name": "Shaojiang Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.49351,
+          27.18529
+        ]
+      },
+      "id": "shao1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Min Bei Chinese",
+          "longitude": 118.32,
+          "latitude": 27.05,
+          "id": "minb1236"
+        },
+        "name": "Min Bei Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.32,
+          27.05
+        ]
+      },
+      "id": "minb1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Min Nan Chinese",
+          "longitude": 118.17,
+          "latitude": 24.5,
+          "id": "minn1241"
+        },
+        "name": "Min Nan Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.17,
+          24.5
+        ]
+      },
+      "id": "minn1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Shaowu",
+          "longitude": 117.297222,
+          "latitude": 27.112778,
+          "id": "shao1235"
+        },
+        "name": "Shaowu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.297222,
+          27.112778
+        ]
+      },
+      "id": "shao1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Jian'ou",
+          "longitude": 118.307419,
+          "latitude": 27.04237,
+          "id": "jian1240"
+        },
+        "name": "Jian'ou"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.307419,
+          27.04237
+        ]
+      },
+      "id": "jian1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Zhenghe",
+          "longitude": 119.2778522,
+          "latitude": 25.2474987,
+          "id": "zhen1242"
+        },
+        "name": "Zhenghe"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          119.2778522,
+          25.2474987
+        ]
+      },
+      "id": "zhen1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Quanzhang",
+          "longitude": 118.597442,
+          "latitude": 24.99452,
+          "id": "hokk1242"
+        },
+        "name": "Quanzhang"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.597442,
+          24.99452
+        ]
+      },
+      "id": "hokk1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Hainanese",
+          "longitude": 110.68759,
+          "latitude": 19.78383,
+          "id": "hain1238"
+        },
+        "name": "Hainanese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.68759,
+          19.78383
+        ]
+      },
+      "id": "hain1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Leizhou Chinese",
+          "longitude": 110.022914,
+          "latitude": 20.693497,
+          "id": "leiz1236"
+        },
+        "name": "Leizhou Chinese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.022914,
+          20.693497
+        ]
+      },
+      "id": "leiz1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Taibei Hokkien",
+          "longitude": 121.4231642,
+          "latitude": 25.0853403,
+          "id": "taib1242"
+        },
+        "name": "Taibei Hokkien"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          121.4231642,
+          25.0853403
+        ]
+      },
+      "id": "taib1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Zhangping-Longyan",
+          "longitude": 117.416667,
+          "latitude": 25.283333,
+          "id": "zhan1240"
+        },
+        "name": "Zhangping-Longyan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          117.416667,
+          25.283333
+        ]
+      },
+      "id": "zhan1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Xiamen",
+          "longitude": 118.08918,
+          "latitude": 24.49421,
+          "id": "xiam1236"
+        },
+        "name": "Xiamen"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          118.08918,
+          24.49421
+        ]
+      },
+      "id": "xiam1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Shantou",
+          "longitude": 116.6068173,
+          "latitude": 23.3372419,
+          "id": "shan1244"
+        },
+        "name": "Shantou"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.6068173,
+          23.3372419
+        ]
+      },
+      "id": "shan1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Chaozhou",
+          "longitude": 116.633333,
+          "latitude": 23.666667,
+          "id": "chao1238"
+        },
+        "name": "Chaozhou"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          116.633333,
+          23.666667
+        ]
+      },
+      "id": "chao1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2189,
+        "language": {
+          "pk": 2189,
+          "name": "Fucheng",
+          "longitude": 110.329399,
+          "latitude": 20.043869,
+          "id": "hain1237"
+        },
+        "name": "Fucheng"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.329399,
+          20.043869
+        ]
+      },
+      "id": "hain1237"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2190,
+        "language": {
+          "pk": 2190,
+          "name": "Waxianghua",
+          "longitude": 110.362,
+          "latitude": 28.644,
+          "id": "waxi1236"
+        },
+        "name": "Waxianghua"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          110.362,
+          28.644
+        ]
+      },
+      "id": "waxi1236"
+    }
+  ]
+};
+
+/* ════════════════════════════════════════════════════════════════
+   AB HIER NICHTS MEHR ÄNDERN
+════════════════════════════════════════════════════════════════ */
+
+/* ── Farb-Palette ── */
+const _PALETTE = [
+  "#7ec8c8","#c87868","#a0b878","#787ec8",
+  "#c87898","#88b8a0","#c8b878","#b878c8",
+  "#78b8c8","#c8a878","#98c878","#c87848"
+];
+let _autoColorMap = {};
+
+function _buildColorMap(root) {
+  _autoColorMap = {};
+  if (!root) return;
+  _autoColorMap[root.id] = "#c8973a";
+  (root.children || []).forEach((g, i) =>
+    _assignCol(g, _PALETTE[i % _PALETTE.length])
+  );
+}
+function _assignCol(node, col) {
+  _autoColorMap[node.id] = col;
+  if (node.children) node.children.forEach(c => _assignCol(c, col));
+}
+
+/* ── Auto-Länder via Nominatim ── */
+const _autoCountry = {};
+const _geocodeDone = new Set();
+
+function _flagFromCode(cc) {
+  if (!cc || cc.length !== 2) return '';
+  return [...cc.toUpperCase()].map(c =>
+    String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))
+  ).join('');
+}
+
+async function _geocodeLang(id, lat, lon) {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=de`,
+      { headers: { 'User-Agent': 'SprachfamilienAtlas/4.0' } }
+    );
+    if (!r.ok) return;
+    const j    = await r.json();
+    const addr = j.address || {};
+    const cc   = (addr.country_code || '').toUpperCase();
+    const name = addr.country || '';
+    const reg  = addr.state || addr.province || addr.region || '';
+    if (cc && name) _autoCountry[id] = [{ flag: _flagFromCode(cc), name, region: reg }];
+  } catch(e) { /* silent */ } finally {
+    _geocodeDone.add(id);
+    if (selNode && selNode.data.id === id) showPanel(selNode);
+  }
+}
+
+function _startGeocoding() {
+  geoData.forEach((lang, i) => {
+    if (!countryData[lang.id])
+      setTimeout(() => _geocodeLang(lang.id, lang.lat, lang.lon), i * 1200);
+    else
+      _geocodeDone.add(lang.id);
+  });
+}
+
+function _getCountries(d) {
+  const id = d.data.id;
+  if (countryData[id]) return countryData[id];
+  if (_autoCountry[id]) return _autoCountry[id];
+  const seen = new Set(), res = [];
+  function collect(node) {
+    (_autoCountry[node.id] || []).forEach(e => {
+      if (!seen.has(e.name)) { seen.add(e.name); res.push({ flag: e.flag, name: e.name, region: '' }); }
+    });
+    if (node.children) node.children.forEach(collect);
+  }
+  collect(d.data);
+  return res.length ? res : null;
+}
+
+function _isPending(d) {
+  const id = d.data.id;
+  if (countryData[id] || _geocodeDone.has(id)) return false;
+  function hasCoord(node) {
+    if (_geocodeDone.has(node.id)) return false;
+    if (node.lat != null) return true;
+    return (node.children || []).some(hasCoord);
+  }
+  return hasCoord(d.data);
+}
+
+/* ── Hilfsfunktionen ── */
+function getDisplayName(id, fallback) { return nameTranslations[id] || fallback || id; }
+
+function colorByGroup(id) {
+  for (const g of mapLegendGroups)
+    if (g.ids && g.ids.includes(id)) return g.color;
+  return _autoColorMap[id] || "#c8973a";
+}
+
+const NODE_COLORS = { family:"#c8973a", language:"#7ec8c8", subgroup:"#c87868", dialect:"#a0b878" };
+function nodeRadius(type, fontSize) {
+  // Punkt-Radius proportional zur Schriftgröße
+  const base = { family: 9, language: 7, subgroup: 6, dialect: 5 };
+  const b = base[type] || 5;
+  return Math.max(3, Math.round(b * fontSize / 11));
+}
+function typeName(t) {
+  return { family:"Sprachfamilie", language:"Sprache", subgroup:"Untergruppe", dialect:"Dialekt / Varietät" }[t] || t;
+}
+
+/* ── Newick-Parser ── */
+function parseNewick(s) {
+  s = s.trim().replace(/;$/, '');
+  function parseNode(pos) {
+    const node = { children: [] };
+    if (s[pos] === '(') {
+      pos++;
+      while (pos < s.length) {
+        const r = parseNode(pos); node.children.push(r.node); pos = r.pos;
+        if (s[pos] === ',') { pos++; continue; }
+        if (s[pos] === ')') { pos++; break; }
+      }
+    }
+    let label = '';
+   if (s[pos] === "'") { pos++; while (pos < s.length && s[pos] !== "'") label += s[pos++]; pos++;
+  while (pos < s.length && !/[,);:]/.test(s[pos])) label += s[pos++];
+}
+    else { while (pos < s.length && !/[,);:(]/.test(s[pos])) label += s[pos++]; }
+    if (s[pos] === ':') { pos++; while (pos < s.length && /[0-9.eE+\-]/.test(s[pos])) pos++; }
+    node.rawLabel = label.trim();
+    return { node, pos };
+  }
+  function parseLabel(raw) {
+    if (!raw) return { id:'unknown', nameOrig:'Unknown', iso:null, isLanguage:false };
+    const isLang = raw.includes('-l-');
+    const clean  = raw.replace(/-l-/g,'').trim();
+    const isoM   = clean.match(/\[([a-z]{3})\]\s*$/);
+    const glotMs = clean.match(/\[([a-z]+\d{4})\]/g);
+    const gid    = glotMs ? glotMs[0].replace(/[\[\]]/g,'') : null;
+  const nm = clean.replace(/\[[^\]]*\]/g,'').replace(/\{[^}]*\}/g,'').replace(/-f-/g,'').replace(/-lnk-/g,'').trim();
+   const isLink = raw.includes('-lnk-');
+const urlM   = raw.match(/\{([^}]+)\}/);
+const url    = isLink && urlM ? urlM[1] : null;
+return { id: gid || nm.toLowerCase().replace(/\s+/g,'_'), nameOrig: nm, iso: isoM ? isoM[1] : null, isLanguage: isLang, isLink, url };
+  }
+  function build(raw, depth) {
+  const { id, nameOrig, iso, isLanguage, isLink, url } = parseLabel(raw.rawLabel);
+    let type;
+    if      (depth === 0)                                type = 'family';
+    else if (isLanguage)                                 type = 'language';
+    else if (raw.children && raw.children.length > 0)   type = depth === 1 ? 'family' : 'subgroup';
+    else if (raw.rawLabel && raw.rawLabel.includes('-f-')) type = 'subgroup';
+    else                                                   type = 'dialect';   const node = { id, nameOrig, type, iso: iso||null, lat:null, lon:null, name: getDisplayName(id, nameOrig), isLink: isLink||false, url: url||null };
+    if (raw.children && raw.children.length > 0)
+      node.children = raw.children.map(c => build(c, depth + 1));
+    return node;
+  }
+  return build(parseNode(0).node, 0);
+}
+
+/* ── GeoJSON → internes Format ── */
+function geoJSONtoGeoData(geo) {
+  if (!geo || !geo.features) return [];
+  return geo.features.map(f => {
+    const lang = f.properties?.language || {};
+    const id   = f.id || lang.id || '';
+    const lat  = lang.latitude  ?? f.geometry?.coordinates?.[1] ?? null;
+    const lon  = lang.longitude ?? f.geometry?.coordinates?.[0] ?? null;
+    const raw  = lang.name || f.properties?.name || id;
+    return { id, name: getDisplayName(id, raw), nameOrig: raw, lat, lon, color: colorByGroup(id) };
+  }).filter(d => d.lat != null && d.lon != null);
+}
+
+function enrichCoords(node, map) {
+  if (map[node.id]) { node.lat = map[node.id].lat; node.lon = map[node.id].lon; }
+  if (node.children) node.children.forEach(c => enrichCoords(c, map));
+}
+
+/* ── Legende aufbauen ── */
+function _buildLegend() {
+  const el = document.getElementById('map-legend-items');
+  el.innerHTML = '';
+  const hasManual = mapLegendGroups.some(g => g.ids && g.ids.length > 0);
+  const source = hasManual
+    ? mapLegendGroups.map(g => ({ name: g.label, col: g.color }))
+    : (treeData && treeData.children
+        ? treeData.children.map((g, i) => ({ name: g.name, col: _PALETTE[i % _PALETTE.length] }))
+        : []);
+  source.forEach(s => {
+    const d = document.createElement('div'); d.className = 'ov-item';
+    d.innerHTML = `<div class="ov-dot" style="background:${s.col}"></div>${s.name}`;
+    el.appendChild(d);
+  });
+}
+
+/* ── Daten initialisieren ── */
+let treeData = null, geoData = [];
+
+function initData() {
+  try { treeData = parseNewick(rawNewick); }
+  catch(e) { console.error('Newick-Fehler:', e); return; }
+
+  _buildColorMap(treeData);
+  geoData = geoJSONtoGeoData(rawGeoJSON);
+  const cm = {};
+  geoData.forEach(d => { cm[d.id] = d; });
+  enrichCoords(treeData, cm);
+
+  document.getElementById('nav-glyph').textContent = familyGlyph;
+  const title = treeData ? getDisplayName(treeData.id, treeData.nameOrig) : 'Sprachfamilien-Atlas';
+  document.getElementById('nav-title-main').textContent = title;
+  document.title = title + ' – Atlas';
+  document.getElementById('chip-fam').textContent = familyMeta.families  + ' Familien';
+  document.getElementById('chip-lan').textContent = familyMeta.languages + ' Sprachen';
+  document.getElementById('chip-dia').textContent = familyMeta.dialects  + ' Dialekte';
+
+  _buildLegend();
+  _startGeocoding();
+}
+
+/* ── View umschalten ── */
+let mapReady = false;
+function switchView(id) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.view === id));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('visible', v.id === 'view-' + id));
+  if (id === 'map' && !mapReady) { initMap(); mapReady = true; }
+  if (id === 'tree') setTimeout(() => { if (rootNode) drawTree(rootNode); }, 80);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   D3 STAMMBAUM mit DRAG & DROP & DYNAMISCHEN LINIEN
+════════════════════════════════════════════════════════════════ */
+let svgSel, gSel, rootNode, zoomBeh;
+let currentZoom  = d3.zoomIdentity;
+let selNode      = null;
+let currentFontSize = 11;
+let _searchTimer = null;
+let _sliderTimer = null;
+let draggedNode  = null;
+let dragOffsets  = null;
+let textBboxes   = []; // Speichert Text-Positionen für Masking
+
+/* Spacing: automatisch aus Schriftgröße berechnen */
+function spacingFromFont(fs) {
+  return Math.round(fs * 2.4);
+}
+
+/* Textopazität – immer sichtbar */
+function getTextOpacity(d) {
+  if (d._searchMatch) return 1;
+  return 1;
+}
+
+function getTextFill(d) {
+  if (d._searchMatch) return '#f0c060';
+  if (d.depth === 0)  return '#f5d070';
+  if (d.data.type === 'family')   return '#e0b860';
+  if (d.data.type === 'language') return '#b0e0e0';
+  if (d.data.type === 'subgroup') return '#e0a898';
+  return '#c8c0a0';
+}
+
+function countTreeLeaves(node) {
+  if (!node.children || !node.children.length) return 1;
+  return node.children.reduce((s, c) => s + countTreeLeaves(c), 0);
+}
+
+function syncFontUI(val) {
+  const sl = document.getElementById('fontsize-sl');
+  const sv = document.getElementById('fs-val');
+  if (sl) sl.value = Math.round(val);
+  if (sv) sv.textContent = Math.round(val) + ' px';
+}
+
+function onFontsizeChange(v) {
+  currentFontSize = +v;
+  document.getElementById('fs-val').textContent = v + ' px';
+  clearTimeout(_sliderTimer);
+  _sliderTimer = setTimeout(() => { if (rootNode) drawTree(rootNode); }, 60);
+}
+
+/* Baum initialisieren */
+function initTree() {
+  svgSel = d3.select('#tree-svg');
+  gSel   = d3.select('#tree-g');
+
+  zoomBeh = d3.zoom().scaleExtent([0.02, 8]).on('zoom', ev => {
+    currentZoom = ev.transform;
+    gSel.attr('transform', currentZoom);
+    document.getElementById('zoom-info').textContent = Math.round(currentZoom.k * 100) + '%';
+    updateLineDynamics();
+  });
+  svgSel.call(zoomBeh);
+
+  if (!treeData) return;
+  rootNode = d3.hierarchy(treeData);
+
+  const total = countTreeLeaves(treeData);
+  const collapseFrom = total <= 25 ? 99 : total <= 80 ? 2 : 1;
+  rootNode.descendants().forEach((d, i) => {
+    d._uid = i; d._searchMatch = false;
+    if (d.depth >= collapseFrom && d.children) { d._ch = d.children; d.children = null; }
+  });
+
+  currentFontSize = 11;
+  syncFontUI(currentFontSize);
+  drawTree(rootNode);
+  setTimeout(() => fitView(false), 120);
+}
+
+/* Radialer Fächer-Layout-Algorithmus */
+function computeFanLayout(root, canvasW, canvasH, fontSize) {
+  const maxLabelLen = 18;
+  const charW = fontSize * 0.62;
+  const levelGap = Math.max(fontSize * 2.2 + maxLabelLen * charW * 0.5, 140);
+
+  let maxDepth = 0;
+  root.each(d => { if (d.depth > maxDepth) maxDepth = d.depth; });
+
+  root.each(d => {
+    d.y = d.depth * levelGap;
+  });
+
+  function countLeaves(node) {
+    if (!node.children || node.children.length === 0) return 1;
+    return node.children.reduce((s, c) => s + countLeaves(c), 0);
+  }
+
+  const leafSpacing = Math.max(fontSize * 2.0, 18);
+  const totalLeaves = countLeaves(root);
+
+  let leafIndex = 0;
+  function assignX(node) {
+    if (!node.children || node.children.length === 0) {
+      node.x = leafIndex * leafSpacing;
+      leafIndex++;
+      return;
+    }
+    node.children.forEach(c => assignX(c));
+    const first = node.children[0].x;
+    const last  = node.children[node.children.length - 1].x;
+    node.x = (first + last) / 2;
+  }
+  assignX(root);
+
+  const minX = Math.min(...root.descendants().map(d => d.x));
+  const maxX = Math.max(...root.descendants().map(d => d.x));
+  const offsetX = (canvasH / 2) - (minX + maxX) / 2;
+  root.each(d => { d.x += offsetX; });
+
+   return { levelGap };
+}
+
+/* Dynamische Liniendicke basierend auf Zoom */
+function calculateStrokeWidth(baseWidth = 3) {
+  if (!currentZoom) return baseWidth;
+  const zoomFactor = currentZoom.k || 1;
+  return Math.max(0.8, baseWidth / (zoomFactor * 0.8));
+}
+
+function updateLineDynamics() {
+  if (!gSel) return;
+  const sw = calculateStrokeWidth(3);
+  gSel.selectAll('path.link').style('stroke-width', sw + 'px');
+}
+
+/* Erfasse Text-Positionen für Clipping */
+function captureTextBboxes() {
+  textBboxes = [];
+  gSel.selectAll('g.node text').each(function(d) {
+    try {
+      const bbox = this.getBBox();
+      const transform = d3.select(this.parentNode).attr('transform');
+      const match = transform ? transform.match(/translate\(([-\d.]+),([-\d.]+)\)/) : null;
+      if (match) {
+        const tx = parseFloat(match[1]);
+        const ty = parseFloat(match[2]);
+        textBboxes.push({
+          x: tx + bbox.x,
+          y: ty + bbox.y,
+          width: bbox.width,
+          height: bbox.height,
+          padding: Math.max(3, currentFontSize * 0.4)
+        });
+      }
+    } catch(e) { /* ignore */ }
+  });
+}
+
+/* Prüfe ob Punkt in Text-Zone liegt */
+function isInTextZone(x, y) {
+  return textBboxes.some(box => 
+    x >= box.x - box.padding && 
+    x <= box.x + box.width + box.padding &&
+    y >= box.y - box.padding && 
+    y <= box.y + box.height + box.padding
+  );
+}
+
+/* Splitte Linie um Text zu vermeiden - nutzt Dashing statt echtem Clipping */
+function applyTextClipping() {
+  gSel.selectAll('path.link').style('stroke-dasharray', null);
+}
+
+/* Baum zeichnen */
+function drawTree(src) {
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const fs = currentFontSize;
+
+  computeFanLayout(rootNode, canvasW, canvasH, fs);
+
+  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+  const dur  = 320;
+
+  /* Links */
+  const link = gSel.selectAll('path.link').data(rootNode.links(), d => d.target._uid);
+  const linkE = link.enter().append('path').attr('class','link')
+    .attr('d', () => {
+      const o = { x: src.x0 ?? 0, y: src.y0 ?? 0 };
+      return diag({ source: o, target: o });
+    });
+  linkE.merge(link).transition().duration(dur)
+    .attr('d', diag)
+    .style('stroke', d => {
+      const col = NODE_COLORS[d.source.data.type] || '#c8973a';
+      return d.source.depth === 0 ? col + '55' : col + '30';
+    })
+    .style('stroke-width', () => calculateStrokeWidth(3) + 'px');
+  link.exit().transition().duration(dur)
+    .attr('d', () => {
+      const o = { x: src.x, y: src.y };
+      return diag({ source: o, target: o });
+    }).remove();
+
+  /* Nodes */
+  const node = gSel.selectAll('g.node').data(rootNode.descendants(), d => d._uid);
+  const enter = node.enter().append('g').attr('class','node')
+    .attr('transform', () => `translate(${src.y0 ?? 0},${src.x0 ?? 0})`)
+    .style('cursor','pointer')
+   .on('click', (ev, d) => {
+  ev.stopPropagation();
+ if (d.data.isLink && d.data.url) { window.location.href = d.data.url; return; }
+  if (miniMap) { try { miniMap.remove(); } catch(e) {} miniMap = null; miniMarker = null; }
+  toggle(d);
+  showPanel(d);
+})
+enter.filter(d => d.data.isLink)
+  .append('title')
+  .text(d => `→ Zu ${d.data.nameOrig}`);
+
+  enter.append('circle').attr('class','halo')
+    .attr('r', d => nodeRadius(d.data.type, fs) + 5)
+    .style('fill', d => (NODE_COLORS[d.data.type] || '#c8973a') + '18')
+    .style('stroke','none');
+  enter.append('circle').attr('r', 0)
+    .style('fill',   d => d._ch
+      ? (NODE_COLORS[d.data.type] || '#7ec8c8') + '55'
+      : (NODE_COLORS[d.data.type] || '#7ec8c8'))
+    .style('stroke', d => d._searchMatch
+      ? '#f0c060'
+      : (NODE_COLORS[d.data.type] || '#c8973a'));
+  enter.append('text').attr('dy','0.35em');
+
+  const merged = enter.merge(node);
+  merged.transition().duration(dur)
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+
+  merged.select('circle.halo').transition().duration(dur)
+    .attr('r', d => nodeRadius(d.data.type, fs) + 5);
+
+  merged.select('circle:not(.halo)').transition().duration(dur)
+    .attr('r', d => nodeRadius(d.data.type, fs))
+    .style('fill', d => d._ch
+      ? (NODE_COLORS[d.data.type] || '#7ec8c8') + '55'
+      : (NODE_COLORS[d.data.type] || '#7ec8c8'))
+    .style('stroke', d => d._searchMatch
+      ? '#f0c060'
+      : (NODE_COLORS[d.data.type] || '#c8973a'))
+    .style('stroke-width', d =>
+      d._searchMatch ? '3px' : (d === selNode ? '3px' : '1.5px'));
+
+  merged.select('text').transition().duration(dur)
+    .attr('x', d => {
+      const r = nodeRadius(d.data.type, fs);
+      return (d.children || d._ch) ? -(r + 6) : (r + 6);
+    })
+    .attr('text-anchor', d => (d.children || d._ch) ? 'end' : 'start')
+    .style('font-size', d => {
+      if (d.depth === 0)                return Math.round(fs * 1.2) + 'px';
+      if (d.data.type === 'family')     return Math.round(fs * 1.1) + 'px';
+      if (d.data.type === 'dialect')    return Math.round(fs * 0.88) + 'px';
+      return fs + 'px';
+    })
+    .text(d => {
+      const n  = d.data.name;
+      const mx = d.depth === 0 ? 40 : d.depth <= 2 ? 32 : 26;
+      return n.length > mx ? n.slice(0, mx - 1) + '…' : n;
+    })
+    .style('fill', d => getTextFill(d))
+    .attr('opacity', 1);
+
+  merged.classed('sel', d => selNode && d.data.id === selNode.data.id);
+
+  /* DRAG BEHAVIOR */
+  merged.call(d3.drag()
+    .on('start', dragStarted)
+    .on('drag', dragging)
+    .on('end', dragEnded));
+
+  node.exit().transition().duration(dur)
+    .attr('transform', `translate(${src.y},${src.x})`).remove();
+
+  rootNode.descendants().forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+  
+  /* Text-Clipping nach Render */
+  setTimeout(() => {
+    captureTextBboxes();
+    applyTextClipping();
+  }, dur + 50);
+}
+
+/* DRAG FUNKTIONEN */
+function dragStarted(event, d) {
+  draggedNode = d;
+  dragOffsets = new Map();
+  
+  function collectOffsets(node, baseX, baseY) {
+    dragOffsets.set(node._uid, { x: node.x - baseX, y: node.y - baseY });
+    if (node.children) {
+      node.children.forEach(c => collectOffsets(c, baseX, baseY));
+    }
+  }
+  
+  collectOffsets(d, d.x, d.y);
+  d3.select(this).classed('dragging', true);
+  d3.select(this).select('circle:not(.halo)').style('filter', 'drop-shadow(0 0 8px rgba(240,192,96,.6))');
+}
+
+function dragging(event, d) {
+  if (!draggedNode || !dragOffsets) return;
+  
+  const dx = event.dx / currentZoom.k;
+  const dy = event.dy / currentZoom.k;
+  
+  dragOffsets.forEach((offset, uid) => {
+    const node = rootNode.descendants().find(n => n._uid === uid);
+    if (node) {
+      node.x += dy;
+      node.y += dx;
+    }
+  });
+  
+  // OPTIMIERUNG: Nur direkt die Knoten verschieben, nicht neu zeichnen!
+  // Das macht Drag & Drop 10x flüssiger
+  gSel.selectAll('g.node').transition().duration(0)
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+  
+  // Auch Links updaten
+  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+  gSel.selectAll('path.link').transition().duration(0)
+    .attr('d', diag);
+}
+
+function dragEnded(event, d) {
+  d3.select(this).classed('dragging', false);
+  d3.select(this).select('circle:not(.halo)').style('filter', null);
+  draggedNode = null;
+  dragOffsets = null;
+}
+
+/* Übersicht */
+function fitView(anim = true) {
+  if (!rootNode) return;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  const nodes   = rootNode.descendants().filter(d => d.x != null && d.y != null);
+  if (!nodes.length) return;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(d => {
+    if (d.x < minX) minX = d.x; if (d.x > maxX) maxX = d.x;
+    if (d.y < minY) minY = d.y; if (d.y > maxY) maxY = d.y;
+  });
+
+  const svgW    = Math.max(maxY - minY, 1);
+  const svgH    = Math.max(maxX - minX, 1);
+  const padL    = 80;
+  const padR    = currentFontSize * 18;
+  const padV    = 50;
+  const scaleX  = (canvasW - padL - padR) / svgW;
+  const scaleY  = (canvasH - 2 * padV)    / svgH;
+  const scale   = Math.min(scaleX, scaleY, 1.6);
+  const tx      = padL - minY * scale;
+  const ty      = canvasH / 2 - (minX + maxX) / 2 * scale;
+
+  const t = d3.zoomIdentity.translate(tx, ty).scale(scale);
+  (anim ? svgSel.transition().duration(450) : svgSel).call(zoomBeh.transform, t);
+}
+
+function fitToNodes(nodes) {
+  if (!nodes.length) return;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(d => {
+    if (d.x != null) { if (d.x < minX) minX = d.x; if (d.x > maxX) maxX = d.x; }
+    if (d.y != null) { if (d.y < minY) minY = d.y; if (d.y > maxY) maxY = d.y; }
+  });
+  if (!isFinite(minX)) return;
+  if (maxX === minX) { minX -= 40; maxX += 40; }
+  if (maxY === minY) { minY -= 100; maxY += 100; }
+  const svgW  = Math.max(maxY - minY, 1);
+  const svgH  = Math.max(maxX - minX, 1);
+  const scaleX = (canvasW - 80 - 220) / svgW;
+  const scaleY = (canvasH - 120)       / svgH;
+  const scale  = Math.min(scaleX, scaleY, 2.8);
+  const tx = (canvasW - svgW * scale) / 2 - minY * scale;
+  const ty = canvasH / 2 - (minX + maxX) / 2 * scale;
+  svgSel.transition().duration(550)
+    .call(zoomBeh.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+function toggle(d) {
+  if (d.children) { d._ch = d.children; d.children = null; }
+  else if (d._ch) { d.children = d._ch; d._ch = null; }
+  drawTree(d);
+}
+
+function expandAll() {
+  rootNode.descendants().forEach(d => { if (d._ch) { d.children = d._ch; d._ch = null; } });
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function collapseAll() {
+  rootNode.descendants().forEach(d => {
+    if (d.depth > 0 && d.children) { d._ch = d.children; d.children = null; }
+  });
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function _hasLanguageDescendant(node) {
+  // Hilfsfunktion: Prüft ob ein Knoten eine Sprache als Nachkomme hat
+  if (node.data.type === 'language') return true;
+  if (node.children) {
+    return node.children.some(child => _hasLanguageDescendant(child));
+  }
+  if (node._ch) {
+    return node._ch.some(child => _hasLanguageDescendant(child));
+  }
+  return false;
+}
+
+function toggleDialects() {
+  if (!rootNode) return;
+  
+  // Neue Strategie:
+  // - Alle Sprachen-Knoten (type === 'language') bleiben OFFEN
+  // - Alle Übergruppen, die Sprachen als Nachkommen haben, bleiben OFFEN
+  // - Alle Übergruppen, die KEINE Sprachen als Nachkommen haben, werden EINGEKLAPPT
+  // - Damit sind nur Sprachen und ihre direkten Vorfahren sichtbar
+  
+  rootNode.descendants().forEach(d => {
+    if (d.children) {
+      // Checke: Enthält dieser Knoten oder seine Kinder eine Sprache?
+      const hasLanguageChild = d.children.some(child => _hasLanguageDescendant(child));
+      
+      // Wenn KEINE Sprache als Nachkomme vorhanden: einklappen
+      if (!hasLanguageChild) {
+        d._ch = d.children;
+        d.children = null;
+      }
+      // Sonst: offen lassen (Sprachen bleiben sichtbar)
+    }
+  });
+  
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function zoomBy(f) {
+  svgSel.transition().duration(260).call(zoomBeh.scaleBy, f);
+}
+
+/* Suche */
+function onSearchInput(q) {
+  clearTimeout(_searchTimer);
+  if (!q.trim()) { clearSearch(); return; }
+  _searchTimer = setTimeout(() => doSearch(q.trim()), 320);
+}
+
+function doSearch(q) {
+  if (!rootNode) return;
+  const ql = q.toLowerCase();
+  const matches = [];
+  rootNode.descendants().forEach(d => {
+    const n  = (d.data.name     || '').toLowerCase();
+    const o  = (d.data.nameOrig || '').toLowerCase();
+    const id = (d.data.id       || '').toLowerCase();
+    d._searchMatch = n.includes(ql) || o.includes(ql) || id.includes(ql);
+    if (d._searchMatch) matches.push(d);
+  });
+  matches.forEach(m => {
+    let a = m.parent;
+    while (a) { if (a._ch) { a.children = a._ch; a._ch = null; } a = a.parent; }
+  });
+  drawTree(rootNode);
+  if (matches.length) setTimeout(() => fitToNodes(matches), 380);
+}
+
+function clearSearch() {
+  if (!rootNode) return;
+  rootNode.descendants().forEach(d => { d._searchMatch = false; });
+  drawTree(rootNode);
+}
+
+
+
+/* ════════════════════════════════════════════════════════════════
+   INFO-PANEL  (mit Mini-Karte)
+════════════════════════════════════════════════════════════════ */
+let miniMap = null;
+let miniMarker = null;
+
+function _initMiniMap(lat, lon, color) {
+  const wrap = document.getElementById('ip-minimap-wrap');
+  if (!wrap) return;
+
+  // Alte Instanz immer zerstören, da das DOM-Element bei jedem Klick neu erstellt wird
+  if (miniMap) {
+    try { miniMap.remove(); } catch(e) {}
+    miniMap = null;
+    miniMarker = null;
+  }
+
+  miniMap = L.map('ip-minimap', {
+    zoomControl: true,
+    scrollWheelZoom: true,
+    dragging: true,
+    attributionControl: false,
+    zoomSnap: 0.5
+  });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd', maxZoom: 18
+  }).addTo(miniMap);
+  L.control.attribution({ prefix: '© OSM · CARTO' }).addTo(miniMap);
+
+  const icon = L.divIcon({
+    html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 6px ${color}aa;"></div>`,
+    className: '', iconSize: [12,12], iconAnchor: [6,6]
+  });
+  miniMarker = L.marker([lat, lon], { icon }).addTo(miniMap);
+  miniMap.setView([lat, lon], 5, { animate: false });
+  // Mehrfach invalidieren um sicherzustellen, dass Tiles vollständig geladen werden
+  setTimeout(() => miniMap.invalidateSize(), 100);
+  setTimeout(() => miniMap.invalidateSize(), 400);
+}
+
+function showPanel(d) {
+  selNode = d;
+  drawTree(d);
+  document.getElementById('ip-empty').style.display = 'none';
+  document.getElementById('ip-content').classList.add('on');
+
+  const data = d.data;
+  document.getElementById('ip-name').textContent = data.name;
+  const origEl = document.getElementById('ip-orig');
+  if (data.nameOrig && data.nameOrig !== data.name) {
+    origEl.textContent = data.nameOrig; origEl.style.display = 'block';
+  } else { origEl.style.display = 'none'; }
+
+  const body = document.getElementById('ip-body');
+  body.innerHTML = '';
+
+  const secKl = mkSec('Klassifikation');
+  const br = document.createElement('div'); br.className = 'ip-row';
+  br.innerHTML = `<span class="ip-key">Typ</span><span class="ip-badge badge-${data.type}">${typeName(data.type)}</span>`;
+  secKl.appendChild(br);
+  addRow(secKl, 'Ebene', d.depth);
+  body.appendChild(secKl);
+
+  const secId = mkSec('Identifikatoren');
+  addRow(secId, 'Glottolog', data.id, true);
+  if (data.iso) addRow(secId, 'ISO 639-3', data.iso, true);
+  body.appendChild(secId);
+
+  if (data.lat != null && data.lon != null) {
+    const secG = mkSec('Koordinaten');
+    addRow(secG, 'Breite', data.lat.toFixed(4) + '°');
+    addRow(secG, 'Länge',  data.lon.toFixed(4) + '°');
+    body.appendChild(secG);
+  }
+
+if (data.lat != null && data.lon != null) {
+    const secM = mkSec('Karte');
+    const wrap = document.createElement('div');
+    wrap.id = 'ip-minimap-wrap';
+    wrap.innerHTML = '<div id="ip-minimap"></div>';
+    secM.appendChild(wrap);
+    body.appendChild(secM);
+    // Längere Verzögerung damit das DOM sicher gerendert ist, bevor Leaflet initialisiert
+    setTimeout(() => {
+      const col = NODE_COLORS[data.type] || '#c8973a';
+      _initMiniMap(data.lat, data.lon, col);
+    }, 150);
+  } else {
+    // Alte Instanz aufräumen wenn kein Standort vorhanden
+    if (miniMap) {
+      try { miniMap.remove(); } catch(e) {}
+      miniMap = null;
+      miniMarker = null;
+    }
+  }
+
+  const countries = _getCountries(d);
+  const pending   = !countries && _isPending(d);
+  if (countries && countries.length) {
+    const secC = mkSec('Gesprochen in');
+    countries.forEach(c => {
+      const row = document.createElement('div'); row.className = 'ip-country';
+      row.innerHTML = `
+        <span class="ip-country-flag">${c.flag}</span>
+        <span class="ip-country-info">
+          <span class="ip-country-name">${c.name}</span>
+          ${c.region ? `<span class="ip-country-region">${c.region}</span>` : ''}
+        </span>`;
+      secC.appendChild(row);
+    });
+    body.appendChild(secC);
+  } else if (pending) {
+    const secC = mkSec('Gesprochen in');
+    const ld = document.createElement('div'); ld.className = 'ip-country-loading';
+    ld.textContent = 'Wird ermittelt…';
+    secC.appendChild(ld); body.appendChild(secC);
+  }
+
+  const kids = d.children || d._ch || [];
+  if (kids.length) {
+    const secK = mkSec(`Untereinheiten (${kids.length})`);
+    const ul = document.createElement('ul'); ul.className = 'ip-child-list';
+    kids.forEach(c => {
+      const li = document.createElement('li');
+      const dot = document.createElement('div'); dot.className = 'ip-child-dot';
+      dot.style.background = NODE_COLORS[c.data.type] || '#7a6a48';
+      li.appendChild(dot);
+      const sp = document.createElement('span'); sp.textContent = c.data.name;
+      li.appendChild(sp); ul.appendChild(li);
+    });
+    secK.appendChild(ul); body.appendChild(secK);
+  }
+
+  if (d.depth > 0) {
+    const ancs = d.ancestors().slice(1).reverse();
+    if (ancs.length) {
+      const secA = mkSec('Übergeordnet');
+      ancs.forEach((a, i) => {
+        const r = document.createElement('div'); r.className = 'ip-row';
+        r.innerHTML = `<span class="ip-key" style="padding-left:${i*8}px">${i?'└ ':''}${typeName(a.data.type)}</span><span class="ip-val">${a.data.name}</span>`;
+        secA.appendChild(r);
+      });
+      body.appendChild(secA);
+    }
+  }
+}
+
+function mkSec(title) {
+  const s = document.createElement('div'); s.className = 'ip-section';
+  const t = document.createElement('div'); t.className = 'ip-sec-title'; t.textContent = title;
+  s.appendChild(t); return s;
+}
+function addRow(p, key, val, mono=false) {
+  const r = document.createElement('div'); r.className = 'ip-row';
+  r.innerHTML = `<span class="ip-key">${key}</span><span class="ip-val${mono?' mono':''}">${val}</span>`;
+  p.appendChild(r);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   LEAFLET-HAUPTKARTE  (ohne Clustering, direkte Marker)
+════════════════════════════════════════════════════════════════ */
+let leafMap = null;
+
+function initMap() {
+  leafMap = L.map('map', {
+    center: mapConfig.center,
+    zoom:   mapConfig.zoom,
+    zoomControl: false
+  });
+
+  L.control.zoom({ position: 'bottomright' }).addTo(leafMap);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(leafMap);
+
+  geoData.forEach(lang => {
+    const col = lang.color || "#c8973a";
+    const icon = L.divIcon({
+      html: `<div style="
+        width:12px;height:12px;border-radius:50%;
+        background:${col};
+        border:2px solid rgba(255,255,255,0.85);
+        box-shadow:0 0 6px ${col}aa,0 1px 4px rgba(0,0,0,.5);
+        cursor:pointer;
+      "></div>`,
+      className: '', iconSize: [12,12], iconAnchor: [6,6], popupAnchor: [0,-8]
+    });
+    const popup = `
+      <div class="lp-name">${lang.name}</div>
+      ${lang.nameOrig !== lang.name ? `<div class="lp-orig">${lang.nameOrig}</div>` : ''}
+      <div class="lp-row"><span>Glottolog:</span><span class="lp-badge">${lang.id}</span></div>
+      <div class="lp-row" style="font-size:.63rem;color:#666">📍 ${lang.lat.toFixed(4)}° · ${lang.lon.toFixed(4)}°</div>`;
+    const m = L.marker([lang.lat, lang.lon], { icon });
+    m.bindPopup(popup, { maxWidth: 230 });
+    m.on('mouseover', () => m.openPopup());
+    m.addTo(leafMap);
+  });
+
+  setTimeout(() => leafMap.invalidateSize(), 150);
+}
+
+/* ── Start ── */
+window.addEventListener('resize', () => {
+  if (rootNode) drawTree(rootNode);
+  if (leafMap) leafMap.invalidateSize();
+  if (miniMap) miniMap.invalidateSize();
+});
+
+document.addEventListener('DOMContentLoaded', () => { initData(); initTree(); });
+</script>
+</body>
+</html>

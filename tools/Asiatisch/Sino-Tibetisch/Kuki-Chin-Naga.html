@@ -1,0 +1,3789 @@
+<!DOCTYPE html>
+<!--
+╔══════════════════════════════════════════════════════════════════════╗
+║  SPRACHFAMILIEN-ATLAS · VORLAGE v4                                  ║
+╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title id="page-title">Sprachfamilien-Atlas</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+  --bg-primary:  #0a0a0f;
+  --bg-nav:      #0d0d14;
+  --bg-panel:    #13131c;
+  --gold-bright: #f0c060;
+  --gold-mid:    #c8973a;
+  --gold-glow:   rgba(240,192,96,0.15);
+  --text-primary:#e8d5a0;
+  --text-dim:    #9a8a68;      /* heller als vorher (#7a6a48) */
+  --text-muted:  #7a6a52;      /* heller als vorher (#4a4030) */
+  --border:      #1e1e2e;
+  --border-gold: rgba(200,151,58,0.3);
+  --node-family: #c8973a;
+  --node-lang:   #7ec8c8;
+  --node-sub:    #c87868;
+  --node-dial:   #a0b878;
+  --nav-h:       52px;
+  --toolbar-h:   46px;
+  --panel-w:     300px;
+}
+    html, body { height:100%; width:100%; overflow:hidden; font-family:'Georgia',serif; background:var(--bg-primary); color:var(--text-primary); }
+
+    /* ── NAV ── */
+    #nav { position:fixed; top:0; left:0; right:0; height:var(--nav-h); background:var(--bg-nav); border-bottom:1px solid var(--border-gold); display:flex; align-items:center; justify-content:space-between; padding:0 24px; z-index:1000; box-shadow:0 2px 20px rgba(0,0,0,.6); }
+    #nav-left { display:flex; align-items:center; gap:10px; }
+    .title-glyph { font-size:1.3rem; color:var(--gold-bright); text-shadow:0 0 12px rgba(240,192,96,.4); }
+    .title-main  { font-size:1rem; color:var(--gold-bright); letter-spacing:2px; text-transform:uppercase; font-weight:normal; }
+    .title-sub   { font-size:.65rem; color:var(--text-dim); letter-spacing:1px; font-family:'Segoe UI',sans-serif; }
+    #nav-tabs { display:flex; gap:4px; background:rgba(0,0,0,.4); border:1px solid var(--border-gold); border-radius:8px; padding:4px; }
+    .nav-tab { display:flex; align-items:center; gap:7px; padding:6px 18px; border-radius:6px; border:1px solid transparent; cursor:pointer; font-family:'Segoe UI',sans-serif; font-size:.78rem; color:var(--text-dim); background:transparent; transition:all .25s; user-select:none; }
+    .nav-tab:hover  { color:var(--gold-mid); background:var(--gold-glow); }
+    .nav-tab.active { color:var(--gold-bright); background:rgba(200,151,58,.18); border-color:var(--border-gold); }
+    .nav-tab svg { width:14px; height:14px; fill:currentColor; flex-shrink:0; }
+    #nav-meta { display:flex; gap:10px; }
+    .meta-chip { font-family:'Segoe UI',sans-serif; font-size:.65rem; color:var(--text-dim); background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:10px; padding:2px 10px; letter-spacing:.5px; }
+
+    /* ── VIEWS ── */
+    #views { position:fixed; top:var(--nav-h); left:0; right:0; bottom:0; }
+    .view { position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity .4s; }
+    .view.visible { opacity:1; pointer-events:all; }
+
+    /* ── TREE VIEW ── */
+    #view-tree { background:var(--bg-primary); display:flex; flex-direction:column; }
+    #tree-toolbar { min-height:var(--toolbar-h); height:auto; background:var(--bg-panel); border-bottom:1px solid var(--border); display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:6px 16px; flex-shrink:0; }
+    .tb-label { font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-muted); letter-spacing:1px; white-space:nowrap; }
+    .tb-btn { display:flex; align-items:center; gap:5px; padding:4px 12px; border-radius:6px; border:1px solid var(--border-gold); background:transparent; color:var(--gold-mid); font-family:'Segoe UI',sans-serif; font-size:.72rem; cursor:pointer; transition:all .2s; white-space:nowrap; }
+    .tb-btn:hover { background:var(--gold-glow); color:var(--gold-bright); border-color:var(--gold-bright); }
+    .tb-btn svg { width:11px; height:11px; fill:currentColor; }
+    .tb-divider { width:1px; height:22px; background:var(--border); flex-shrink:0; }
+    #zoom-info { font-family:monospace; font-size:.7rem; color:var(--text-muted); min-width:38px; text-align:center; }
+    .tb-input { background:rgba(255,255,255,.05); border:1px solid var(--border-gold); border-radius:6px; color:var(--text-primary); font-family:'Segoe UI',sans-serif; font-size:.72rem; padding:4px 10px; width:145px; outline:none; transition:border-color .2s, background .2s; }
+    .tb-input:focus { border-color:var(--gold-bright); background:rgba(240,192,96,.07); }
+    .tb-input::placeholder { color:var(--text-muted); }
+    #tree-legend { display:flex; align-items:center; gap:12px; margin-left:auto; }
+    .leg-item { display:flex; align-items:center; gap:5px; font-family:'Segoe UI',sans-serif; font-size:.65rem; color:var(--text-dim); }
+    .leg-dot  { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+    #tree-main { flex:1; display:flex; overflow:hidden; min-height:0; }
+    #tree-canvas { flex:1; overflow:hidden; position:relative; }
+    #tree-canvas svg { width:100%; height:100%; cursor:grab; }
+    #tree-canvas svg:active { cursor:grabbing; }
+
+    /* ── INFO PANEL ── */
+    #info-panel { width:var(--panel-w); flex-shrink:0; background:var(--bg-panel); border-left:1px solid var(--border-gold); display:flex; flex-direction:column; overflow:hidden; }
+    #ip-header { padding:14px 16px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+    .ip-label { font-family:'Segoe UI',sans-serif; font-size:.62rem; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; }
+    #ip-name  { font-family:'Georgia',serif; font-size:1.05rem; color:var(--gold-bright); line-height:1.3; word-break:break-word; }
+    #ip-orig  { font-family:'Segoe UI',sans-serif; font-size:.7rem; color:var(--text-dim); font-style:italic; margin-top:3px; display:none; }
+    #ip-body  { flex:1; overflow-y:auto; padding:12px 16px; }
+    .ip-section { margin-bottom:14px; }
+    .ip-sec-title { font-family:'Segoe UI',sans-serif; font-size:.6rem; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    .ip-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:5px; font-family:'Segoe UI',sans-serif; font-size:.72rem; }
+    .ip-key { color:var(--text-muted); flex-shrink:0; }
+    .ip-val { color:var(--text-dim); text-align:right; word-break:break-word; }
+    .ip-val.mono { color:var(--node-lang); font-family:monospace; font-size:.75rem; }
+    .ip-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-family:'Segoe UI',sans-serif; font-size:.65rem; letter-spacing:.5px; border:1px solid; }
+    .badge-family   { color:var(--node-family); border-color:var(--node-family); background:rgba(200,151,58,.1); }
+    .badge-language { color:var(--node-lang);   border-color:var(--node-lang);   background:rgba(126,200,200,.1); }
+    .badge-subgroup { color:var(--node-sub);    border-color:var(--node-sub);    background:rgba(200,120,104,.1); }
+    .badge-dialect  { color:var(--node-dial);   border-color:var(--node-dial);   background:rgba(160,184,120,.1); }
+    .ip-country { display:flex; align-items:flex-start; gap:9px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,.04); font-family:'Segoe UI',sans-serif; font-size:.72rem; }
+    .ip-country:last-child { border-bottom:none; }
+    .ip-country-flag   { font-size:1.25rem; line-height:1.1; flex-shrink:0; }
+    .ip-country-info   { display:flex; flex-direction:column; gap:1px; }
+    .ip-country-name   { color:var(--text-dim); line-height:1.4; }
+    .ip-country-region { font-size:.62rem; color:var(--text-muted); }
+    .ip-country-loading { font-size:.68rem; color:var(--text-muted); font-style:italic; padding:3px 0; }
+    .ip-child-list { list-style:none; }
+    .ip-child-list li { display:flex; align-items:center; gap:6px; padding:3px 0; font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-dim); border-bottom:1px solid rgba(255,255,255,.03); }
+    .ip-child-list li:last-child { border-bottom:none; }
+    .ip-child-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    #ip-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:10px; color:var(--text-muted); font-family:'Segoe UI',sans-serif; font-size:.72rem; text-align:center; padding:20px; }
+    #ip-empty .ei { font-size:2rem; opacity:.3; }
+    #ip-content { display:none; height:100%; flex-direction:column; overflow:hidden; }
+    #ip-content.on { display:flex; }
+
+    /* Mini-Karte im Info-Panel */
+    #ip-minimap-wrap { width:100%; height:160px; border-radius:8px; overflow:hidden; border:1px solid var(--border-gold); margin-top:6px; flex-shrink:0; position:relative; }
+    #ip-minimap { width:100%; height:100%; }
+
+    /* ── D3 ELEMENTE ── */
+    .link { fill:none; stroke:rgba(200,151,58,.22); stroke-width:3px; }
+    /* Trennlinie zwischen Haupt-Familienästen */
+    .family-sep { fill:none; stroke:rgba(200,151,58,.12); stroke-width:1px; stroke-dasharray:4,4; }
+    .node circle { stroke-width:1.5px; transition:all .25s; }
+    .node:hover circle { stroke-width:2.5px; }
+    .node.dragging circle { filter: drop-shadow(0 0 8px rgba(240,192,96,.6)); stroke-width:3px; }
+    /* Textgröße wird dynamisch per inline-style gesetzt */
+    .node text { font-family:'Georgia',serif; pointer-events:none; }
+    .node.sel circle { stroke-width:3px; }
+    #tree-bar { height:34px; background:var(--bg-panel); border-top:1px solid var(--border); display:flex; align-items:center; padding:0 20px; gap:20px; flex-shrink:0; }
+    #tree-bar .bi { font-family:'Segoe UI',sans-serif; font-size:.67rem; color:var(--text-muted); }
+    #tree-bar .bi span { color:var(--text-dim); }
+
+    /* ── MAP VIEW ── */
+    #view-map { background:#1a1a2e; }
+    #map { width:100%; height:100%; }
+    /* Legende links unten */
+    #map-overlay {
+      position:absolute;
+      bottom:32px; left:16px;
+      z-index:900;
+      background:rgba(10,10,15,.88);
+      border:1px solid var(--border-gold);
+      border-radius:10px;
+      padding:12px 16px;
+      backdrop-filter:blur(8px);
+      min-width:180px;
+    }
+    .ov-title { font-size:.7rem; color:var(--gold-mid); letter-spacing:1.5px; text-transform:uppercase; font-family:'Segoe UI',sans-serif; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border-gold); }
+    .ov-item  { display:flex; align-items:center; gap:8px; margin-bottom:5px; font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-dim); }
+    .ov-dot   { width:10px; height:10px; border-radius:50%; flex-shrink:0; border:1.5px solid rgba(255,255,255,.2); }
+
+    /* ── LEAFLET OVERRIDES ── */
+    .leaflet-container { background:#2a3a4a !important; }
+    .leaflet-popup-content-wrapper { background:var(--bg-panel) !important; color:var(--text-primary) !important; border:1px solid var(--border-gold) !important; border-radius:10px !important; box-shadow:0 8px 32px rgba(0,0,0,.7) !important; }
+    .leaflet-popup-tip { background:var(--bg-panel) !important; }
+    .leaflet-popup-close-button { color:var(--text-dim) !important; }
+    .lp-name  { font-family:'Georgia',serif; font-size:1rem; color:var(--gold-bright); margin-bottom:4px; }
+    .lp-orig  { font-size:.68rem; color:var(--text-dim); font-style:italic; margin-bottom:6px; }
+    .lp-row   { display:flex; gap:6px; align-items:center; font-size:.7rem; color:var(--text-dim); margin-bottom:3px; }
+    .lp-badge { font-size:.62rem; background:rgba(200,151,58,.2); border:1px solid var(--border-gold); border-radius:4px; padding:1px 6px; color:var(--gold-mid); font-family:monospace; }
+    /* Zoom-Buttons: rechts unten auf der Karte */
+    .leaflet-control-zoom { margin-right:16px !important; margin-bottom:16px !important; }
+    .leaflet-bottom.leaflet-right { bottom:0; right:0; }
+    .leaflet-control-zoom a { background:rgba(13,13,20,0.92) !important; color:var(--gold-mid) !important; border-color:var(--border-gold) !important; }
+    .leaflet-control-attribution { background:rgba(10,10,15,.7) !important; color:var(--text-muted) !important; font-size:.55rem !important; }
+
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+    * { scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+
+    /* Mini-Map Leaflet overrides */
+    #ip-minimap .leaflet-control-zoom { display:none !important; }
+    #ip-minimap .leaflet-control-attribution { font-size:.45rem !important; }
+
+    /* ── ERROR SCREEN ── */
+    #error-screen { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:var(--bg-primary); z-index:10000; flex-direction:column; align-items:center; justify-content:center; padding:40px; text-align:center; }
+    #error-screen.visible { display:flex; }
+    .error-icon { font-size:3rem; margin-bottom:20px; }
+    .error-title { font-size:1.4rem; color:var(--gold-bright); margin-bottom:10px; font-weight:700; }
+    .error-message { font-size:0.95rem; color:var(--text-dim); max-width:600px; line-height:1.6; margin-bottom:20px; font-family:'Segoe UI',monospace; background:rgba(255,0,0,.1); border:1px solid rgba(200,100,100,.3); border-radius:8px; padding:15px; }
+    .error-details { font-size:0.8rem; color:var(--text-muted); max-width:700px; }
+
+    @media (max-width:700px) { #nav-meta{display:none;} .nav-tab{padding:5px 10px;} #tree-legend{display:none;} }
+    @media (max-width:480px) { #info-panel{display:none;} }
+  </style>
+</head>
+<body>
+
+<nav id="nav">
+  <div id="nav-left">
+    <span class="title-glyph" id="nav-glyph">◈</span>
+    <div>
+      <div class="title-main" id="nav-title-main">Sprachfamilien-Atlas</div>
+      <div class="title-sub">Interaktiver Sprach-Atlas</div>
+    </div>
+  </div>
+  <div id="nav-tabs">
+    <div class="nav-tab active" data-view="tree" onclick="switchView('tree')">
+      <svg viewBox="0 0 16 16"><path d="M1 1h5v3H4v2h2v3H1V7h2V4H1zm7 0h5v3h-2v2h2v3H8V7h2V4H8zm0 7h5v3h-2v2h2v3H8v-3h2v-2H8z"/></svg>
+      Stammbaum
+    </div>
+    <div class="nav-tab" data-view="map" onclick="switchView('map')">
+      <svg viewBox="0 0 16 16"><path d="M8 0a5 5 0 0 0-5 5c0 3.5 5 11 5 11s5-7.5 5-11a5 5 0 0 0-5-5zm0 7.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+      Verbreitungskarte
+    </div>
+  </div>
+  <div id="nav-meta">
+    <span class="meta-chip" id="chip-fam">– Familien</span>
+    <span class="meta-chip" id="chip-lan">– Sprachen</span>
+    <span class="meta-chip" id="chip-dia">– Dialekte</span>
+  </div>
+</nav>
+
+<div id="views">
+
+  <!-- STAMMBAUM -->
+  <div id="view-tree" class="view visible">
+    <div id="tree-toolbar">
+      <button class="tb-btn" onclick="expandAll()">
+        <svg viewBox="0 0 12 12"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        Aufklappen
+      </button>
+      <button class="tb-btn" onclick="collapseAll()">
+        <svg viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        Einklappen
+      </button>
+      <button class="tb-btn" onclick="toggleDialects()">
+        <svg viewBox="0 0 12 12"><path d="M2 3h3v3H2zm5 0h3v3H7zm-5 5h3v3H2zm5 0h3v3H7z" stroke="currentColor" stroke-width="0.8" fill="currentColor"/></svg>
+        Dialekte verbergen
+      </button>
+      <button class="tb-btn" onclick="fitView()">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><polyline points="1,4 1,1 4,1"/><polyline points="8,1 11,1 11,4"/><polyline points="11,8 11,11 8,11"/><polyline points="4,11 1,11 1,8"/></svg>
+        Übersicht
+      </button>
+      <div class="tb-divider"></div>
+      <button class="tb-btn" onclick="zoomBy(1.3)">＋</button>
+      <span id="zoom-info">100%</span>
+      <button class="tb-btn" onclick="zoomBy(0.77)">－</button>
+      <div class="tb-divider"></div>
+      <input id="tree-search" type="text" class="tb-input" placeholder="🔍  Sprache suchen…"
+             oninput="onSearchInput(this.value)"
+             onkeydown="if(event.key==='Escape'){this.value='';clearSearch();}"/>
+      <div class="tb-divider"></div>
+      <!-- Schriftgröße-Regler (ersetzt Abstand-Regler) -->
+      <span class="tb-label">Schriftgröße</span>
+      <input type="range" id="fontsize-sl" min="5" max="20" value="11" step="1"
+             style="width:72px;accent-color:var(--gold-mid);cursor:pointer;vertical-align:middle;"
+             oninput="onFontsizeChange(this.value)"/>
+      <span id="fs-val" style="font-size:.65rem;color:var(--text-muted);min-width:32px">11 px</span>
+      <div id="tree-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#c8973a"></div>Familie</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#7ec8c8"></div>Sprache</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#c87868"></div>Gruppe</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#a0b878"></div>Dialekt</div>
+      </div>
+    </div>
+
+    <div id="tree-main">
+      <div id="tree-canvas">
+        <svg id="tree-svg">
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <clipPath id="text-clip">
+              <!-- Wird dynamisch gefüllt -->
+            </clipPath>
+          </defs>
+          <g id="tree-g"></g>
+        </svg>
+      </div>
+      <div id="info-panel">
+        <div id="ip-empty">
+          <div class="ei">◈</div>
+          <div>Knoten anklicken<br>für Details</div>
+        </div>
+        <div id="ip-content">
+          <div id="ip-header">
+            <div class="ip-label">Details</div>
+            <div id="ip-name">–</div>
+            <div id="ip-orig"></div>
+          </div>
+          <div id="ip-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tree-bar">
+      <div class="bi">Klick: <span>Details / Ein-/Ausklappen</span></div>
+      <div class="bi">Ziehen: <span>Verschieben (Knoten + Astgruppe)</span></div>
+      <div class="bi">Scroll: <span>Zoom</span></div>
+      <div class="bi">Regler: <span>Schriftgröße &amp; Abstände</span></div>
+    </div>
+  </div>
+
+  <!-- KARTE -->
+  <div id="view-map" class="view">
+    <div id="map"></div>
+    <div id="map-overlay">
+      <div class="ov-title">Sprachgruppen</div>
+      <div id="map-legend-items"></div>
+    </div>
+  </div>
+
+</div><!-- #views -->
+
+<!-- ERROR SCREEN -->
+<div id="error-screen">
+  <div class="error-icon">⚠️</div>
+  <div class="error-title">Syntax-Fehler im Newick-String</div>
+  <div class="error-message" id="error-msg"></div>
+  <div class="error-details">
+    <p>Überprüfen Sie Ihren Newick-String auf:</p>
+    <ul style="text-align:left;display:inline-block;margin-top:10px;">
+      <li>✓ Backticks: const rawNewick = `...` (nicht "..." oder '...')</li>
+      <li>✓ Korrekte Klammer-Balance: ( und )</li>
+      <li>✓ Text mit Leerzeichen in Quotes: 'Name mit Leerzeichen'</li>
+      <li>✓ Sprachen markieren mit: -l-</li>
+    </ul>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1a  –  GLYPH
+════════════════════════════════════════════════════════════════ */
+const familyGlyph = "ꯀꯓꯟv";
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1b  –  ZÄHLER
+════════════════════════════════════════════════════════════════ */
+const familyMeta = {
+  families:  48,
+  languages: 48,
+  dialects:  150
+};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1c  –  KARTEN-KONFIGURATION
+════════════════════════════════════════════════════════════════ */
+const mapConfig = {
+  center: [23.5581922976323,92.3043157977345],
+  zoom:   6
+  }
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1d  –  KARTEN-LEGENDE (OPTIONAL)
+════════════════════════════════════════════════════════════════ */
+const mapLegendGroups = [];
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 2a  –  DEUTSCHE NAMEN
+════════════════════════════════════════════════════════════════ */
+const nameTranslations = {'chak1268': 'Chakroma',
+'dzun1241': 'Dzuna',
+'kehe1240': 'Kehena',
+'khon1248': 'Khonoma',
+'kohi1249': 'Kohima',
+'mima1238': 'Mima',
+'mozo1238': 'Mozome',
+'nali1243': 'Nali (Indien)',
+'teng1262': 'Tengima',
+'teny1242': 'Tenyidie',
+'anga1288': 'Angami Naga',
+'chok1243': 'Chokri Naga',
+'anga1287': 'Angami-Chokri',
+'khez1235': 'Khezha Naga',
+'paom1238': 'Paomata',
+'maon1238': 'Mao Naga',
+'oina1234': 'Oinam',
+'poum1235': 'Poumei Naga',
+'poum1236': 'Poumaisch',
+'naga1397': 'Naga-Maoisch',
+'anga1244': 'Angami-Mao',
+'nort2725': 'Nord-Rengma Naga',
+'poch1243': 'Pochuri Naga',
+'poch1242': 'Pochuri-Nord-Rengma',
+'azon1238': 'Azonyu',
+'kete1251': 'Keteneneyu',
+'sout2732': 'Süd-Rengma Naga',
+'daya1244': 'Dayang',
+'laze1239': 'Lazemi',
+'zhim1238': 'Zhimomi',
+'zumo1240': 'Zumomi',
+'sumi1235': 'Sumi Naga',
+'reng1253': 'Rengma-Simi',
+'anga1286': 'Angami-Pochuri',
+'chan1311': 'Changki',
+'chon1286': 'Chungli',
+'dord1238': 'Dordar',
+'long1376': 'Longla',
+'mong1332': 'Mongsen',
+'teng1273': 'Tengsa',
+'yacham1235': 'Yacham',
+'yach1234': 'Yacham-Tengsa',
+'aona1235': 'Ao Naga',
+'kyoo1238': 'Kyo',
+'kyon1245': 'Kyon',
+'kyon1246': 'Kyong',
+'kyou1238': 'Kyou',
+'live1239': 'Live',
+'ndre1238': 'Ndreng',
+'tson1248': 'Tsontsu',
+'loth1237': 'Lotha Naga',
+'kiza1238': 'Kizare',
+'phel1241': 'Phelongre',
+'phot1238': 'Photsimi',
+'pirr1238': 'Pirr',
+'purr1238': 'Purr',
+'thuk1239': 'Thukumi',
+'sang1321': 'Sangtam Naga',
+'wuii1234': 'Wui',
+'para1302': 'Jejara Naga',
+'long1375': 'Long Phuri Naga',
+'maku1273': 'Makuri Naga',
+'maku1272': 'Makurisch',
+'chir1282': 'Chirr',
+'mini1250': 'Minir',
+'pher1238': 'Pherrongre',
+'yimc1241': 'Yimchungru',
+'sout2731': 'Süd-Yimchungru',
+'tikh1241': 'Tikhir',
+'waii1241': 'Wai',
+'yimc1240': 'Yimchungru Naga',
+'yimc1239': 'Yimchingrisch',
+'aoic1235': 'Zentral-Naga',
+'anga1312': 'Angami-Ao',
+'lowe1466': 'Unter-Amri',
+'uppe1486': 'Ober-Amri',
+'amri1238': 'Amri Karbi',
+'chin1477': 'Chingthang',
+'mirl1238': 'Mirlong',
+'rong1265': 'Rong Kethang',
+'karb1241': 'Hills Karbi',
+'karb1240': 'Karbisch',
+'tawr1235': 'Laamtuk Thet',
+'bawm1236': 'Bawm Chin',
+'bual1235': 'Bualkhaw Chin',
+'fala1243': 'Falam Chin',
+'fala1242': 'Falamisch',
+'klan1242': 'Klangklang',
+'shon1249': 'Shonshe',
+'zokh1239': 'Zokhua',
+'haka1240': 'Haka Chin',
+'laic1236': 'Lai Chin',
+'darl1242': 'Darlong',
+'biet1238': 'Biete',
+'khaw1234': 'Khawsak',
+'thie1234': 'Thiek',
+'hmar1241': 'Hmar',
+'hade1238': 'Hadem',
+'hran1239': 'Hrangkhol',
+'hmar1240': 'Hmarisch',
+'fann1238': 'Fannai',
+'leee1238': 'Le',
+'mizo1245': 'Lusei',
+'ngen1250': 'Ngente',
+'ralt1243': 'Ralte (Lushai)',
+'tlau1238': 'Tlau',
+'lush1249': 'Mizo',
+'mizo1244': 'Mizoisch',
+'pank1249': 'Pangkhua',
+'cent2005': 'Kern-Zentral-Kuki-Chin',
+'laut1236': 'Lautu',
+'hlaw1238': 'Hlawthai',
+'tlon1239': 'Tlosai',
+'mara1382': 'Mara',
+'shen1247': 'Shendu',
+'lowe1400': 'Unter-Zyphe',
+'uppe1411': 'Ober-Zyphe',
+'zyph1238': 'Zyphe',
+'nucl1757': 'Kern-Maraisch',
+'sent1260': 'Senthang Chin',
+'zotu1235': 'Zotung Chin',
+'mara1381': 'Maraisch',
+'cent2330': 'Zentral-Kuki-Chin',
+'laiz1241': 'Laizo',
+'muls1238': 'Mulsom',
+'anal1239': 'Anal',
+'lamk1238': 'Lamkang',
+'anal1240': 'Anal-Lamgang',
+'mons1234': 'Monsang Naga',
+'moyo1238': 'Moyon',
+'moyo1240': 'Moyon-Monsang Naga',
+'anal1241': 'Analisch',
+'khur1238': 'Khurai',
+'sutp1234': 'Sutpong',
+'aimo1244': 'Aimol',
+'chir1283': 'Chiru',
+'khar1288': 'Kharam Naga',
+'puru1266': 'Purum',
+'cent2411': 'Zentral-Alt-Kuki',
+'chot1239': 'Chothe',
+'koir1240': 'Koireng',
+'kolh1240': 'Kolhreng',
+'komi1270': 'Kom (Indien)',
+'nucl1849': 'Kern-Kolhrengisch',
+'tara1313': 'Tarao',
+'kolh1241': 'Kolhrengisch',
+'sorb1250': 'Sorbung',
+'bong1301': 'Bong',
+'bong1300': 'Bongcher',
+'chor1276': 'Chorai',
+'dabb1234': 'Dab',
+'hran1240': 'Hrangkhol (Halam)',
+'kaip1242': 'Kaipeng',
+'kalo1267': 'Kaloi',
+'lank1243': 'Lankai',
+'mols1234': 'Molsom',
+'mors1234': 'Morsephang',
+'rang1271': 'Ranglong',
+'rang1267': 'Halam',
+'chor1278': 'Chorei',
+'sake1246': 'Sakachep',
+'saka1283': 'Sakachep-Chorei',
+'syri1242': 'Syriem',
+'west3019': 'West-Nordwest-Kuki-Chin',
+'oldk1252': 'Nordwest-Kuki-Chin',
+'east2779': 'Ost-Khumi Chin',
+'kami1254': 'Kami',
+'kham1284': 'Khami',
+'khim1238': 'Khimi',
+'khum1249': 'Khumi',
+'khun1258': 'Khuni',
+'khwe1238': 'Khweymi',
+'kumi1246': 'Kumi',
+'ngal1290': 'Ngala',
+'yind1246': 'Yindi',
+'khum1248': 'Khumi Chin',
+'mroc1235': 'Mro Chin',
+'reng1255': 'Rengmitca',
+'khom1240': 'Khomisch',
+'gang1266': 'Gangte',
+'vaip1239': 'Vaiphei',
+'gang1271': 'Gangte-Vaiphei',
+'ngaw1239': 'Ngawn Chin',
+'simt1238': 'Simte',
+'siyi1240': 'Sizang Chin',
+'zouu1235': 'Zou',
+'siza1239': 'Sizangisch',
+'bukp1238': 'Bukpi',
+'dapz1238': 'Dapzal',
+'dimm1239': 'Dim',
+'dimp1238': 'Dimpi',
+'lamz1238': 'Lamzang',
+'lous1238': 'Lousau',
+'telz1238': 'Telzang',
+'tuic1245': 'Tuichiap',
+'pait1244': 'Paite Chin',
+'ralt1242': 'Ralte',
+'pait1250': 'Paitisch',
+'kamh1239': 'Kamhau',
+'sokt1238': 'Sokte',
+'tedi1235': 'Tedim Chin',
+'bait1247': 'Baite',
+'chan1312': 'Changsen',
+'hawk1238': 'Hawkip',
+'jang1255': 'Jangshen',
+'kaok1238': 'Kaokeep',
+'khon1237': 'Khongzai',
+'kipg1238': 'Kipgen',
+'lang1313': 'Langiung',
+'sair1238': 'Sairang',
+'shit1241': 'Shithlou',
+'sing1263': 'Singson',
+'than1256': 'Thangngen',
+'thad1238': 'Thado Chin',
+'thad1239': 'Thadoisch',
+'nort3179': 'Nordopt-Kuki-Chin',
+'chit1280': 'Chittagong',
+'khya1239': 'Khyang',
+'lemy1239': 'Lemyo',
+'minb1243': 'Minbu',
+'sain1244': 'Saingbaun',
+'sand1269': 'Sandoway',
+'thay1247': 'Thayetmyo',
+'asho1236': 'Asho Chin',
+'ekai1234': 'Läoktü Chin',
+'sumt1234': 'Sumtu Chin',
+'sumt1235': 'Sumtu-Laoktu',
+'asho1237': 'Ashoisch',
+'chin1478': 'Chinbon Chin',
+'kanp1238': 'Kanpetiet Daai',
+'matu1256': 'Matupi Daai',
+'pale1252': 'Paletwa Daai',
+'daai1236': 'Daai Chin',
+'kaan1248': 'Kaang Chin',
+'nitu1238': 'Nitu',
+'munc1235': 'Mün Chin',
+'daai1235': 'Daai-Nghmoye-Muun-Kaang',
+'halt1238': 'Haltu',
+'thui1238': 'Thui Phum',
+'tlam1238': 'Tlam Tlaih',
+'vala1243': 'Va Lang',
+'ngal1291': 'Nga La',
+'choi1241': 'Choisch',
+'sout3160': 'Süd-Peripher-Kuki-Chin',
+'peri1260': 'Periphäres Kuki-Chin',
+'kuki1246': 'Kuki-Chin',
+'loii1241': 'Loi',
+'meit1246': 'Meitei',
+'pang1284': 'Pangal',
+'mani1292': 'Manipuri',
+'khoi1251': 'Khoibu',
+'mari1416': 'Maring Naga',
+'mari1415': 'Maringisch',
+'chal1279': 'Challow',
+'east2902': 'Ost-Tusom',
+'kong1298': 'Kongai',
+'tang1386': 'Tangkhul Tui',
+'ukhr1238': 'Ukhrul',
+'cent2412': 'Zentral-Tangkhul',
+'kach1286': 'Kachai',
+'phad1238': 'Phadang',
+'east2903': 'Ost-Tangkhul',
+'tang1336': 'Ost-Zentral-Tangkhul Naga',
+'lair1234': 'Lairamlo',
+'nort3287': 'Nord-Zentral-Tangkhul Naga',
+'nort3286': 'Nord-Tangkhul Naga',
+'gord1235': 'Gordon-Brown Zentral-Tangkhul',
+'gord1234': 'Gordon-Brown Nord-Tangkhul',
+'khan1281': 'Khanggoi',
+'kupo1240': 'Kupome',
+'khan1277': 'Süd-Tangkhul Naga',
+'nucl1829': 'Kern-Tangkhulisch',
+'suan1234': 'Suansu',
+'sino1246': 'Tangkhulisch',
+'tang1335': 'Tangkhul-Maring',
+'inpu1234': 'Inpui Naga',
+'mara1380': 'Maram Khullen Circle',
+'ngat1245': 'Ngatan',
+'tkhu1238': 'T. Khullen',
+'will1242': 'Willong Circle',
+'mara1379': 'Maram Naga',
+'lian1251': 'Liangmai Naga',
+'mzie1235': 'Mzieme Naga',
+'njau1238': 'Njauna',
+'pare1267': 'Paren',
+'zeme1240': 'Zeme Naga',
+'mzie1236': 'Mzieme-Zeme',
+'nucl1313': 'Kern-Zemeisch',
+'song1297': 'Songbu',
+'rong1266': 'Rongmei Naga',
+'than1255': 'Thangal Naga',
+'zeme1241': 'Zemeisch',
+'kuki1245': 'Kuki-Chin-Naga',};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 2b  –  LÄNDER-OVERRIDE (OPTIONAL)
+════════════════════════════════════════════════════════════════ */
+const countryData = {};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 3a  –  NEWICK-STRING
+   ⚠ IMMER BACKTICKS verwenden!
+════════════════════════════════════════════════════════════════ */
+const rawNewick = `(((((('Chakroma [chak1268]':1,'Dzuna [dzun1241]':1,'Kehena [kehe1240]':1,'Khonoma [khon1248]':1,'Kohima [kohi1249]':1,'Mima [mima1238]':1,'Mozome [mozo1238]':1,'Nali {India} [nali1243]':1,'Tengima [teng1262]':1,'Tenyidie [teny1242]':1)'Angami Naga [anga1288][njm]-l-':1,'Chokri Naga [chok1243][nri]-l-':1)'Angami-Chokri [anga1287]':1,'Khezha Naga [khez1235][nkh]-l-':1,(('Paomata [paom1238]':1)'Mao Naga [maon1238][nbi]-l-':1,('Oinam [oina1234]-l-':1,'Poumei Naga [poum1235][pmx]-l-':1)'Poumaic [poum1236]':1)'Naga Maoic [naga1397]':1)'Angami-Mao [anga1244]':1,('Northern Rengma Naga [nort2725][nnl]-l-':1,'Pochuri Naga [poch1243][npo]-l-':1)'Pochuri-Northern Rengma [poch1242]':1,(('Azonyu [azon1238]':1,'Keteneneyu [kete1251]':1)'Southern Rengma Naga [sout2732][nre]-l-':1,('Dayang [daya1244]':1,'Lazemi [laze1239]':1,'Zhimomi [zhim1238]':1,'Zumomi [zumo1240]':1)'Sumi Naga [sumi1235][nsm]-l-':1)'Rengma-Simi [reng1253]':1)'Angami-Pochuri [anga1286]':1,(('Changki [chan1311]':1,'Chungli [chon1286]':1,'Dordar [dord1238]':1,'Longla [long1376]':1,'Mongsen [mong1332]':1,('Tengsa [teng1273]':1,'Yacham [yach1235]':1)'Yacham-Tengsa [yach1234]':1)'Ao Naga [aona1235][njo]-l-':1,('Kyo [kyoo1238]':1,'Kyon [kyon1245]':1,'Kyong [kyon1246]':1,'Kyou [kyou1238]':1,'Live [live1239]':1,'Ndreng [ndre1238]':1,'Tsontsu [tson1248]':1)'Lotha Naga [loth1237][njh]-l-':1,('Kizare [kiza1238]':1,'Phelongre [phel1241]':1,'Photsimi [phot1238]':1,'Pirr [pirr1238]':1,'Purr [purr1238]':1,'Thukumi [thuk1239]':1)'Sangtam Naga [sang1321][nsa]-l-':1,'Wui [wuii1234]-l-':1,('Jejara Naga [para1302][pzn]-l-':1,('Long Phuri Naga [long1375][lpn]-l-':1,'Makuri Naga [maku1273][jmn]-l-':1)'Makuric [maku1272]':1,('Chirr [chir1282]':1,('Minir [mini1250]':1,'Pherrongre [pher1238]':1,'Yimchungru [yimc1241]':1)'Southern [sout2731]':1,'Tikhir [tikh1241]':1,'Wai [waii1241]':1)'Yimchungru Naga [yimc1240][yim]-l-':1)'Yimchingric [yimc1239]':1)'Central Naga [aoic1235]':1)'Angami-Ao [anga1312]':1,(('Lower Amri [lowe1466]':1,'Upper Amri [uppe1486]':1)'Amri Karbi [amri1238][ajz]-l-':1,('Chingthang [chin1477]':1,'Mirlong [mirl1238]':1,'Rong Kethang [rong1265]':1)'Hills Karbi [karb1241][mjw]-l-':1)'Karbic [karb1240]':1,((('Laamtuk Thet [tawr1235][tcp]-l-':1,(('Bawm Chin [bawm1236][bgr]-l-':1,'Bualkhaw Chin [bual1235][cbl]-l-':1,'Falam Chin [fala1243][cfm]-l-':1)'Falamic [fala1242]':1,('Klangklang [klan1242]':1,'Shonshe [shon1249]':1,'Zokhua [zokh1239]':1)'Haka Chin [haka1240][cnh]-l-':1)'Lai Chin [laic1236]':1,('Darlong [darl1242][dln]-l-':1,('Biete [biet1238][biu]-l-':1,('Khawsak [khaw1234]':1,'Thiek [thie1234]':1)'Hmar [hmar1241][hmr]-l-':1,('Hadem [hade1238]':1)'Hrangkhol [hran1239][hra]-l-':1)'Hmaric [hmar1240]':1,('Fannai [fann1238]':1,'Le [leee1238]':1,'Lusei [mizo1245]':1,'Ngente [ngen1250]':1,'Ralte {Lushai} [ralt1243]':1,'Tlau [tlau1238]':1)'Mizo [lush1249][lus]-l-':1)'Mizoic [mizo1244]':1,'Pangkhua [pank1249][pkh]-l-':1)'Core Central Kuki-Chin [cent2005]':1,(('Lautu [laut1236][clt]-l-':1,('Hlawthai [hlaw1238]':1,'Tlosai [tlon1239]':1)'Mara [mara1382][mrh]-l-':1,'Shendu [shen1247][shl]-l-':1,('Lower Zyphe [lowe1400]':1,'Upper Zyphe [uppe1411]':1)'Zyphe [zyph1238][zyp]-l-':1)'Nuclear Maraic [nucl1757]':1,'Senthang Chin [sent1260][sez]-l-':1,'Zotung Chin [zotu1235][czt]-l-':1)'Maraic [mara1381]':1)'Central Kuki-Chin [cent2330]':1,(((('Laizo [laiz1241]':1,'Mulsom [muls1238]':1)'Anal [anal1239][anm]-l-':1,'Lamkang [lamk1238][lmk]-l-':1)'Anal-Lamgang [anal1240]':1,('Monsang Naga [mons1234][nmh]-l-':1,'Moyon [moyo1238][nmo]-l-':1)'Moyon-Monsang Naga [moyo1240]':1)'Analic [anal1241]':1,(('Khurai [khur1238]':1,'Sutpong [sutp1234]':1)'Aimol [aimo1244][aim]-l-':1,'Chiru [chir1283][cdf]-l-':1,'Kharam Naga [khar1288][kfw]-l-':1,'Purum [puru1266][pub]-l-':1)'Central Old Kuki [cent2411]':1,'Chothe [chot1239][nct]-l-':1,(('Koireng [koir1240][nkd]-l-':1,('Kolhreng [kolh1240]':1)'Kom {India} [komi1270][kmm]-l-':1)'Nuclear Kolhrengic [nucl1849]':1,'Tarao [tara1313][tro]-l-':1)'Kolhrengic [kolh1241]':1,'Sorbung [sorb1250]-l-':1,(('Bong [bong1301]':1,'Bongcher [bong1300]':1,'Chorai [chor1276]':1,'Dab [dabb1234]':1,'Hrangkhol {Halam} [hran1240]':1,'Kaipeng [kaip1242]':1,'Kaloi [kalo1267]':1,'Lankai [lank1243]':1,'Molsom [mols1234]':1,'Morsephang [mors1234]':1,'Ranglong [rang1271]':1)'Halam [rang1267][rnl]-l-':1,('Chorei [chor1278]':1,'Sakachep [sake1246]':1)'Sakachep-Chorei [saka1283][sch]-l-':1,'Syriem [syri1242]-l-':1)'Western Northwestern Kuki-Chin [west3019]':1)'Northwestern Kuki-Chin [oldk1252]':1,(('Eastern Khumi Chin [east2779][cek]-l-':1,('Kami [kami1254]':1,'Khami [kham1284]':1,'Khimi [khim1238]':1,'Khumi [khum1249]':1,'Khuni {Kumi Chin} [khun1258]':1,'Khweymi [khwe1238]':1,'Kumi [kumi1246]':1,'Ngala {Kumi Chin} [ngal1290]':1,'Yindi [yind1246]':1)'Khumi Chin [khum1248][cnk]-l-':1,'Mro Chin [mroc1235][cmr]-l-':1,'Rengmitca [reng1255]-l-':1)'Khomic [khom1240]':1,((('Gangte [gang1266][gnb]-l-':1,'Vaiphei [vaip1239][vap]-l-':1)'Gangte-Vaiphei [gang1271]':1,'Ngawn Chin [ngaw1239][cnw]-l-':1,'Simte [simt1238][smt]-l-':1,'Sizang Chin [siyi1240][csy]-l-':1,'Zou [zouu1235][zom]-l-':1)'Sizangic [siza1239]':1,((('Bukpi [bukp1238]':1,'Dapzal [dapz1238]':1,'Dim [dimm1239]':1,'Dimpi [dimp1238]':1,'Lamzang [lamz1238]':1,'Lousau [lous1238]':1,'Telzang [telz1238]':1,'Tuichiap [tuic1245]':1)'Paite Chin [pait1244][pck]-l-':1,'Ralte [ralt1242][ral]-l-':1)'Paiteic [pait1250]':1,('Kamhau [kamh1239]':1,'Sokte [sokt1238]':1)'Tedim Chin [tedi1235][ctd]-l-':1,('Baite [bait1247]':1,'Changsen [chan1312]':1,'Hawkip [hawk1238]':1,'Jangshen [jang1255]':1,'Kaokeep [kaok1238]':1,'Khongzai [khon1237]':1,'Kipgen [kipg1238]':1,'Langiung [lang1313]':1,'Sairang [sair1238]':1,'Shithlou [shit1241]':1,'Singson [sing1263]':1,'Thangngen [than1256]':1)'Thado Chin [thad1238][tcz]-l-':1)'Thadoic [thad1239]':1)'Northeastern Kuki-Chin [nort3179]':1,((('Chittagong [chit1280]':1,'Khyang [khya1239]':1,'Lemyo [lemy1239]':1,'Minbu [minb1243]':1,'Saingbaun [sain1244]':1,'Sandoway [sand1269]':1,'Thayetmyo [thay1247]':1)'Asho Chin [asho1236][csh]-l-':1,('Läoktü Chin [ekai1234][cey]-l-':1,'Sumtu Chin [sumt1234][csv]-l-':1)'Sumtu-Laoktu [sumt1235]':1)'Ashoic [asho1237]':1,('Chinbon Chin [chin1478][cnb]-l-':1,(('Kanpetiet Daai [kanp1238]':1,'Matupi Daai [matu1256]':1,'Paletwa Daai [pale1252]':1)'Daai Chin [daai1236][dao]-l-':1,'Kaang Chin [kaan1248][ckn]-l-':1,('Nitu [nitu1238]':1)'Mün Chin [munc1235][mwq]-l-':1)'Daai-Nghmoye-Muun-Kaang [daai1235]':1,('Haltu [halt1238]':1,'Thui Phum [thui1238]':1,'Tlam Tlaih [tlam1238]':1,'Va Lang [vala1243]':1)'Nga La [ngal1291][hlt]-l-':1)'Choic [choi1241]':1)'South Peripheral Kuki-Chin [sout3160]':1)'Peripheral Kuki-Chin [peri1260]':1)'Kuki-Chin [kuki1246]':1,('Loi [loii1241]':1,'Meitei [meit1246]':1,'Pangal [pang1284]':1)'Manipuri [mani1292][mni]-l-':1,(('Khoibu [khoi1251][nkb]-l-':1,'Maring Naga [mari1416][nng]-l-':1)'Maringic [mari1415]':1,('Challow [chal1279]-l-':1,'East Tusom [east2902]-l-':1,'Kongai [kong1298]-l-':1,((('Tangkhul Tui [tang1386]':1,'Ukhrul [ukhr1238]':1)'Central Tangkhul [cent2412]':1,('Kachai [kach1286]':1,'Phadang [phad1238]':1)'Eastern Tangkhul [east2903]':1)'East-Central Tangkhul Naga [tang1336][nmf]-l-':1,'Lairamlo [lair1234]-l-':1,'North-Central Tangkhul Naga [nort3287]-l-':1,'Northern Tangkhul Naga [nort3286]-l-':1,('Gordon-Brown Central Tangkhul [gord1235]':1,'Gordon-Brown Northern Tangkhul [gord1234]':1,'Khanggoi [khan1281]':1,'Kupome [kupo1240]':1)'Southern Tangkhul Naga [khan1277]-l-':1)'Nuclear Tangkhulic [nucl1829]':1,'Suansu [suan1234]-l-':1)'Tangkhulic [sino1246]':1)'Tangkhul-Maring [tang1335]':1,('Inpui Naga [inpu1234][nkf]-l-':1,('Maram Khullen Circle [mara1380]':1,'Ngatan [ngat1245]':1,'T. Khullen [tkhu1238]':1,'Willong Circle [will1242]':1)'Maram Naga [mara1379][nma]-l-':1,('Liangmai Naga [lian1251][njn]-l-':1,('Mzieme Naga [mzie1235][nme]-l-':1,('Njauna [njau1238]':1,'Paren [pare1267]':1)'Zeme Naga [zeme1240][nzm]-l-':1)'Mzieme-Zeme [mzie1236]':1)'Nuclear Zemeic [nucl1313]':1,('Songbu [song1297]':1)'Rongmei Naga [rong1266][nbu]-l-':1,'Thangal Naga [than1255][nki]-l-':1)'Zemeic [zeme1241]':1)'Kuki-Chin-Naga [kuki1245]':1`;
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 3b  –  GEOJSON
+════════════════════════════════════════════════════════════════ */
+const rawGeoJSON = {
+  "type": "FeatureCollection",
+  "properties": {
+    "layer": "kuki1245"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Chothe",
+          "longitude": 94.2408,
+          "latitude": 24.3722,
+          "id": "chot1239"
+        },
+        "name": "Chothe"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.2408,
+          24.3722
+        ]
+      },
+      "id": "chot1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Sorbung",
+          "longitude": 94.315422,
+          "latitude": 24.7473696,
+          "id": "sorb1250"
+        },
+        "name": "Sorbung"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.315422,
+          24.7473696
+        ]
+      },
+      "id": "sorb1250"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Rengmitca",
+          "longitude": 92.367939,
+          "latitude": 21.710864,
+          "id": "reng1255"
+        },
+        "name": "Rengmitca"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.367939,
+          21.710864
+        ]
+      },
+      "id": "reng1255"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Eastern Khumi Chin",
+          "longitude": 93.155,
+          "latitude": 21.3425,
+          "id": "east2779"
+        },
+        "name": "Eastern Khumi Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.155,
+          21.3425
+        ]
+      },
+      "id": "east2779"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Khumi Chin",
+          "longitude": 92.9894633333,
+          "latitude": 22.87125,
+          "id": "khum1248"
+        },
+        "name": "Khumi Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.9894633333,
+          22.87125
+        ]
+      },
+      "id": "khum1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Mro Chin",
+          "longitude": 93.995,
+          "latitude": 19.71,
+          "id": "mroc1235"
+        },
+        "name": "Mro Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.995,
+          19.71
+        ]
+      },
+      "id": "mroc1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Senthang Chin",
+          "longitude": 93.8087,
+          "latitude": 21.8936,
+          "id": "sent1260"
+        },
+        "name": "Senthang Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.8087,
+          21.8936
+        ]
+      },
+      "id": "sent1260"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Zotung Chin",
+          "longitude": 93.29,
+          "latitude": 22.5298,
+          "id": "zotu1235"
+        },
+        "name": "Zotung Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.29,
+          22.5298
+        ]
+      },
+      "id": "zotu1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Pangkhua",
+          "longitude": 92.4581,
+          "latitude": 22.4124,
+          "id": "pank1249"
+        },
+        "name": "Pangkhua"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.4581,
+          22.4124
+        ]
+      },
+      "id": "pank1249"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Laamtuk Thet",
+          "longitude": 94.0957,
+          "latitude": 22.4996,
+          "id": "tawr1235"
+        },
+        "name": "Laamtuk Thet"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.0957,
+          22.4996
+        ]
+      },
+      "id": "tawr1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Aimol",
+          "longitude": 94.3556,
+          "latitude": 24.6437,
+          "id": "aimo1244"
+        },
+        "name": "Aimol"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.3556,
+          24.6437
+        ]
+      },
+      "id": "aimo1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Purum",
+          "longitude": 95.0935,
+          "latitude": 25.3887,
+          "id": "puru1266"
+        },
+        "name": "Purum"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          95.0935,
+          25.3887
+        ]
+      },
+      "id": "puru1266"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Chiru",
+          "longitude": 94.4072,
+          "latitude": 25.4643,
+          "id": "chir1283"
+        },
+        "name": "Chiru"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.4072,
+          25.4643
+        ]
+      },
+      "id": "chir1283"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Kharam Naga",
+          "longitude": 94.0503,
+          "latitude": 25.2738,
+          "id": "khar1288"
+        },
+        "name": "Kharam Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.0503,
+          25.2738
+        ]
+      },
+      "id": "khar1288"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Syriem",
+          "longitude": 92.9029,
+          "latitude": 24.9437,
+          "id": "syri1242"
+        },
+        "name": "Syriem"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.9029,
+          24.9437
+        ]
+      },
+      "id": "syri1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Sakachep-Chorei",
+          "longitude": 93.949,
+          "latitude": 25.994,
+          "id": "saka1283"
+        },
+        "name": "Sakachep-Chorei"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.949,
+          25.994
+        ]
+      },
+      "id": "saka1283"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Halam",
+          "longitude": 91.66491,
+          "latitude": 23.819438,
+          "id": "rang1267"
+        },
+        "name": "Halam"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          91.66491,
+          23.819438
+        ]
+      },
+      "id": "rang1267"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Tarao",
+          "longitude": 94.1703,
+          "latitude": 24.4003,
+          "id": "tara1313"
+        },
+        "name": "Tarao"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.1703,
+          24.4003
+        ]
+      },
+      "id": "tara1313"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Simte",
+          "longitude": 93.3265,
+          "latitude": 24.5444,
+          "id": "simt1238"
+        },
+        "name": "Simte"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.3265,
+          24.5444
+        ]
+      },
+      "id": "simt1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Ngawn Chin",
+          "longitude": 93.58348,
+          "latitude": 21.93031,
+          "id": "ngaw1239"
+        },
+        "name": "Ngawn Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.58348,
+          21.93031
+        ]
+      },
+      "id": "ngaw1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Zou",
+          "longitude": 93.9253,
+          "latitude": 24.0649,
+          "id": "zouu1235"
+        },
+        "name": "Zou"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.9253,
+          24.0649
+        ]
+      },
+      "id": "zouu1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Sizang Chin",
+          "longitude": 93.6884,
+          "latitude": 23.8192,
+          "id": "siyi1240"
+        },
+        "name": "Sizang Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.6884,
+          23.8192
+        ]
+      },
+      "id": "siyi1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Tedim Chin",
+          "longitude": 93.519,
+          "latitude": 23.6079,
+          "id": "tedi1235"
+        },
+        "name": "Tedim Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.519,
+          23.6079
+        ]
+      },
+      "id": "tedi1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Thado Chin",
+          "longitude": 93.722,
+          "latitude": 24.096,
+          "id": "thad1238"
+        },
+        "name": "Thado Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.722,
+          24.096
+        ]
+      },
+      "id": "thad1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Asho Chin",
+          "longitude": 93.5069,
+          "latitude": 21.393,
+          "id": "asho1236"
+        },
+        "name": "Asho Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.5069,
+          21.393
+        ]
+      },
+      "id": "asho1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Nga La",
+          "longitude": 92.83,
+          "latitude": 23.312,
+          "id": "ngal1291"
+        },
+        "name": "Nga La"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.83,
+          23.312
+        ]
+      },
+      "id": "ngal1291"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Chinbon Chin",
+          "longitude": 94.0506,
+          "latitude": 20.0776,
+          "id": "chin1478"
+        },
+        "name": "Chinbon Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.0506,
+          20.0776
+        ]
+      },
+      "id": "chin1478"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Zyphe",
+          "longitude": 93.264,
+          "latitude": 22.524,
+          "id": "zyph1238"
+        },
+        "name": "Zyphe"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.264,
+          22.524
+        ]
+      },
+      "id": "zyph1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Lautu",
+          "longitude": 93.4448,
+          "latitude": 22.2009,
+          "id": "laut1236"
+        },
+        "name": "Lautu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.4448,
+          22.2009
+        ]
+      },
+      "id": "laut1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Mara",
+          "longitude": 93.0387,
+          "latitude": 22.1138,
+          "id": "mara1382"
+        },
+        "name": "Mara"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.0387,
+          22.1138
+        ]
+      },
+      "id": "mara1382"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Shendu",
+          "longitude": 92.591,
+          "latitude": 22.1901,
+          "id": "shen1247"
+        },
+        "name": "Shendu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.591,
+          22.1901
+        ]
+      },
+      "id": "shen1247"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Darlong",
+          "longitude": 91.3339,
+          "latitude": 23.992,
+          "id": "darl1242"
+        },
+        "name": "Darlong"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          91.3339,
+          23.992
+        ]
+      },
+      "id": "darl1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Mizo",
+          "longitude": 92.6247,
+          "latitude": 22.6138,
+          "id": "lush1249"
+        },
+        "name": "Mizo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.6247,
+          22.6138
+        ]
+      },
+      "id": "lush1249"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Haka Chin",
+          "longitude": 92.8208,
+          "latitude": 22.8735,
+          "id": "haka1240"
+        },
+        "name": "Haka Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.8208,
+          22.8735
+        ]
+      },
+      "id": "haka1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Monsang Naga",
+          "longitude": 94.2164,
+          "latitude": 24.5322,
+          "id": "mons1234"
+        },
+        "name": "Monsang Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.2164,
+          24.5322
+        ]
+      },
+      "id": "mons1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Moyon",
+          "longitude": 94.3421,
+          "latitude": 24.4793,
+          "id": "moyo1238"
+        },
+        "name": "Moyon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.3421,
+          24.4793
+        ]
+      },
+      "id": "moyo1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Lamkang",
+          "longitude": 94.2706,
+          "latitude": 24.1523,
+          "id": "lamk1238"
+        },
+        "name": "Lamkang"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.2706,
+          24.1523
+        ]
+      },
+      "id": "lamk1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Anal",
+          "longitude": 94.2806,
+          "latitude": 24.0506,
+          "id": "anal1239"
+        },
+        "name": "Anal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.2806,
+          24.0506
+        ]
+      },
+      "id": "anal1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Koireng",
+          "longitude": 94.2141,
+          "latitude": 25.2857,
+          "id": "koir1240"
+        },
+        "name": "Koireng"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.2141,
+          25.2857
+        ]
+      },
+      "id": "koir1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Kom (India)",
+          "longitude": 94.534,
+          "latitude": 24.8688,
+          "id": "komi1270"
+        },
+        "name": "Kom (India)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.534,
+          24.8688
+        ]
+      },
+      "id": "komi1270"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Vaiphei",
+          "longitude": 93.7195,
+          "latitude": 24.1378,
+          "id": "vaip1239"
+        },
+        "name": "Vaiphei"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.7195,
+          24.1378
+        ]
+      },
+      "id": "vaip1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Gangte",
+          "longitude": 94.1681,
+          "latitude": 24.5113,
+          "id": "gang1266"
+        },
+        "name": "Gangte"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.1681,
+          24.5113
+        ]
+      },
+      "id": "gang1266"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Ralte",
+          "longitude": 94.7381,
+          "latitude": 25.0201,
+          "id": "ralt1242"
+        },
+        "name": "Ralte"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.7381,
+          25.0201
+        ]
+      },
+      "id": "ralt1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Paite Chin",
+          "longitude": 93.6136,
+          "latitude": 24.0381,
+          "id": "pait1244"
+        },
+        "name": "Paite Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.6136,
+          24.0381
+        ]
+      },
+      "id": "pait1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Sumtu Chin",
+          "longitude": 93.8367,
+          "latitude": 20.1238,
+          "id": "sumt1234"
+        },
+        "name": "Sumtu Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.8367,
+          20.1238
+        ]
+      },
+      "id": "sumt1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Mün Chin",
+          "longitude": 94.3929,
+          "latitude": 20.289,
+          "id": "munc1235"
+        },
+        "name": "Mün Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.3929,
+          20.289
+        ]
+      },
+      "id": "munc1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Daai Chin",
+          "longitude": 93.7853,
+          "latitude": 20.7347,
+          "id": "daai1236"
+        },
+        "name": "Daai Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.7853,
+          20.7347
+        ]
+      },
+      "id": "daai1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Kaang Chin",
+          "longitude": 93.6262,
+          "latitude": 21.5091,
+          "id": "kaan1248"
+        },
+        "name": "Kaang Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.6262,
+          21.5091
+        ]
+      },
+      "id": "kaan1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Hrangkhol",
+          "longitude": 93.351,
+          "latitude": 24.4559,
+          "id": "hran1239"
+        },
+        "name": "Hrangkhol"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.351,
+          24.4559
+        ]
+      },
+      "id": "hran1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Biete",
+          "longitude": 92.94342,
+          "latitude": 24.273507,
+          "id": "biet1238"
+        },
+        "name": "Biete"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.94342,
+          24.273507
+        ]
+      },
+      "id": "biet1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Hmar",
+          "longitude": 93.5497,
+          "latitude": 24.7534,
+          "id": "hmar1241"
+        },
+        "name": "Hmar"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.5497,
+          24.7534
+        ]
+      },
+      "id": "hmar1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Falam Chin",
+          "longitude": 92.3254633333,
+          "latitude": 23.7892833333,
+          "id": "fala1243"
+        },
+        "name": "Falam Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.3254633333,
+          23.7892833333
+        ]
+      },
+      "id": "fala1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Bualkhaw Chin",
+          "longitude": 93.68,
+          "latitude": 22.91,
+          "id": "bual1235"
+        },
+        "name": "Bualkhaw Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.68,
+          22.91
+        ]
+      },
+      "id": "bual1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2199,
+        "language": {
+          "pk": 2199,
+          "name": "Bawm Chin",
+          "longitude": 92.92553,
+          "latitude": 22.4405233333,
+          "id": "bawm1236"
+        },
+        "name": "Bawm Chin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          92.92553,
+          22.4405233333
+        ]
+      },
+      "id": "bawm1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2194,
+        "language": {
+          "pk": 2194,
+          "name": "Inpui Naga",
+          "longitude": 93.8096,
+          "latitude": 24.8761,
+          "id": "inpu1234"
+        },
+        "name": "Inpui Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.8096,
+          24.8761
+        ]
+      },
+      "id": "inpu1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2194,
+        "language": {
+          "pk": 2194,
+          "name": "Rongmei Naga",
+          "longitude": 93.7869,
+          "latitude": 25.098,
+          "id": "rong1266"
+        },
+        "name": "Rongmei Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.7869,
+          25.098
+        ]
+      },
+      "id": "rong1266"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2194,
+        "language": {
+          "pk": 2194,
+          "name": "Maram Naga",
+          "longitude": 94.2205,
+          "latitude": 25.4378,
+          "id": "mara1379"
+        },
+        "name": "Maram Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.2205,
+          25.4378
+        ]
+      },
+      "id": "mara1379"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2194,
+        "language": {
+          "pk": 2194,
+          "name": "Thangal Naga",
+          "longitude": 93.8396,
+          "latitude": 25.3472,
+          "id": "than1255"
+        },
+        "name": "Thangal Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.8396,
+          25.3472
+        ]
+      },
+      "id": "than1255"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2194,
+        "language": {
+          "pk": 2194,
+          "name": "Liangmai Naga",
+          "longitude": 93.542,
+          "latitude": 25.16,
+          "id": "lian1251"
+        },
+        "name": "Liangmai Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.542,
+          25.16
+        ]
+      },
+      "id": "lian1251"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2194,
+        "language": {
+          "pk": 2194,
+          "name": "Zeme Naga",
+          "longitude": 93.6463,
+          "latitude": 25.3499,
+          "id": "zeme1240"
+        },
+        "name": "Zeme Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.6463,
+          25.3499
+        ]
+      },
+      "id": "zeme1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2194,
+        "language": {
+          "pk": 2194,
+          "name": "Mzieme Naga",
+          "longitude": 93.71,
+          "latitude": 25.4779,
+          "id": "mzie1235"
+        },
+        "name": "Mzieme Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.71,
+          25.4779
+        ]
+      },
+      "id": "mzie1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Sangtam Naga",
+          "longitude": 94.6279,
+          "latitude": 25.8581,
+          "id": "sang1321"
+        },
+        "name": "Sangtam Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.6279,
+          25.8581
+        ]
+      },
+      "id": "sang1321"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Wui",
+          "longitude": 95.067,
+          "latitude": 26.036,
+          "id": "wuii1234"
+        },
+        "name": "Wui"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          95.067,
+          26.036
+        ]
+      },
+      "id": "wuii1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Ao Naga",
+          "longitude": 94.3824,
+          "latitude": 26.3241,
+          "id": "aona1235"
+        },
+        "name": "Ao Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.3824,
+          26.3241
+        ]
+      },
+      "id": "aona1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Lotha Naga",
+          "longitude": 94.04355,
+          "latitude": 26.01396,
+          "id": "loth1237"
+        },
+        "name": "Lotha Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.04355,
+          26.01396
+        ]
+      },
+      "id": "loth1237"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Pochuri Naga",
+          "longitude": 94.1119,
+          "latitude": 25.4478,
+          "id": "poch1243"
+        },
+        "name": "Pochuri Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.1119,
+          25.4478
+        ]
+      },
+      "id": "poch1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Northern Rengma Naga",
+          "longitude": 94.5683,
+          "latitude": 26.4492,
+          "id": "nort2725"
+        },
+        "name": "Northern Rengma Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.5683,
+          26.4492
+        ]
+      },
+      "id": "nort2725"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Khezha Naga",
+          "longitude": 94.3114,
+          "latitude": 25.7078,
+          "id": "khez1235"
+        },
+        "name": "Khezha Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.3114,
+          25.7078
+        ]
+      },
+      "id": "khez1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Southern Rengma Naga",
+          "longitude": 94.6853,
+          "latitude": 26.1178,
+          "id": "sout2732"
+        },
+        "name": "Southern Rengma Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.6853,
+          26.1178
+        ]
+      },
+      "id": "sout2732"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Sumi Naga",
+          "longitude": 94.4235,
+          "latitude": 25.9996,
+          "id": "sumi1235"
+        },
+        "name": "Sumi Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.4235,
+          25.9996
+        ]
+      },
+      "id": "sumi1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Yimchungru Naga",
+          "longitude": 94.8087,
+          "latitude": 25.7675,
+          "id": "yimc1240"
+        },
+        "name": "Yimchungru Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.8087,
+          25.7675
+        ]
+      },
+      "id": "yimc1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Jejara Naga",
+          "longitude": 94.92,
+          "latitude": 25.48,
+          "id": "para1302"
+        },
+        "name": "Jejara Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.92,
+          25.48
+        ]
+      },
+      "id": "para1302"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Chungli",
+          "longitude": 94.515,
+          "latitude": 26.321,
+          "id": "chon1286"
+        },
+        "name": "Chungli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.515,
+          26.321
+        ]
+      },
+      "id": "chon1286"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Changki",
+          "longitude": 94.3832,
+          "latitude": 26.4163,
+          "id": "chan1311"
+        },
+        "name": "Changki"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.3832,
+          26.4163
+        ]
+      },
+      "id": "chan1311"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Angami Naga",
+          "longitude": 93.8668,
+          "latitude": 25.6841,
+          "id": "anga1288"
+        },
+        "name": "Angami Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.8668,
+          25.6841
+        ]
+      },
+      "id": "anga1288"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Chokri Naga",
+          "longitude": 94.2887,
+          "latitude": 25.5636,
+          "id": "chok1243"
+        },
+        "name": "Chokri Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.2887,
+          25.5636
+        ]
+      },
+      "id": "chok1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Mao Naga",
+          "longitude": 94.0035,
+          "latitude": 25.3836,
+          "id": "maon1238"
+        },
+        "name": "Mao Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.0035,
+          25.3836
+        ]
+      },
+      "id": "maon1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Makuri Naga",
+          "longitude": 94.95,
+          "latitude": 26.6,
+          "id": "maku1273"
+        },
+        "name": "Makuri Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.95,
+          26.6
+        ]
+      },
+      "id": "maku1273"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Long Phuri Naga",
+          "longitude": 94.9838,
+          "latitude": 25.5578,
+          "id": "long1375"
+        },
+        "name": "Long Phuri Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.9838,
+          25.5578
+        ]
+      },
+      "id": "long1375"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Poumei Naga",
+          "longitude": 94.4618,
+          "latitude": 25.1944,
+          "id": "poum1235"
+        },
+        "name": "Poumei Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.4618,
+          25.1944
+        ]
+      },
+      "id": "poum1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2196,
+        "language": {
+          "pk": 2196,
+          "name": "Oinam",
+          "longitude": 94.1968,
+          "latitude": 25.35126,
+          "id": "oina1234"
+        },
+        "name": "Oinam"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.1968,
+          25.35126
+        ]
+      },
+      "id": "oina1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2198,
+        "language": {
+          "pk": 2198,
+          "name": "Maring Naga",
+          "longitude": 94.0723,
+          "latitude": 24.2854,
+          "id": "mari1416"
+        },
+        "name": "Maring Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.0723,
+          24.2854
+        ]
+      },
+      "id": "mari1416"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2198,
+        "language": {
+          "pk": 2198,
+          "name": "Khoibu",
+          "longitude": 94.1345,
+          "latitude": 24.2041,
+          "id": "khoi1251"
+        },
+        "name": "Khoibu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.1345,
+          24.2041
+        ]
+      },
+      "id": "khoi1251"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2198,
+        "language": {
+          "pk": 2198,
+          "name": "Challow",
+          "longitude": 94.55608,
+          "latitude": 25.3584,
+          "id": "chal1279"
+        },
+        "name": "Challow"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.55608,
+          25.3584
+        ]
+      },
+      "id": "chal1279"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2198,
+        "language": {
+          "pk": 2198,
+          "name": "Suansu",
+          "longitude": 94.5803,
+          "latitude": 25.4333,
+          "id": "suan1234"
+        },
+        "name": "Suansu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.5803,
+          25.4333
+        ]
+      },
+      "id": "suan1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2198,
+        "language": {
+          "pk": 2198,
+          "name": "Kongai",
+          "longitude": 94.53997,
+          "latitude": 25.36748,
+          "id": "kong1298"
+        },
+        "name": "Kongai"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.53997,
+          25.36748
+        ]
+      },
+      "id": "kong1298"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2198,
+        "language": {
+          "pk": 2198,
+          "name": "East Tusom",
+          "longitude": 94.4,
+          "latitude": 24.8,
+          "id": "east2902"
+        },
+        "name": "East Tusom"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.4,
+          24.8
+        ]
+      },
+      "id": "east2902"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2198,
+        "language": {
+          "pk": 2198,
+          "name": "Southern Tangkhul Naga",
+          "longitude": 94.20472,
+          "latitude": 25.15667,
+          "id": "khan1277"
+        },
+        "name": "Southern Tangkhul Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.20472,
+          25.15667
+        ]
+      },
+      "id": "khan1277"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2198,
+        "language": {
+          "pk": 2198,
+          "name": "Lairamlo",
+          "longitude": 94.225,
+          "latitude": 24.615,
+          "id": "lair1234"
+        },
+        "name": "Lairamlo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.225,
+          24.615
+        ]
+      },
+      "id": "lair1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2198,
+        "language": {
+          "pk": 2198,
+          "name": "East-Central Tangkhul Naga",
+          "longitude": 94.3567,
+          "latitude": 25.0489,
+          "id": "tang1336"
+        },
+        "name": "East-Central Tangkhul Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.3567,
+          25.0489
+        ]
+      },
+      "id": "tang1336"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2198,
+        "language": {
+          "pk": 2198,
+          "name": "Northern Tangkhul Naga",
+          "longitude": 94.20472,
+          "latitude": 25.15667,
+          "id": "nort3286"
+        },
+        "name": "Northern Tangkhul Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.20472,
+          25.15667
+        ]
+      },
+      "id": "nort3286"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2198,
+        "language": {
+          "pk": 2198,
+          "name": "North-Central Tangkhul Naga",
+          "longitude": 94.204722,
+          "latitude": 25.156667,
+          "id": "nort3287"
+        },
+        "name": "North-Central Tangkhul Naga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          94.204722,
+          25.156667
+        ]
+      },
+      "id": "nort3287"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2197,
+        "language": {
+          "pk": 2197,
+          "name": "Hills Karbi",
+          "longitude": 93.0462,
+          "latitude": 25.7317,
+          "id": "karb1241"
+        },
+        "name": "Hills Karbi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.0462,
+          25.7317
+        ]
+      },
+      "id": "karb1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2197,
+        "language": {
+          "pk": 2197,
+          "name": "Amri Karbi",
+          "longitude": 91.482,
+          "latitude": 26.024,
+          "id": "amri1238"
+        },
+        "name": "Amri Karbi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          91.482,
+          26.024
+        ]
+      },
+      "id": "amri1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 2195,
+        "language": {
+          "pk": 2195,
+          "name": "Manipuri",
+          "longitude": 93.3426,
+          "latitude": 24.4409,
+          "id": "mani1292"
+        },
+        "name": "Manipuri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          93.3426,
+          24.4409
+        ]
+      },
+      "id": "mani1292"
+    }
+  ]
+};
+
+/* ════════════════════════════════════════════════════════════════
+   AB HIER NICHTS MEHR ÄNDERN
+════════════════════════════════════════════════════════════════ */
+
+/* ── Farb-Palette ── */
+const _PALETTE = [
+  "#7ec8c8","#c87868","#a0b878","#787ec8",
+  "#c87898","#88b8a0","#c8b878","#b878c8",
+  "#78b8c8","#c8a878","#98c878","#c87848"
+];
+let _autoColorMap = {};
+
+function _buildColorMap(root) {
+  _autoColorMap = {};
+  if (!root) return;
+  _autoColorMap[root.id] = "#c8973a";
+  (root.children || []).forEach((g, i) =>
+    _assignCol(g, _PALETTE[i % _PALETTE.length])
+  );
+}
+function _assignCol(node, col) {
+  _autoColorMap[node.id] = col;
+  if (node.children) node.children.forEach(c => _assignCol(c, col));
+}
+
+/* ── Auto-Länder via Nominatim ── */
+const _autoCountry = {};
+const _geocodeDone = new Set();
+
+function _flagFromCode(cc) {
+  if (!cc || cc.length !== 2) return '';
+  return [...cc.toUpperCase()].map(c =>
+    String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))
+  ).join('');
+}
+
+async function _geocodeLang(id, lat, lon) {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=de`,
+      { headers: { 'User-Agent': 'SprachfamilienAtlas/4.0' } }
+    );
+    if (!r.ok) return;
+    const j    = await r.json();
+    const addr = j.address || {};
+    const cc   = (addr.country_code || '').toUpperCase();
+    const name = addr.country || '';
+    const reg  = addr.state || addr.province || addr.region || '';
+    if (cc && name) _autoCountry[id] = [{ flag: _flagFromCode(cc), name, region: reg }];
+  } catch(e) { /* silent */ } finally {
+    _geocodeDone.add(id);
+    if (selNode && selNode.data.id === id) showPanel(selNode);
+  }
+}
+
+function _startGeocoding() {
+  geoData.forEach((lang, i) => {
+    if (!countryData[lang.id])
+      setTimeout(() => _geocodeLang(lang.id, lang.lat, lang.lon), i * 1200);
+    else
+      _geocodeDone.add(lang.id);
+  });
+}
+
+function _getCountries(d) {
+  const id = d.data.id;
+  if (countryData[id]) return countryData[id];
+  if (_autoCountry[id]) return _autoCountry[id];
+  const seen = new Set(), res = [];
+  function collect(node) {
+    (_autoCountry[node.id] || []).forEach(e => {
+      if (!seen.has(e.name)) { seen.add(e.name); res.push({ flag: e.flag, name: e.name, region: '' }); }
+    });
+    if (node.children) node.children.forEach(collect);
+  }
+  collect(d.data);
+  return res.length ? res : null;
+}
+
+function _isPending(d) {
+  const id = d.data.id;
+  if (countryData[id] || _geocodeDone.has(id)) return false;
+  function hasCoord(node) {
+    if (_geocodeDone.has(node.id)) return false;
+    if (node.lat != null) return true;
+    return (node.children || []).some(hasCoord);
+  }
+  return hasCoord(d.data);
+}
+
+/* ── Hilfsfunktionen ── */
+function getDisplayName(id, fallback) { return nameTranslations[id] || fallback || id; }
+
+function colorByGroup(id) {
+  for (const g of mapLegendGroups)
+    if (g.ids && g.ids.includes(id)) return g.color;
+  return _autoColorMap[id] || "#c8973a";
+}
+
+const NODE_COLORS = { family:"#c8973a", language:"#7ec8c8", subgroup:"#c87868", dialect:"#a0b878" };
+function nodeRadius(type, fontSize) {
+  // Punkt-Radius proportional zur Schriftgröße
+  const base = { family: 9, language: 7, subgroup: 6, dialect: 5 };
+  const b = base[type] || 5;
+  return Math.max(3, Math.round(b * fontSize / 11));
+}
+function typeName(t) {
+  return { family:"Sprachfamilie", language:"Sprache", subgroup:"Untergruppe", dialect:"Dialekt / Varietät" }[t] || t;
+}
+
+/* ── Newick-Parser ── */
+function parseNewick(s) {
+  s = s.trim().replace(/;$/, '');
+  function parseNode(pos) {
+    const node = { children: [] };
+    if (s[pos] === '(') {
+      pos++;
+      while (pos < s.length) {
+        const r = parseNode(pos); node.children.push(r.node); pos = r.pos;
+        if (s[pos] === ',') { pos++; continue; }
+        if (s[pos] === ')') { pos++; break; }
+      }
+    }
+    let label = '';
+   if (s[pos] === "'") { pos++; while (pos < s.length && s[pos] !== "'") label += s[pos++]; pos++;
+  while (pos < s.length && !/[,);:]/.test(s[pos])) label += s[pos++];
+}
+    else { while (pos < s.length && !/[,);:(]/.test(s[pos])) label += s[pos++]; }
+    if (s[pos] === ':') { pos++; while (pos < s.length && /[0-9.eE+\-]/.test(s[pos])) pos++; }
+    node.rawLabel = label.trim();
+    return { node, pos };
+  }
+  function parseLabel(raw) {
+    if (!raw) return { id:'unknown', nameOrig:'Unknown', iso:null, isLanguage:false };
+    const isLang = raw.includes('-l-');
+    const clean  = raw.replace(/-l-/g,'').trim();
+    const isoM   = clean.match(/\[([a-z]{3})\]\s*$/);
+    const glotMs = clean.match(/\[([a-z]+\d{4})\]/g);
+    const gid    = glotMs ? glotMs[0].replace(/[\[\]]/g,'') : null;
+  const nm = clean.replace(/\[[^\]]*\]/g,'').replace(/\{[^}]*\}/g,'').replace(/-f-/g,'').replace(/-lnk-/g,'').trim();
+   const isLink = raw.includes('-lnk-');
+const urlM   = raw.match(/\{([^}]+)\}/);
+const url    = isLink && urlM ? urlM[1] : null;
+return { id: gid || nm.toLowerCase().replace(/\s+/g,'_'), nameOrig: nm, iso: isoM ? isoM[1] : null, isLanguage: isLang, isLink, url };
+  }
+  function build(raw, depth) {
+  const { id, nameOrig, iso, isLanguage, isLink, url } = parseLabel(raw.rawLabel);
+    let type;
+    if      (depth === 0)                                type = 'family';
+    else if (isLanguage)                                 type = 'language';
+    else if (raw.children && raw.children.length > 0)   type = depth === 1 ? 'family' : 'subgroup';
+    else if (raw.rawLabel && raw.rawLabel.includes('-f-')) type = 'subgroup';
+    else                                                   type = 'dialect';   const node = { id, nameOrig, type, iso: iso||null, lat:null, lon:null, name: getDisplayName(id, nameOrig), isLink: isLink||false, url: url||null };
+    if (raw.children && raw.children.length > 0)
+      node.children = raw.children.map(c => build(c, depth + 1));
+    return node;
+  }
+  return build(parseNode(0).node, 0);
+}
+
+/* ── GeoJSON → internes Format ── */
+function geoJSONtoGeoData(geo) {
+  if (!geo || !geo.features) return [];
+  return geo.features.map(f => {
+    const lang = f.properties?.language || {};
+    const id   = f.id || lang.id || '';
+    const lat  = lang.latitude  ?? f.geometry?.coordinates?.[1] ?? null;
+    const lon  = lang.longitude ?? f.geometry?.coordinates?.[0] ?? null;
+    const raw  = lang.name || f.properties?.name || id;
+    return { id, name: getDisplayName(id, raw), nameOrig: raw, lat, lon, color: colorByGroup(id) };
+  }).filter(d => d.lat != null && d.lon != null);
+}
+
+function enrichCoords(node, map) {
+  if (map[node.id]) { node.lat = map[node.id].lat; node.lon = map[node.id].lon; }
+  if (node.children) node.children.forEach(c => enrichCoords(c, map));
+}
+
+/* ── Legende aufbauen ── */
+function _buildLegend() {
+  const el = document.getElementById('map-legend-items');
+  el.innerHTML = '';
+  const hasManual = mapLegendGroups.some(g => g.ids && g.ids.length > 0);
+  const source = hasManual
+    ? mapLegendGroups.map(g => ({ name: g.label, col: g.color }))
+    : (treeData && treeData.children
+        ? treeData.children.map((g, i) => ({ name: g.name, col: _PALETTE[i % _PALETTE.length] }))
+        : []);
+  source.forEach(s => {
+    const d = document.createElement('div'); d.className = 'ov-item';
+    d.innerHTML = `<div class="ov-dot" style="background:${s.col}"></div>${s.name}`;
+    el.appendChild(d);
+  });
+}
+
+/* ── Daten initialisieren ── */
+let treeData = null, geoData = [];
+
+function initData() {
+  try { treeData = parseNewick(rawNewick); }
+  catch(e) { console.error('Newick-Fehler:', e); return; }
+
+  _buildColorMap(treeData);
+  geoData = geoJSONtoGeoData(rawGeoJSON);
+  const cm = {};
+  geoData.forEach(d => { cm[d.id] = d; });
+  enrichCoords(treeData, cm);
+
+  document.getElementById('nav-glyph').textContent = familyGlyph;
+  const title = treeData ? getDisplayName(treeData.id, treeData.nameOrig) : 'Sprachfamilien-Atlas';
+  document.getElementById('nav-title-main').textContent = title;
+  document.title = title + ' – Atlas';
+  document.getElementById('chip-fam').textContent = familyMeta.families  + ' Familien';
+  document.getElementById('chip-lan').textContent = familyMeta.languages + ' Sprachen';
+  document.getElementById('chip-dia').textContent = familyMeta.dialects  + ' Dialekte';
+
+  _buildLegend();
+  _startGeocoding();
+}
+
+/* ── View umschalten ── */
+let mapReady = false;
+function switchView(id) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.view === id));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('visible', v.id === 'view-' + id));
+  if (id === 'map' && !mapReady) { initMap(); mapReady = true; }
+  if (id === 'tree') setTimeout(() => { if (rootNode) drawTree(rootNode); }, 80);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   D3 STAMMBAUM mit DRAG & DROP & DYNAMISCHEN LINIEN
+════════════════════════════════════════════════════════════════ */
+let svgSel, gSel, rootNode, zoomBeh;
+let currentZoom  = d3.zoomIdentity;
+let selNode      = null;
+let currentFontSize = 11;
+let _searchTimer = null;
+let _sliderTimer = null;
+let draggedNode  = null;
+let dragOffsets  = null;
+let textBboxes   = []; // Speichert Text-Positionen für Masking
+
+/* Spacing: automatisch aus Schriftgröße berechnen */
+function spacingFromFont(fs) {
+  return Math.round(fs * 2.4);
+}
+
+/* Textopazität – immer sichtbar */
+function getTextOpacity(d) {
+  if (d._searchMatch) return 1;
+  return 1;
+}
+
+function getTextFill(d) {
+  if (d._searchMatch) return '#f0c060';
+  if (d.depth === 0)  return '#f5d070';
+  if (d.data.type === 'family')   return '#e0b860';
+  if (d.data.type === 'language') return '#b0e0e0';
+  if (d.data.type === 'subgroup') return '#e0a898';
+  return '#c8c0a0';
+}
+
+function countTreeLeaves(node) {
+  if (!node.children || !node.children.length) return 1;
+  return node.children.reduce((s, c) => s + countTreeLeaves(c), 0);
+}
+
+function syncFontUI(val) {
+  const sl = document.getElementById('fontsize-sl');
+  const sv = document.getElementById('fs-val');
+  if (sl) sl.value = Math.round(val);
+  if (sv) sv.textContent = Math.round(val) + ' px';
+}
+
+function onFontsizeChange(v) {
+  currentFontSize = +v;
+  document.getElementById('fs-val').textContent = v + ' px';
+  clearTimeout(_sliderTimer);
+  _sliderTimer = setTimeout(() => { if (rootNode) drawTree(rootNode); }, 60);
+}
+
+/* Baum initialisieren */
+function initTree() {
+  svgSel = d3.select('#tree-svg');
+  gSel   = d3.select('#tree-g');
+
+  zoomBeh = d3.zoom().scaleExtent([0.02, 8]).on('zoom', ev => {
+    currentZoom = ev.transform;
+    gSel.attr('transform', currentZoom);
+    document.getElementById('zoom-info').textContent = Math.round(currentZoom.k * 100) + '%';
+    updateLineDynamics();
+  });
+  svgSel.call(zoomBeh);
+
+  if (!treeData) return;
+  rootNode = d3.hierarchy(treeData);
+
+  const total = countTreeLeaves(treeData);
+  const collapseFrom = total <= 25 ? 99 : total <= 80 ? 2 : 1;
+  rootNode.descendants().forEach((d, i) => {
+    d._uid = i; d._searchMatch = false;
+    if (d.depth >= collapseFrom && d.children) { d._ch = d.children; d.children = null; }
+  });
+
+  currentFontSize = 11;
+  syncFontUI(currentFontSize);
+  drawTree(rootNode);
+  setTimeout(() => fitView(false), 120);
+}
+
+/* Radialer Fächer-Layout-Algorithmus */
+function computeFanLayout(root, canvasW, canvasH, fontSize) {
+  const maxLabelLen = 18;
+  const charW = fontSize * 0.62;
+  const levelGap = Math.max(fontSize * 2.2 + maxLabelLen * charW * 0.5, 140);
+
+  let maxDepth = 0;
+  root.each(d => { if (d.depth > maxDepth) maxDepth = d.depth; });
+
+  root.each(d => {
+    d.y = d.depth * levelGap;
+  });
+
+  function countLeaves(node) {
+    if (!node.children || node.children.length === 0) return 1;
+    return node.children.reduce((s, c) => s + countLeaves(c), 0);
+  }
+
+  const leafSpacing = Math.max(fontSize * 2.0, 18);
+  const totalLeaves = countLeaves(root);
+
+  let leafIndex = 0;
+  function assignX(node) {
+    if (!node.children || node.children.length === 0) {
+      node.x = leafIndex * leafSpacing;
+      leafIndex++;
+      return;
+    }
+    node.children.forEach(c => assignX(c));
+    const first = node.children[0].x;
+    const last  = node.children[node.children.length - 1].x;
+    node.x = (first + last) / 2;
+  }
+  assignX(root);
+
+  const minX = Math.min(...root.descendants().map(d => d.x));
+  const maxX = Math.max(...root.descendants().map(d => d.x));
+  const offsetX = (canvasH / 2) - (minX + maxX) / 2;
+  root.each(d => { d.x += offsetX; });
+
+   return { levelGap };
+}
+
+/* Dynamische Liniendicke basierend auf Zoom */
+function calculateStrokeWidth(baseWidth = 3) {
+  if (!currentZoom) return baseWidth;
+  const zoomFactor = currentZoom.k || 1;
+  return Math.max(0.8, baseWidth / (zoomFactor * 0.8));
+}
+
+function updateLineDynamics() {
+  if (!gSel) return;
+  const sw = calculateStrokeWidth(3);
+  gSel.selectAll('path.link').style('stroke-width', sw + 'px');
+}
+
+/* Erfasse Text-Positionen für Clipping */
+function captureTextBboxes() {
+  textBboxes = [];
+  gSel.selectAll('g.node text').each(function(d) {
+    try {
+      const bbox = this.getBBox();
+      const transform = d3.select(this.parentNode).attr('transform');
+      const match = transform ? transform.match(/translate\(([-\d.]+),([-\d.]+)\)/) : null;
+      if (match) {
+        const tx = parseFloat(match[1]);
+        const ty = parseFloat(match[2]);
+        textBboxes.push({
+          x: tx + bbox.x,
+          y: ty + bbox.y,
+          width: bbox.width,
+          height: bbox.height,
+          padding: Math.max(3, currentFontSize * 0.4)
+        });
+      }
+    } catch(e) { /* ignore */ }
+  });
+}
+
+/* Prüfe ob Punkt in Text-Zone liegt */
+function isInTextZone(x, y) {
+  return textBboxes.some(box => 
+    x >= box.x - box.padding && 
+    x <= box.x + box.width + box.padding &&
+    y >= box.y - box.padding && 
+    y <= box.y + box.height + box.padding
+  );
+}
+
+/* Splitte Linie um Text zu vermeiden - nutzt Dashing statt echtem Clipping */
+function applyTextClipping() {
+  gSel.selectAll('path.link').style('stroke-dasharray', null);
+}
+
+/* Baum zeichnen */
+function drawTree(src) {
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const fs = currentFontSize;
+
+  computeFanLayout(rootNode, canvasW, canvasH, fs);
+
+  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+  const dur  = 320;
+
+  /* Links */
+  const link = gSel.selectAll('path.link').data(rootNode.links(), d => d.target._uid);
+  const linkE = link.enter().append('path').attr('class','link')
+    .attr('d', () => {
+      const o = { x: src.x0 ?? 0, y: src.y0 ?? 0 };
+      return diag({ source: o, target: o });
+    });
+  linkE.merge(link).transition().duration(dur)
+    .attr('d', diag)
+    .style('stroke', d => {
+      const col = NODE_COLORS[d.source.data.type] || '#c8973a';
+      return d.source.depth === 0 ? col + '55' : col + '30';
+    })
+    .style('stroke-width', () => calculateStrokeWidth(3) + 'px');
+  link.exit().transition().duration(dur)
+    .attr('d', () => {
+      const o = { x: src.x, y: src.y };
+      return diag({ source: o, target: o });
+    }).remove();
+
+  /* Nodes */
+  const node = gSel.selectAll('g.node').data(rootNode.descendants(), d => d._uid);
+  const enter = node.enter().append('g').attr('class','node')
+    .attr('transform', () => `translate(${src.y0 ?? 0},${src.x0 ?? 0})`)
+    .style('cursor','pointer')
+   .on('click', (ev, d) => {
+  ev.stopPropagation();
+ if (d.data.isLink && d.data.url) { window.location.href = d.data.url; return; }
+  if (miniMap) { try { miniMap.remove(); } catch(e) {} miniMap = null; miniMarker = null; }
+  toggle(d);
+  showPanel(d);
+})
+enter.filter(d => d.data.isLink)
+  .append('title')
+  .text(d => `→ Zu ${d.data.nameOrig}`);
+
+  enter.append('circle').attr('class','halo')
+    .attr('r', d => nodeRadius(d.data.type, fs) + 5)
+    .style('fill', d => (NODE_COLORS[d.data.type] || '#c8973a') + '18')
+    .style('stroke','none');
+  enter.append('circle').attr('r', 0)
+    .style('fill',   d => d._ch
+      ? (NODE_COLORS[d.data.type] || '#7ec8c8') + '55'
+      : (NODE_COLORS[d.data.type] || '#7ec8c8'))
+    .style('stroke', d => d._searchMatch
+      ? '#f0c060'
+      : (NODE_COLORS[d.data.type] || '#c8973a'));
+  enter.append('text').attr('dy','0.35em');
+
+  const merged = enter.merge(node);
+  merged.transition().duration(dur)
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+
+  merged.select('circle.halo').transition().duration(dur)
+    .attr('r', d => nodeRadius(d.data.type, fs) + 5);
+
+  merged.select('circle:not(.halo)').transition().duration(dur)
+    .attr('r', d => nodeRadius(d.data.type, fs))
+    .style('fill', d => d._ch
+      ? (NODE_COLORS[d.data.type] || '#7ec8c8') + '55'
+      : (NODE_COLORS[d.data.type] || '#7ec8c8'))
+    .style('stroke', d => d._searchMatch
+      ? '#f0c060'
+      : (NODE_COLORS[d.data.type] || '#c8973a'))
+    .style('stroke-width', d =>
+      d._searchMatch ? '3px' : (d === selNode ? '3px' : '1.5px'));
+
+  merged.select('text').transition().duration(dur)
+    .attr('x', d => {
+      const r = nodeRadius(d.data.type, fs);
+      return (d.children || d._ch) ? -(r + 6) : (r + 6);
+    })
+    .attr('text-anchor', d => (d.children || d._ch) ? 'end' : 'start')
+    .style('font-size', d => {
+      if (d.depth === 0)                return Math.round(fs * 1.2) + 'px';
+      if (d.data.type === 'family')     return Math.round(fs * 1.1) + 'px';
+      if (d.data.type === 'dialect')    return Math.round(fs * 0.88) + 'px';
+      return fs + 'px';
+    })
+    .text(d => {
+      const n  = d.data.name;
+      const mx = d.depth === 0 ? 40 : d.depth <= 2 ? 32 : 26;
+      return n.length > mx ? n.slice(0, mx - 1) + '…' : n;
+    })
+    .style('fill', d => getTextFill(d))
+    .attr('opacity', 1);
+
+  merged.classed('sel', d => selNode && d.data.id === selNode.data.id);
+
+  /* DRAG BEHAVIOR */
+  merged.call(d3.drag()
+    .on('start', dragStarted)
+    .on('drag', dragging)
+    .on('end', dragEnded));
+
+  node.exit().transition().duration(dur)
+    .attr('transform', `translate(${src.y},${src.x})`).remove();
+
+  rootNode.descendants().forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+  
+  /* Text-Clipping nach Render */
+  setTimeout(() => {
+    captureTextBboxes();
+    applyTextClipping();
+  }, dur + 50);
+}
+
+/* DRAG FUNKTIONEN */
+function dragStarted(event, d) {
+  draggedNode = d;
+  dragOffsets = new Map();
+  
+  function collectOffsets(node, baseX, baseY) {
+    dragOffsets.set(node._uid, { x: node.x - baseX, y: node.y - baseY });
+    if (node.children) {
+      node.children.forEach(c => collectOffsets(c, baseX, baseY));
+    }
+  }
+  
+  collectOffsets(d, d.x, d.y);
+  d3.select(this).classed('dragging', true);
+  d3.select(this).select('circle:not(.halo)').style('filter', 'drop-shadow(0 0 8px rgba(240,192,96,.6))');
+}
+
+function dragging(event, d) {
+  if (!draggedNode || !dragOffsets) return;
+  
+  const dx = event.dx / currentZoom.k;
+  const dy = event.dy / currentZoom.k;
+  
+  dragOffsets.forEach((offset, uid) => {
+    const node = rootNode.descendants().find(n => n._uid === uid);
+    if (node) {
+      node.x += dy;
+      node.y += dx;
+    }
+  });
+  
+  // OPTIMIERUNG: Nur direkt die Knoten verschieben, nicht neu zeichnen!
+  // Das macht Drag & Drop 10x flüssiger
+  gSel.selectAll('g.node').transition().duration(0)
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+  
+  // Auch Links updaten
+  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+  gSel.selectAll('path.link').transition().duration(0)
+    .attr('d', diag);
+}
+
+function dragEnded(event, d) {
+  d3.select(this).classed('dragging', false);
+  d3.select(this).select('circle:not(.halo)').style('filter', null);
+  draggedNode = null;
+  dragOffsets = null;
+}
+
+/* Übersicht */
+function fitView(anim = true) {
+  if (!rootNode) return;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  const nodes   = rootNode.descendants().filter(d => d.x != null && d.y != null);
+  if (!nodes.length) return;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(d => {
+    if (d.x < minX) minX = d.x; if (d.x > maxX) maxX = d.x;
+    if (d.y < minY) minY = d.y; if (d.y > maxY) maxY = d.y;
+  });
+
+  const svgW    = Math.max(maxY - minY, 1);
+  const svgH    = Math.max(maxX - minX, 1);
+  const padL    = 80;
+  const padR    = currentFontSize * 18;
+  const padV    = 50;
+  const scaleX  = (canvasW - padL - padR) / svgW;
+  const scaleY  = (canvasH - 2 * padV)    / svgH;
+  const scale   = Math.min(scaleX, scaleY, 1.6);
+  const tx      = padL - minY * scale;
+  const ty      = canvasH / 2 - (minX + maxX) / 2 * scale;
+
+  const t = d3.zoomIdentity.translate(tx, ty).scale(scale);
+  (anim ? svgSel.transition().duration(450) : svgSel).call(zoomBeh.transform, t);
+}
+
+function fitToNodes(nodes) {
+  if (!nodes.length) return;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(d => {
+    if (d.x != null) { if (d.x < minX) minX = d.x; if (d.x > maxX) maxX = d.x; }
+    if (d.y != null) { if (d.y < minY) minY = d.y; if (d.y > maxY) maxY = d.y; }
+  });
+  if (!isFinite(minX)) return;
+  if (maxX === minX) { minX -= 40; maxX += 40; }
+  if (maxY === minY) { minY -= 100; maxY += 100; }
+  const svgW  = Math.max(maxY - minY, 1);
+  const svgH  = Math.max(maxX - minX, 1);
+  const scaleX = (canvasW - 80 - 220) / svgW;
+  const scaleY = (canvasH - 120)       / svgH;
+  const scale  = Math.min(scaleX, scaleY, 2.8);
+  const tx = (canvasW - svgW * scale) / 2 - minY * scale;
+  const ty = canvasH / 2 - (minX + maxX) / 2 * scale;
+  svgSel.transition().duration(550)
+    .call(zoomBeh.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+function toggle(d) {
+  if (d.children) { d._ch = d.children; d.children = null; }
+  else if (d._ch) { d.children = d._ch; d._ch = null; }
+  drawTree(d);
+}
+
+function expandAll() {
+  rootNode.descendants().forEach(d => { if (d._ch) { d.children = d._ch; d._ch = null; } });
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function collapseAll() {
+  rootNode.descendants().forEach(d => {
+    if (d.depth > 0 && d.children) { d._ch = d.children; d.children = null; }
+  });
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function _hasLanguageDescendant(node) {
+  // Hilfsfunktion: Prüft ob ein Knoten eine Sprache als Nachkomme hat
+  if (node.data.type === 'language') return true;
+  if (node.children) {
+    return node.children.some(child => _hasLanguageDescendant(child));
+  }
+  if (node._ch) {
+    return node._ch.some(child => _hasLanguageDescendant(child));
+  }
+  return false;
+}
+
+function toggleDialects() {
+  if (!rootNode) return;
+  
+  // Neue Strategie:
+  // - Alle Sprachen-Knoten (type === 'language') bleiben OFFEN
+  // - Alle Übergruppen, die Sprachen als Nachkommen haben, bleiben OFFEN
+  // - Alle Übergruppen, die KEINE Sprachen als Nachkommen haben, werden EINGEKLAPPT
+  // - Damit sind nur Sprachen und ihre direkten Vorfahren sichtbar
+  
+  rootNode.descendants().forEach(d => {
+    if (d.children) {
+      // Checke: Enthält dieser Knoten oder seine Kinder eine Sprache?
+      const hasLanguageChild = d.children.some(child => _hasLanguageDescendant(child));
+      
+      // Wenn KEINE Sprache als Nachkomme vorhanden: einklappen
+      if (!hasLanguageChild) {
+        d._ch = d.children;
+        d.children = null;
+      }
+      // Sonst: offen lassen (Sprachen bleiben sichtbar)
+    }
+  });
+  
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function zoomBy(f) {
+  svgSel.transition().duration(260).call(zoomBeh.scaleBy, f);
+}
+
+/* Suche */
+function onSearchInput(q) {
+  clearTimeout(_searchTimer);
+  if (!q.trim()) { clearSearch(); return; }
+  _searchTimer = setTimeout(() => doSearch(q.trim()), 320);
+}
+
+function doSearch(q) {
+  if (!rootNode) return;
+  const ql = q.toLowerCase();
+  const matches = [];
+  rootNode.descendants().forEach(d => {
+    const n  = (d.data.name     || '').toLowerCase();
+    const o  = (d.data.nameOrig || '').toLowerCase();
+    const id = (d.data.id       || '').toLowerCase();
+    d._searchMatch = n.includes(ql) || o.includes(ql) || id.includes(ql);
+    if (d._searchMatch) matches.push(d);
+  });
+  matches.forEach(m => {
+    let a = m.parent;
+    while (a) { if (a._ch) { a.children = a._ch; a._ch = null; } a = a.parent; }
+  });
+  drawTree(rootNode);
+  if (matches.length) setTimeout(() => fitToNodes(matches), 380);
+}
+
+function clearSearch() {
+  if (!rootNode) return;
+  rootNode.descendants().forEach(d => { d._searchMatch = false; });
+  drawTree(rootNode);
+}
+
+
+
+/* ════════════════════════════════════════════════════════════════
+   INFO-PANEL  (mit Mini-Karte)
+════════════════════════════════════════════════════════════════ */
+let miniMap = null;
+let miniMarker = null;
+
+function _initMiniMap(lat, lon, color) {
+  const wrap = document.getElementById('ip-minimap-wrap');
+  if (!wrap) return;
+
+  // Alte Instanz immer zerstören, da das DOM-Element bei jedem Klick neu erstellt wird
+  if (miniMap) {
+    try { miniMap.remove(); } catch(e) {}
+    miniMap = null;
+    miniMarker = null;
+  }
+
+  miniMap = L.map('ip-minimap', {
+    zoomControl: true,
+    scrollWheelZoom: true,
+    dragging: true,
+    attributionControl: false,
+    zoomSnap: 0.5
+  });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd', maxZoom: 18
+  }).addTo(miniMap);
+  L.control.attribution({ prefix: '© OSM · CARTO' }).addTo(miniMap);
+
+  const icon = L.divIcon({
+    html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 6px ${color}aa;"></div>`,
+    className: '', iconSize: [12,12], iconAnchor: [6,6]
+  });
+  miniMarker = L.marker([lat, lon], { icon }).addTo(miniMap);
+  miniMap.setView([lat, lon], 5, { animate: false });
+  // Mehrfach invalidieren um sicherzustellen, dass Tiles vollständig geladen werden
+  setTimeout(() => miniMap.invalidateSize(), 100);
+  setTimeout(() => miniMap.invalidateSize(), 400);
+}
+
+function showPanel(d) {
+  selNode = d;
+  drawTree(d);
+  document.getElementById('ip-empty').style.display = 'none';
+  document.getElementById('ip-content').classList.add('on');
+
+  const data = d.data;
+  document.getElementById('ip-name').textContent = data.name;
+  const origEl = document.getElementById('ip-orig');
+  if (data.nameOrig && data.nameOrig !== data.name) {
+    origEl.textContent = data.nameOrig; origEl.style.display = 'block';
+  } else { origEl.style.display = 'none'; }
+
+  const body = document.getElementById('ip-body');
+  body.innerHTML = '';
+
+  const secKl = mkSec('Klassifikation');
+  const br = document.createElement('div'); br.className = 'ip-row';
+  br.innerHTML = `<span class="ip-key">Typ</span><span class="ip-badge badge-${data.type}">${typeName(data.type)}</span>`;
+  secKl.appendChild(br);
+  addRow(secKl, 'Ebene', d.depth);
+  body.appendChild(secKl);
+
+  const secId = mkSec('Identifikatoren');
+  addRow(secId, 'Glottolog', data.id, true);
+  if (data.iso) addRow(secId, 'ISO 639-3', data.iso, true);
+  body.appendChild(secId);
+
+  if (data.lat != null && data.lon != null) {
+    const secG = mkSec('Koordinaten');
+    addRow(secG, 'Breite', data.lat.toFixed(4) + '°');
+    addRow(secG, 'Länge',  data.lon.toFixed(4) + '°');
+    body.appendChild(secG);
+  }
+
+if (data.lat != null && data.lon != null) {
+    const secM = mkSec('Karte');
+    const wrap = document.createElement('div');
+    wrap.id = 'ip-minimap-wrap';
+    wrap.innerHTML = '<div id="ip-minimap"></div>';
+    secM.appendChild(wrap);
+    body.appendChild(secM);
+    // Längere Verzögerung damit das DOM sicher gerendert ist, bevor Leaflet initialisiert
+    setTimeout(() => {
+      const col = NODE_COLORS[data.type] || '#c8973a';
+      _initMiniMap(data.lat, data.lon, col);
+    }, 150);
+  } else {
+    // Alte Instanz aufräumen wenn kein Standort vorhanden
+    if (miniMap) {
+      try { miniMap.remove(); } catch(e) {}
+      miniMap = null;
+      miniMarker = null;
+    }
+  }
+
+  const countries = _getCountries(d);
+  const pending   = !countries && _isPending(d);
+  if (countries && countries.length) {
+    const secC = mkSec('Gesprochen in');
+    countries.forEach(c => {
+      const row = document.createElement('div'); row.className = 'ip-country';
+      row.innerHTML = `
+        <span class="ip-country-flag">${c.flag}</span>
+        <span class="ip-country-info">
+          <span class="ip-country-name">${c.name}</span>
+          ${c.region ? `<span class="ip-country-region">${c.region}</span>` : ''}
+        </span>`;
+      secC.appendChild(row);
+    });
+    body.appendChild(secC);
+  } else if (pending) {
+    const secC = mkSec('Gesprochen in');
+    const ld = document.createElement('div'); ld.className = 'ip-country-loading';
+    ld.textContent = 'Wird ermittelt…';
+    secC.appendChild(ld); body.appendChild(secC);
+  }
+
+  const kids = d.children || d._ch || [];
+  if (kids.length) {
+    const secK = mkSec(`Untereinheiten (${kids.length})`);
+    const ul = document.createElement('ul'); ul.className = 'ip-child-list';
+    kids.forEach(c => {
+      const li = document.createElement('li');
+      const dot = document.createElement('div'); dot.className = 'ip-child-dot';
+      dot.style.background = NODE_COLORS[c.data.type] || '#7a6a48';
+      li.appendChild(dot);
+      const sp = document.createElement('span'); sp.textContent = c.data.name;
+      li.appendChild(sp); ul.appendChild(li);
+    });
+    secK.appendChild(ul); body.appendChild(secK);
+  }
+
+  if (d.depth > 0) {
+    const ancs = d.ancestors().slice(1).reverse();
+    if (ancs.length) {
+      const secA = mkSec('Übergeordnet');
+      ancs.forEach((a, i) => {
+        const r = document.createElement('div'); r.className = 'ip-row';
+        r.innerHTML = `<span class="ip-key" style="padding-left:${i*8}px">${i?'└ ':''}${typeName(a.data.type)}</span><span class="ip-val">${a.data.name}</span>`;
+        secA.appendChild(r);
+      });
+      body.appendChild(secA);
+    }
+  }
+}
+
+function mkSec(title) {
+  const s = document.createElement('div'); s.className = 'ip-section';
+  const t = document.createElement('div'); t.className = 'ip-sec-title'; t.textContent = title;
+  s.appendChild(t); return s;
+}
+function addRow(p, key, val, mono=false) {
+  const r = document.createElement('div'); r.className = 'ip-row';
+  r.innerHTML = `<span class="ip-key">${key}</span><span class="ip-val${mono?' mono':''}">${val}</span>`;
+  p.appendChild(r);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   LEAFLET-HAUPTKARTE  (ohne Clustering, direkte Marker)
+════════════════════════════════════════════════════════════════ */
+let leafMap = null;
+
+function initMap() {
+  leafMap = L.map('map', {
+    center: mapConfig.center,
+    zoom:   mapConfig.zoom,
+    zoomControl: false
+  });
+
+  L.control.zoom({ position: 'bottomright' }).addTo(leafMap);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(leafMap);
+
+  geoData.forEach(lang => {
+    const col = lang.color || "#c8973a";
+    const icon = L.divIcon({
+      html: `<div style="
+        width:12px;height:12px;border-radius:50%;
+        background:${col};
+        border:2px solid rgba(255,255,255,0.85);
+        box-shadow:0 0 6px ${col}aa,0 1px 4px rgba(0,0,0,.5);
+        cursor:pointer;
+      "></div>`,
+      className: '', iconSize: [12,12], iconAnchor: [6,6], popupAnchor: [0,-8]
+    });
+    const popup = `
+      <div class="lp-name">${lang.name}</div>
+      ${lang.nameOrig !== lang.name ? `<div class="lp-orig">${lang.nameOrig}</div>` : ''}
+      <div class="lp-row"><span>Glottolog:</span><span class="lp-badge">${lang.id}</span></div>
+      <div class="lp-row" style="font-size:.63rem;color:#666">📍 ${lang.lat.toFixed(4)}° · ${lang.lon.toFixed(4)}°</div>`;
+    const m = L.marker([lang.lat, lang.lon], { icon });
+    m.bindPopup(popup, { maxWidth: 230 });
+    m.on('mouseover', () => m.openPopup());
+    m.addTo(leafMap);
+  });
+
+  setTimeout(() => leafMap.invalidateSize(), 150);
+}
+
+/* ── Start ── */
+window.addEventListener('resize', () => {
+  if (rootNode) drawTree(rootNode);
+  if (leafMap) leafMap.invalidateSize();
+  if (miniMap) miniMap.invalidateSize();
+});
+
+document.addEventListener('DOMContentLoaded', () => { initData(); initTree(); });
+</script>
+</body>
+</html>
