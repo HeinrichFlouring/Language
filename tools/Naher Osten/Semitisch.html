@@ -1,0 +1,4317 @@
+<!DOCTYPE html>
+<!--
+╔══════════════════════════════════════════════════════════════════════╗
+║  SPRACHFAMILIEN-ATLAS · VORLAGE v4                                  ║
+╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title id="page-title">Sprachfamilien-Atlas</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+  --bg-primary:  #0a0a0f;
+  --bg-nav:      #0d0d14;
+  --bg-panel:    #13131c;
+  --gold-bright: #f0c060;
+  --gold-mid:    #c8973a;
+  --gold-glow:   rgba(240,192,96,0.15);
+  --text-primary:#e8d5a0;
+  --text-dim:    #9a8a68;      /* heller als vorher (#7a6a48) */
+  --text-muted:  #7a6a52;      /* heller als vorher (#4a4030) */
+  --border:      #1e1e2e;
+  --border-gold: rgba(200,151,58,0.3);
+  --node-family: #c8973a;
+  --node-lang:   #7ec8c8;
+  --node-sub:    #c87868;
+  --node-dial:   #a0b878;
+  --nav-h:       52px;
+  --toolbar-h:   46px;
+  --panel-w:     300px;
+}
+    html, body { height:100%; width:100%; overflow:hidden; font-family:'Georgia',serif; background:var(--bg-primary); color:var(--text-primary); }
+
+    /* ── NAV ── */
+    #nav { position:fixed; top:0; left:0; right:0; height:var(--nav-h); background:var(--bg-nav); border-bottom:1px solid var(--border-gold); display:flex; align-items:center; justify-content:space-between; padding:0 24px; z-index:1000; box-shadow:0 2px 20px rgba(0,0,0,.6); }
+    #nav-left { display:flex; align-items:center; gap:10px; }
+    .title-glyph { font-size:1.3rem; color:var(--gold-bright); text-shadow:0 0 12px rgba(240,192,96,.4); }
+    .title-main  { font-size:1rem; color:var(--gold-bright); letter-spacing:2px; text-transform:uppercase; font-weight:normal; }
+    .title-sub   { font-size:.65rem; color:var(--text-dim); letter-spacing:1px; font-family:'Segoe UI',sans-serif; }
+    #nav-tabs { display:flex; gap:4px; background:rgba(0,0,0,.4); border:1px solid var(--border-gold); border-radius:8px; padding:4px; }
+    .nav-tab { display:flex; align-items:center; gap:7px; padding:6px 18px; border-radius:6px; border:1px solid transparent; cursor:pointer; font-family:'Segoe UI',sans-serif; font-size:.78rem; color:var(--text-dim); background:transparent; transition:all .25s; user-select:none; }
+    .nav-tab:hover  { color:var(--gold-mid); background:var(--gold-glow); }
+    .nav-tab.active { color:var(--gold-bright); background:rgba(200,151,58,.18); border-color:var(--border-gold); }
+    .nav-tab svg { width:14px; height:14px; fill:currentColor; flex-shrink:0; }
+    #nav-meta { display:flex; gap:10px; }
+    .meta-chip { font-family:'Segoe UI',sans-serif; font-size:.65rem; color:var(--text-dim); background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:10px; padding:2px 10px; letter-spacing:.5px; }
+
+    /* ── VIEWS ── */
+    #views { position:fixed; top:var(--nav-h); left:0; right:0; bottom:0; }
+    .view { position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity .4s; }
+    .view.visible { opacity:1; pointer-events:all; }
+
+    /* ── TREE VIEW ── */
+    #view-tree { background:var(--bg-primary); display:flex; flex-direction:column; }
+    #tree-toolbar { min-height:var(--toolbar-h); height:auto; background:var(--bg-panel); border-bottom:1px solid var(--border); display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:6px 16px; flex-shrink:0; }
+    .tb-label { font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-muted); letter-spacing:1px; white-space:nowrap; }
+    .tb-btn { display:flex; align-items:center; gap:5px; padding:4px 12px; border-radius:6px; border:1px solid var(--border-gold); background:transparent; color:var(--gold-mid); font-family:'Segoe UI',sans-serif; font-size:.72rem; cursor:pointer; transition:all .2s; white-space:nowrap; }
+    .tb-btn:hover { background:var(--gold-glow); color:var(--gold-bright); border-color:var(--gold-bright); }
+    .tb-btn svg { width:11px; height:11px; fill:currentColor; }
+    .tb-divider { width:1px; height:22px; background:var(--border); flex-shrink:0; }
+    #zoom-info { font-family:monospace; font-size:.7rem; color:var(--text-muted); min-width:38px; text-align:center; }
+    .tb-input { background:rgba(255,255,255,.05); border:1px solid var(--border-gold); border-radius:6px; color:var(--text-primary); font-family:'Segoe UI',sans-serif; font-size:.72rem; padding:4px 10px; width:145px; outline:none; transition:border-color .2s, background .2s; }
+    .tb-input:focus { border-color:var(--gold-bright); background:rgba(240,192,96,.07); }
+    .tb-input::placeholder { color:var(--text-muted); }
+    #tree-legend { display:flex; align-items:center; gap:12px; margin-left:auto; }
+    .leg-item { display:flex; align-items:center; gap:5px; font-family:'Segoe UI',sans-serif; font-size:.65rem; color:var(--text-dim); }
+    .leg-dot  { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+    #tree-main { flex:1; display:flex; overflow:hidden; min-height:0; }
+    #tree-canvas { flex:1; overflow:hidden; position:relative; }
+    #tree-canvas svg { width:100%; height:100%; cursor:grab; }
+    #tree-canvas svg:active { cursor:grabbing; }
+
+    /* ── INFO PANEL ── */
+    #info-panel { width:var(--panel-w); flex-shrink:0; background:var(--bg-panel); border-left:1px solid var(--border-gold); display:flex; flex-direction:column; overflow:hidden; }
+    #ip-header { padding:14px 16px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+    .ip-label { font-family:'Segoe UI',sans-serif; font-size:.62rem; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; }
+    #ip-name  { font-family:'Georgia',serif; font-size:1.05rem; color:var(--gold-bright); line-height:1.3; word-break:break-word; }
+    #ip-orig  { font-family:'Segoe UI',sans-serif; font-size:.7rem; color:var(--text-dim); font-style:italic; margin-top:3px; display:none; }
+    #ip-body  { flex:1; overflow-y:auto; padding:12px 16px; }
+    .ip-section { margin-bottom:14px; }
+    .ip-sec-title { font-family:'Segoe UI',sans-serif; font-size:.6rem; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    .ip-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:5px; font-family:'Segoe UI',sans-serif; font-size:.72rem; }
+    .ip-key { color:var(--text-muted); flex-shrink:0; }
+    .ip-val { color:var(--text-dim); text-align:right; word-break:break-word; }
+    .ip-val.mono { color:var(--node-lang); font-family:monospace; font-size:.75rem; }
+    .ip-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-family:'Segoe UI',sans-serif; font-size:.65rem; letter-spacing:.5px; border:1px solid; }
+    .badge-family   { color:var(--node-family); border-color:var(--node-family); background:rgba(200,151,58,.1); }
+    .badge-language { color:var(--node-lang);   border-color:var(--node-lang);   background:rgba(126,200,200,.1); }
+    .badge-subgroup { color:var(--node-sub);    border-color:var(--node-sub);    background:rgba(200,120,104,.1); }
+    .badge-dialect  { color:var(--node-dial);   border-color:var(--node-dial);   background:rgba(160,184,120,.1); }
+    .ip-country { display:flex; align-items:flex-start; gap:9px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,.04); font-family:'Segoe UI',sans-serif; font-size:.72rem; }
+    .ip-country:last-child { border-bottom:none; }
+    .ip-country-flag   { font-size:1.25rem; line-height:1.1; flex-shrink:0; }
+    .ip-country-info   { display:flex; flex-direction:column; gap:1px; }
+    .ip-country-name   { color:var(--text-dim); line-height:1.4; }
+    .ip-country-region { font-size:.62rem; color:var(--text-muted); }
+    .ip-country-loading { font-size:.68rem; color:var(--text-muted); font-style:italic; padding:3px 0; }
+    .ip-child-list { list-style:none; }
+    .ip-child-list li { display:flex; align-items:center; gap:6px; padding:3px 0; font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-dim); border-bottom:1px solid rgba(255,255,255,.03); }
+    .ip-child-list li:last-child { border-bottom:none; }
+    .ip-child-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    #ip-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:10px; color:var(--text-muted); font-family:'Segoe UI',sans-serif; font-size:.72rem; text-align:center; padding:20px; }
+    #ip-empty .ei { font-size:2rem; opacity:.3; }
+    #ip-content { display:none; height:100%; flex-direction:column; overflow:hidden; }
+    #ip-content.on { display:flex; }
+
+    /* Mini-Karte im Info-Panel */
+    #ip-minimap-wrap { width:100%; height:160px; border-radius:8px; overflow:hidden; border:1px solid var(--border-gold); margin-top:6px; flex-shrink:0; position:relative; }
+    #ip-minimap { width:100%; height:100%; }
+
+    /* ── D3 ELEMENTE ── */
+    .link { fill:none; stroke:rgba(200,151,58,.22); stroke-width:3px; }
+    /* Trennlinie zwischen Haupt-Familienästen */
+    .family-sep { fill:none; stroke:rgba(200,151,58,.12); stroke-width:1px; stroke-dasharray:4,4; }
+    .node circle { stroke-width:1.5px; transition:all .25s; }
+    .node:hover circle { stroke-width:2.5px; }
+    .node.dragging circle { filter: drop-shadow(0 0 8px rgba(240,192,96,.6)); stroke-width:3px; }
+    /* Textgröße wird dynamisch per inline-style gesetzt */
+    .node text { font-family:'Georgia',serif; pointer-events:none; }
+    .node.sel circle { stroke-width:3px; }
+    #tree-bar { height:34px; background:var(--bg-panel); border-top:1px solid var(--border); display:flex; align-items:center; padding:0 20px; gap:20px; flex-shrink:0; }
+    #tree-bar .bi { font-family:'Segoe UI',sans-serif; font-size:.67rem; color:var(--text-muted); }
+    #tree-bar .bi span { color:var(--text-dim); }
+
+    /* ── MAP VIEW ── */
+    #view-map { background:#1a1a2e; }
+    #map { width:100%; height:100%; }
+    /* Legende links unten */
+    #map-overlay {
+      position:absolute;
+      bottom:32px; left:16px;
+      z-index:900;
+      background:rgba(10,10,15,.88);
+      border:1px solid var(--border-gold);
+      border-radius:10px;
+      padding:12px 16px;
+      backdrop-filter:blur(8px);
+      min-width:180px;
+    }
+    .ov-title { font-size:.7rem; color:var(--gold-mid); letter-spacing:1.5px; text-transform:uppercase; font-family:'Segoe UI',sans-serif; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border-gold); }
+    .ov-item  { display:flex; align-items:center; gap:8px; margin-bottom:5px; font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-dim); }
+    .ov-dot   { width:10px; height:10px; border-radius:50%; flex-shrink:0; border:1.5px solid rgba(255,255,255,.2); }
+
+    /* ── LEAFLET OVERRIDES ── */
+    .leaflet-container { background:#2a3a4a !important; }
+    .leaflet-popup-content-wrapper { background:var(--bg-panel) !important; color:var(--text-primary) !important; border:1px solid var(--border-gold) !important; border-radius:10px !important; box-shadow:0 8px 32px rgba(0,0,0,.7) !important; }
+    .leaflet-popup-tip { background:var(--bg-panel) !important; }
+    .leaflet-popup-close-button { color:var(--text-dim) !important; }
+    .lp-name  { font-family:'Georgia',serif; font-size:1rem; color:var(--gold-bright); margin-bottom:4px; }
+    .lp-orig  { font-size:.68rem; color:var(--text-dim); font-style:italic; margin-bottom:6px; }
+    .lp-row   { display:flex; gap:6px; align-items:center; font-size:.7rem; color:var(--text-dim); margin-bottom:3px; }
+    .lp-badge { font-size:.62rem; background:rgba(200,151,58,.2); border:1px solid var(--border-gold); border-radius:4px; padding:1px 6px; color:var(--gold-mid); font-family:monospace; }
+    /* Zoom-Buttons: rechts unten auf der Karte */
+    .leaflet-control-zoom { margin-right:16px !important; margin-bottom:16px !important; }
+    .leaflet-bottom.leaflet-right { bottom:0; right:0; }
+    .leaflet-control-zoom a { background:rgba(13,13,20,0.92) !important; color:var(--gold-mid) !important; border-color:var(--border-gold) !important; }
+    .leaflet-control-attribution { background:rgba(10,10,15,.7) !important; color:var(--text-muted) !important; font-size:.55rem !important; }
+
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+    * { scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+
+    /* Mini-Map Leaflet overrides */
+    #ip-minimap .leaflet-control-zoom { display:none !important; }
+    #ip-minimap .leaflet-control-attribution { font-size:.45rem !important; }
+
+    /* ── ERROR SCREEN ── */
+    #error-screen { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:var(--bg-primary); z-index:10000; flex-direction:column; align-items:center; justify-content:center; padding:40px; text-align:center; }
+    #error-screen.visible { display:flex; }
+    .error-icon { font-size:3rem; margin-bottom:20px; }
+    .error-title { font-size:1.4rem; color:var(--gold-bright); margin-bottom:10px; font-weight:700; }
+    .error-message { font-size:0.95rem; color:var(--text-dim); max-width:600px; line-height:1.6; margin-bottom:20px; font-family:'Segoe UI',monospace; background:rgba(255,0,0,.1); border:1px solid rgba(200,100,100,.3); border-radius:8px; padding:15px; }
+    .error-details { font-size:0.8rem; color:var(--text-muted); max-width:700px; }
+
+    @media (max-width:700px) { #nav-meta{display:none;} .nav-tab{padding:5px 10px;} #tree-legend{display:none;} }
+    @media (max-width:480px) { #info-panel{display:none;} }
+  </style>
+</head>
+<body>
+
+<nav id="nav">
+  <div id="nav-left">
+    <span class="title-glyph" id="nav-glyph">◈</span>
+    <div>
+      <div class="title-main" id="nav-title-main">Sprachfamilien-Atlas</div>
+      <div class="title-sub">Interaktiver Sprach-Atlas</div>
+    </div>
+  </div>
+  <div id="nav-tabs">
+    <div class="nav-tab active" data-view="tree" onclick="switchView('tree')">
+      <svg viewBox="0 0 16 16"><path d="M1 1h5v3H4v2h2v3H1V7h2V4H1zm7 0h5v3h-2v2h2v3H8V7h2V4H8zm0 7h5v3h-2v2h2v3H8v-3h2v-2H8z"/></svg>
+      Stammbaum
+    </div>
+    <div class="nav-tab" data-view="map" onclick="switchView('map')">
+      <svg viewBox="0 0 16 16"><path d="M8 0a5 5 0 0 0-5 5c0 3.5 5 11 5 11s5-7.5 5-11a5 5 0 0 0-5-5zm0 7.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+      Verbreitungskarte
+    </div>
+  </div>
+  <div id="nav-meta">
+    <span class="meta-chip" id="chip-fam">– Familien</span>
+    <span class="meta-chip" id="chip-lan">– Sprachen</span>
+    <span class="meta-chip" id="chip-dia">– Dialekte</span>
+  </div>
+</nav>
+
+<div id="views">
+
+  <!-- STAMMBAUM -->
+  <div id="view-tree" class="view visible">
+    <div id="tree-toolbar">
+      <button class="tb-btn" onclick="expandAll()">
+        <svg viewBox="0 0 12 12"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        Aufklappen
+      </button>
+      <button class="tb-btn" onclick="collapseAll()">
+        <svg viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        Einklappen
+      </button>
+      <button class="tb-btn" onclick="toggleDialects()">
+        <svg viewBox="0 0 12 12"><path d="M2 3h3v3H2zm5 0h3v3H7zm-5 5h3v3H2zm5 0h3v3H7z" stroke="currentColor" stroke-width="0.8" fill="currentColor"/></svg>
+        Dialekte verbergen
+      </button>
+      <button class="tb-btn" onclick="fitView()">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><polyline points="1,4 1,1 4,1"/><polyline points="8,1 11,1 11,4"/><polyline points="11,8 11,11 8,11"/><polyline points="4,11 1,11 1,8"/></svg>
+        Übersicht
+      </button>
+      <div class="tb-divider"></div>
+      <button class="tb-btn" onclick="zoomBy(1.3)">＋</button>
+      <span id="zoom-info">100%</span>
+      <button class="tb-btn" onclick="zoomBy(0.77)">－</button>
+      <div class="tb-divider"></div>
+      <input id="tree-search" type="text" class="tb-input" placeholder="🔍  Sprache suchen…"
+             oninput="onSearchInput(this.value)"
+             onkeydown="if(event.key==='Escape'){this.value='';clearSearch();}"/>
+      <div class="tb-divider"></div>
+      <!-- Schriftgröße-Regler (ersetzt Abstand-Regler) -->
+      <span class="tb-label">Schriftgröße</span>
+      <input type="range" id="fontsize-sl" min="5" max="20" value="11" step="1"
+             style="width:72px;accent-color:var(--gold-mid);cursor:pointer;vertical-align:middle;"
+             oninput="onFontsizeChange(this.value)"/>
+      <span id="fs-val" style="font-size:.65rem;color:var(--text-muted);min-width:32px">11 px</span>
+      <div id="tree-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#c8973a"></div>Familie</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#7ec8c8"></div>Sprache</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#c87868"></div>Gruppe</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#a0b878"></div>Dialekt</div>
+      </div>
+    </div>
+
+    <div id="tree-main">
+      <div id="tree-canvas">
+        <svg id="tree-svg">
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <clipPath id="text-clip">
+              <!-- Wird dynamisch gefüllt -->
+            </clipPath>
+          </defs>
+          <g id="tree-g"></g>
+        </svg>
+      </div>
+      <div id="info-panel">
+        <div id="ip-empty">
+          <div class="ei">◈</div>
+          <div>Knoten anklicken<br>für Details</div>
+        </div>
+        <div id="ip-content">
+          <div id="ip-header">
+            <div class="ip-label">Details</div>
+            <div id="ip-name">–</div>
+            <div id="ip-orig"></div>
+          </div>
+          <div id="ip-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tree-bar">
+      <div class="bi">Klick: <span>Details / Ein-/Ausklappen</span></div>
+      <div class="bi">Ziehen: <span>Verschieben (Knoten + Astgruppe)</span></div>
+      <div class="bi">Scroll: <span>Zoom</span></div>
+      <div class="bi">Regler: <span>Schriftgröße &amp; Abstände</span></div>
+    </div>
+  </div>
+
+  <!-- KARTE -->
+  <div id="view-map" class="view">
+    <div id="map"></div>
+    <div id="map-overlay">
+      <div class="ov-title">Sprachgruppen</div>
+      <div id="map-legend-items"></div>
+    </div>
+  </div>
+
+</div><!-- #views -->
+
+<!-- ERROR SCREEN -->
+<div id="error-screen">
+  <div class="error-icon">⚠️</div>
+  <div class="error-title">Syntax-Fehler im Newick-String</div>
+  <div class="error-message" id="error-msg"></div>
+  <div class="error-details">
+    <p>Überprüfen Sie Ihren Newick-String auf:</p>
+    <ul style="text-align:left;display:inline-block;margin-top:10px;">
+      <li>✓ Backticks: const rawNewick = `...` (nicht "..." oder '...')</li>
+      <li>✓ Korrekte Klammer-Balance: ( und )</li>
+      <li>✓ Text mit Leerzeichen in Quotes: 'Name mit Leerzeichen'</li>
+      <li>✓ Sprachen markieren mit: -l-</li>
+    </ul>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1a  –  GLYPH
+════════════════════════════════════════════════════════════════ */
+const familyGlyph = "משהالعربية";
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1b  –  ZÄHLER
+════════════════════════════════════════════════════════════════ */
+const familyMeta = {
+  families:  57,
+  languages: 96,
+  dialects:  323
+};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1c  –  KARTEN-KONFIGURATION
+════════════════════════════════════════════════════════════════ */
+const mapConfig = {
+  center: [22.432975439671253,18.353805039602513],
+  zoom:   4
+};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1d  –  KARTEN-LEGENDE (OPTIONAL)
+════════════════════════════════════════════════════════════════ */
+const mapLegendGroups = [];
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 2a  –  DEUTSCHE NAMEN
+════════════════════════════════════════════════════════════════ */
+const nameTranslations = {'midd1371': 'Mittelassyrisch',
+'neoa1235': 'Neuassyrisch',
+'olda1248': 'Altassyrisch',
+'assy1242': 'Assyrisch',
+'earl1248': 'Frühbabylonisch',
+'late1257': 'Spätbabylonisch',
+'midd1370': 'Mittelbabylonisch',
+'neob1234': 'Neubabylonisch',
+'oldb1249': 'Altbabylonisch',
+'diya1235': 'Diyala-Babylonisch',
+'olda1247': 'Altakkadisch',
+'akka1240': 'Akkadisch',
+'ebla1238': 'Eblaitisch',
+'east2678': 'Ostsemitisch',
+'amor1239': 'Amoritisch',
+'uncl1507': 'Unklassifiziertes Semitisch',
+'dada1236': 'Dadanitisch',
+'duma1255': 'Dumaitisch',
+'hasa1249': 'Hasaitisch',
+'hism1236': 'Hismaisch',
+'safa1245': 'Safaitisch',
+'taym1240': 'Taymanitisch',
+'anci1245': 'Frühnordarabisch',
+'hadr1236': 'Hadrami-Arabisch',
+'coas1310': 'Küsten-Tihama',
+'nort3136': 'Nord-Hedschasi',
+'sout3118': 'Süd-Hedschasi',
+'vall1257': 'Tal-Tihama',
+'hija1235': 'Hedschasi-Arabisch',
+'aden1242': 'Aden-Arabisch',
+'beda1249': 'Beda-Arabisch',
+'habb1238': 'Habban-Arabisch',
+'sana1296': 'Sanaa-Arabisch',
+'jude1267': 'Juden-Jemenitisches Arabisch',
+'sana1295': 'Sanaani-Arabisch',
+'jude1277': 'Juden-Muslimisches Sanaani-Arabisch',
+'baha1259': 'Baharna-Arabisch',
+'dhof1235': 'Dhofari-Arabisch',
+'shih1239': 'Ru´us al-Dschibal',
+'dhof1236': 'Dhofarisch',
+'alha1241': 'Al-Hasaa',
+'alha1242': 'Al-Hasâ',
+'bahr1247': 'Bahrain-Golfarabisch',
+'kham1298': 'Khamseh',
+'kuwa1251': 'Kuwait-Hadari-Arabisch',
+'nort3138': 'Nord-Katari-Arabisch',
+'sout3120': 'Süd-Katari-Arabisch',
+'zuba1242': 'Zubair-Faau-Arabisch',
+'gulf1241': 'Golf-Arabisch',
+'aniz1234': 'Anizah der Syrischen Wüste',
+'arid1234': 'Arid-Washm-Sudair',
+'cent2323': 'Zentral-Beduinen-Najdi',
+'cent2224': 'Zentral-Najdi',
+'nort3137': 'Nord-Najdi',
+'qasi1234': 'Qasim-Dhafir',
+'najr1234': 'Najran-Ghatan',
+'almu1234': 'al-Murrah-Ajman',
+'sout3119': 'Süd-Najdi',
+'najd1235': 'Najdi-Arabisch',
+'oman1239': 'Omani-Arabisch',
+'nort3402': 'Nordarabisches Beduinen-Arabisch',
+'aden1241': 'Adeni',
+'taiz1243': 'Ta´izzi',
+'taiz1242': 'Ta´izzi-Adeni-Arabisch',
+'arab1393': 'Arabisches Halbinsel-Arabisch',
+'balk1259': 'Balkh-Arabisch',
+'buxa1234': 'Buchara-Arabisch',
+'taji1248': 'Tadschikisches Arabisch',
+'arab1400': 'Arabkhane',
+'kham1303': 'Khamse',
+'sara1352': 'Sarakhs',
+'zirk1234': 'Zir Kuh',
+'khor1274': 'Chorasan-Arabisch',
+'qash1241': 'Dschinau',
+'qama1234': 'Kamashi',
+'uzbe1248': 'Kaschka-Darja-Arabisch',
+'xora1234': 'Chorasan-Kaschka-Darja-Arabisch',
+'cent2410': 'Zentralasiatisches Arabisch',
+'anat1256': 'Anatolische Gruppe',
+'euph1238': 'Euphrat-Gruppe',
+'koli1251': 'Kawliya',
+'tigr1275': 'Tigris-Gruppe',
+'meso1252': 'Gilit-Mesopotamisches Arabisch',
+'jude1266': 'Juden-Irakisches Arabisch',
+'diya1234': 'Diyarbakir',
+'kozl1234': 'Kozluk-Sason-Musch',
+'azex1234': 'Azex',
+'kosa1252': 'Kosa-Mhallami',
+'mard1249': 'Mardin-Ebene',
+'mard1247': 'Mardin-Stadt',
+'mard1248': 'Mardin-Dörfer',
+'mard1246': 'Mardinisch',
+'mosu1235': 'Mosul-Arabisch',
+'siir1234': 'Siirt',
+'anat1261': 'Anatolisches Qeltu',
+'euph1239': 'Euphrat-Qeltu',
+'tigr1278': 'Tigris-Qeltu',
+'nort3142': 'Nord-Mesopotamisches Arabisch',
+'qelt1235': 'Qeltu',
+'east2729': 'Ost-Arabisch',
+'nort3130': 'Nord-Levante-Bedawi-Arabisch',
+'nort3131': 'Nordost-Ägyptisches Bedawi-Arabisch',
+'nucl1707': 'Zentral-Ost-Ägyptisches Bedawi-Arabisch',
+'sout3112': 'Süd-Levante-Bedawi-Arabisch',
+'east2690': 'Ost-Ägyptisches Bedawi-Arabisch',
+'cair1238': 'Kairo-Arabisch',
+'sout3113': 'Zentrales Nildelta-Arabisch',
+'cent2361': 'Zentral-Nordost-Scharqiyya',
+'nort3335': 'Nördliche Grenze Scharqiyya / Teile von Daqahliyya',
+'sout3322': 'Südwestliche Grenze Scharqiyya / Südliche Teile von Daqahliyya / Südöstliche Teile des Delta-Zentrums',
+'east2848': 'Ost-Ägyptisches Arabisch',
+'hele1238': 'Helebi',
+'daqa1234': 'Daqahliyya / Östliches Kafr asch-Schaich / Teile von Gharbiyya',
+'manz1244': 'Manzala',
+'nort3132': 'Nordost-Nildelta-Arabisch',
+'bihe1234': 'Buhaira / Westliches Minufiyya / Westliches Gharbiyya / Teile von Gizeh',
+'buru1324': 'Burullus',
+'east2849': 'Östliches Buhaira / Kafr asch-Schaich / Teile von Gharbiyya',
+'farw1237': 'Fern-West-Minufiyya',
+'west2938': 'West-Nildelta-Arabisch',
+'egyp1253': 'Ägyptisches Arabisch',
+'asyu1234': 'Asyut-Qina',
+'gina1240': 'Qina-Assuan',
+'sout3325': 'Süd-Bani-Suwaif / al-Minya',
+'sout3324': 'Süd-Gizeh / Nord-Bani-Suwaif / al-Fayyum',
+'midd1342': 'Nördliches Mittelägyptisches Arabisch',
+'sout3323': 'Süd-Minya',
+'asyu1235': 'Asyut-Luxor',
+'beri1256': 'Bʿēri',
+'esna1234': 'Esna-Assuan und südlich von Luxor-Assuan',
+'nagh1239': 'Nadschʿ Hammadi / Südlich von Qina',
+'uppe1453': 'Oberägyptisches Arabisch',
+'west2939': 'Westwüsten-Ägyptisch-Arabisch',
+'said1239': 'Saidi-Arabisch',
+'bath1248': 'Batha',
+'char1283': 'Chari-Baguirmi',
+'chad1249': 'Tschad-Arabisch',
+'nubi1253': 'Nubi',
+'suda1237': 'Südsudanesisches Kreolarabisch',
+'jaal1238': 'Ja´ali',
+'khar1296': 'Khartum',
+'nort3133': 'Nord-Kordofan-Arabisch',
+'shuk1244': 'Schukri',
+'west2773': 'Westsudanesisch',
+'suda1236': 'Sudanesisches Arabisch',
+'east2897': 'Ost-Sudanesisches Arabisch',
+'suda1235': 'Sudanesisch-Tschadisches Arabisch',
+'egyp1254': 'Ägyptisch-Sudanesisches Arabisch',
+'egyp1251': 'Ägyptisches Arabisch (Zweig)',
+'cypr1248': 'Zyprisches Arabisch',
+'alep1241': 'Aleppo',
+'beqa1238': 'Beqaa-Arabisch',
+'cili1234': 'Kilikien-Antiochia-Arabisch',
+'iqli1238': 'Iqlim-Al-Kharrub-Sunnitisch-Arabisch',
+'jdai1238': 'Dschdaideh-Arabisch',
+'nort3140': 'Nordlibanesisches Arabisch',
+'nort3141': 'Nord-Zentral-Libanesisches Arabisch',
+'said1240': 'Saida-Sunnitisch-Arabisch',
+'sout3122': 'Südlibanesisches Arabisch',
+'fell1238': 'Fellahi',
+'mada1297': 'Madani',
+'sout3123': 'Süd-Levantinisches Arabisch',
+'sout3121': 'Süd-Zentral-Libanesisches Arabisch',
+'stan1323': 'Standard-Libanesisches Arabisch',
+'sunn1238': 'Sunnitisch-Beiruter Arabisch',
+'nort3139': 'Levantinisches Arabisch',
+'leva1239': 'Levantinisch-Zyprisches Arabisch',
+'jude1264': 'Juden-Tripolitanisches Arabisch',
+'east2691': 'Ostlibysches Arabisch',
+'sout3116': 'Südlibysches Arabisch',
+'trip1239': 'Tripolitanisches Arabisch',
+'west2774': 'Westägyptisches Bedawi-Arabisch',
+'liby1240': 'Libysches Arabisch',
+'hass1238': 'Hassania',
+'algi1247': 'Algier',
+'cons1245': 'Constantine',
+'oran1236': 'Oran',
+'alge1239': 'Algerisches Arabisch',
+'alge1240': 'Algerisch-Saharisches Arabisch',
+'anda1287': 'Andalusisches Arabisch',
+'kjal1234': 'Kjal',
+'wqal1234': 'Wqal',
+'jude1265': 'Juden-Marokkanisches Arabisch',
+'gozo1238': 'Gozo',
+'port1290': 'Hafen-Maltesisch',
+'rura1250': 'Ländliches Zentral-Maltesisch',
+'rura1251': 'Ländliches Ost-Maltesisch',
+'rura1249': 'Ländliches West-Maltesisch',
+'stan1322': 'Standard-Maltesisch',
+'zurr1238': 'Zurrieq',
+'malt1254': 'Maltesisch',
+'alge1241': 'Algier-Juden-Arabisch',
+'tuni1261': 'Tunis-Juden-Arabisch',
+'jude1263': 'Juden-Tunesisches Arabisch',
+'nort3135': 'Nordwest-Tunesisch',
+'sahi1245': 'Sahil',
+'sfax1238': 'Sfax',
+'sout3115': 'Südost-Tunesisch',
+'sout3114': 'Südwest-Tunesisch',
+'tuni1260': 'Tunis-Arabisch',
+'tuni1259': 'Tunesisches Arabisch',
+'malt1259': 'Malta-Tunesisches Arabisch',
+'fezm1238': 'Fès-Meknès',
+'jebl1238': 'Jebli',
+'marr1264': 'Marrakesch',
+'oujd1238': 'Oujda',
+'raba1252': 'Rabat-Casablanca-Arabisch',
+'sout3117': 'Südmarokkanisches Arabisch',
+'tang1371': 'Tangier',
+'moro1292': 'Marokkanisches Arabisch',
+'magh1239': 'Maghrebinisch',
+'west3017': 'Westliches Mittelarabisch',
+'nort3191': 'Nordafrikanisches Arabisch',
+'clas1259': 'Klassisches Arabisch',
+'sicu1235': 'Siculo-Arabisch',
+'stan1318': 'Standardarabisch',
+'arab1395': 'Arabisch',
+'arab1394': 'Arabisch (Zweig)',
+'impe1235': 'Reichsaramäisch',
+'boht1238': 'Gardabani-Bohtan-Neuaramäisch',
+'hert1242': 'Eigentliches Hertevin',
+'jine1238': 'Dschinet',
+'umra1238': 'Umraya',
+'hert1241': 'Hertevin',
+'boht1239': 'Bohtan',
+'anha1242': 'Anhar',
+'marb1243': 'Mar Bischu',
+'noch1239': 'Nochiya',
+'terg1238': 'Tergawar',
+'cent2218': 'Zentral-Assyrisch-Neuaramäisch',
+'iran1268': 'Iranische Koine',
+'bazz1238': 'Baz',
+'dezz1235': 'Dez',
+'gava1245': 'Gavar',
+'jilu1238': 'Dschilu',
+'quds1238': 'Qudshanis',
+'sala1281': 'Salamas',
+'uppe1449': 'Ober-Barwari',
+'vann1248': 'Van',
+'nort3096': 'Nord-Assyrisch-Neuaramäisch',
+'arad1238': 'Aradhin',
+'bena1272': 'Benatha',
+'daud1238': 'Daudiya',
+'inis1238': 'Inischke',
+'tina1254': 'Tina',
+'sapn1238': 'Sapna-Gruppe',
+'sipu1244': 'Sipurghan',
+'sold1238': 'Solduz',
+'urmi1250': 'Urmi',
+'urmi1249': 'Urmi-Gruppe',
+'chri1234': 'Christlich-Tiyare-Neuaramäisch',
+'lewi1238': 'Lewin',
+'lowe1435': 'Unter-Barwari',
+'tall1254': 'Tal',
+'tkhu1242': 'Tkhuma',
+'west2765': 'Westliche Gruppe (Neuaramäisch)',
+'assy1241': 'Assyrisch-Neuaramäisch',
+'erbi1235': 'Erbil-Christlich-Neuaramäisch',
+'sena1268': 'Senaya',
+'sule1247': 'Sulaimaniyya-Christlich-Neuaramäisch',
+'sule1246': 'Sulaimaniyya-Sanandadsch-Christlich-Neuaramäisch',
+'chri1236': 'Christlich-Neuaramäisch östlich des Zab',
+'diho1238': 'Christlich-Dohuk-Neuaramäisch',
+'mang1421': 'Christlich-Mangesch-Neuaramäisch',
+'shir1272': 'Christlich-Schirnak-Chizre-Neuaramäisch',
+'chri1237': 'Christlich-Zakho-Neuaramäisch',
+'chri1235': 'Christlich-Neuaramäisch westlich des Zab',
+'alqo1238': 'Christlich-Alqosch',
+'bart1242': 'Christlich-Baretla',
+'chri1238': 'Christlich-Qaraqosh',
+'telk1238': 'Christlich-Telkepe',
+'tisq1238': 'Christlich-Tisqopa',
+'mosu1234': 'Mosul-Ebene-Christlich-Neuaramäisch',
+'chal1275': 'Chaldäisch-Neuaramäisch',
+'jewi1240': 'Jüdisch-Babylonisches Aramäisch',
+'barz1242': 'Barzan',
+'biji1250': 'Bidschil',
+'sandu1282': 'Sandu',
+'shah1261': 'Schahe',
+'barz1241': 'Barzani-Jüdisch-Neuaramäisch',
+'amad1244': 'Amadiya-Jüdisch-Neuaramäisch',
+'atru1243': 'Atrusch-Jüdisch-Neuaramäisch',
+'bara1398': 'Barasche-Jüdisch-Neuaramäisch',
+'beta1257': 'Bétanure-Jüdisch-Neuaramäisch',
+'chal1276': 'Challa-Jüdisch-Neuaramäisch',
+'cizr1234': 'Cizre-Jüdisch-Neuaramäisch',
+'dohu1239': 'Dohuk-Jüdisch-Neuaramäisch',
+'nerw1238': 'Nerwa-Jüdisch-Neuaramäisch',
+'shuk1240': 'Schukho-Jüdisch-Neuaramäisch',
+'zakh1247': 'Zakho',
+'lish1247': 'Lishana Deni',
+'nort3242': 'Nordwest-Jüdisch-Neuaramäisch',
+'sana1291': 'Jüdisch-Sanandadsch',
+'kere1298': 'Kerend',
+'saqi1238': 'Saqiz',
+'sule1243': 'Sulaimaniyya-Jüdisch-Neuaramäisch',
+'hula1244': 'Hulaulá',
+'anat1252': 'Anatolien',
+'salm1240': 'Salmas',
+'nort3098': 'Nördliche Lishán-Didán-Gruppe',
+'maha1304': 'Mahabad',
+'nagh1238': 'Naghada',
+'ushn1238': 'Ushno',
+'sout3077': 'Südliche Lishán-Didán-Gruppe',
+'lish1246': 'Lishán Didán',
+'koys1242': 'Koy-Sanjaq-Jüdisch-Neuaramäisch',
+'rust1238': 'Rustaqa',
+'rwan1245': 'Rwanduz',
+'nort3097': 'Nordost-Lishanid-Noshan',
+'koys1241': 'Koy Sanjaq',
+'qala1238': 'Qaladze',
+'sout3076': 'Südost-Lishanid-Noshan',
+'east2682': 'Östliche Lishanid-Noshan-Gruppe',
+'rany1242': 'Ranye',
+'shaq1238': 'Schaqlawa',
+'arbe1239': 'Arbel',
+'dobe1242': 'Dobe',
+'west2766': 'Westliche Lishanid-Noshan-Gruppe',
+'lish1245': 'Lishanid Noshan',
+'sout3213': 'West-Trans-Zab',
+'tran1290': 'Trans-Zab',
+'nort3241': 'Nordost-Neuaramäisch',
+'mlah1239': 'Mlahsô',
+'anhi1238': 'Anhil',
+'iwar1238': 'Iwardo',
+'kfar1238': 'Kfarze',
+'midi1241': 'Midin',
+'midy1238': 'Midyat',
+'rait1238': 'Raite',
+'turo1239': 'Turoyo',
+'turo1240': 'Turoyo-Mlahso',
+'cent2217': 'Zentral-Ost-Aramäisch',
+'east2681': 'Ostsyrisch',
+'west2764': 'Westsyrisch',
+'clas1252': 'Klassisches Syrisch',
+'clas1253': 'Klassisches Mandäisch',
+'ahwa1239': 'Ahwaz',
+'iraq1245': 'Irak-Neu-Mandäisch',
+'shus1252': 'Schuschtar',
+'nucl1706': 'Neu-Mandäisch',
+'mand1468': 'Makro-Mandäisch',
+'east2680': 'Ost-Aramäisch',
+'dead1234': 'Totes-Meer- und Neutestamentliches Aramäisch',
+'hatr1234': 'Hatranisch',
+'naba1259': 'Nabatäisch',
+'palm1242': 'Palmyrenisch',
+'midd1366': 'Mittelaramäisch',
+'chri1239': 'Christlich-Palästinisches Aramäisch',
+'pale1261': 'Jüdisch-Palästinisches Aramäisch',
+'gali1269': 'Galiläisches Aramäisch',
+'sama1314': 'Samaritanisch-Aramäisch',
+'sama1316': 'Samaritanisch-Galiläisches Aramäisch',
+'late1255': 'Spät-Palästinisches Aramäisch',
+'bakh1251': 'Bakh´a',
+'juba1242': 'Jub-´adin',
+'malu1250': 'Maaloula',
+'west2763': 'West-Neuaramäisch',
+'west2815': 'West-Aramäisch',
+'midd1367': 'Mittel-Modern-Aramäisch',
+'impe1236': 'Reichs-Mittel-Modern-Aramäisch',
+'olda1246': 'Altaramäisch',
+'sama1317': 'Sam´alisch',
+'olda1245': 'Altaramäisch-Sam´alisch',
+'aram1259': 'Aramäisch',
+'ammo1234': 'Ammonitisch',
+'bibl1238': 'Biblisches Hebräisch',
+'edom1234': 'Edomitisch',
+'moab1234': 'Moabitisch',
+'anci1244': 'Althebräisch',
+'orie1241': 'Orientalisches Hebräisch',
+'stan1314': 'Standard-Hebräisch',
+'hebr1245': 'Modernes Hebräisch',
+'sama1313': 'Samaritanisch',
+'hebr1246': 'Hebräisch (Zweig)',
+'phoe1239': 'Phönizisch',
+'neop1239': 'Neu-Punisch',
+'puni1241': 'Punisch',
+'phoe1238': 'Phönizisch-Punisch',
+'ugar1238': 'Ugaritisch',
+'ugar1239': 'Ugarito-Phönizisch',
+'cana1267': 'Kanaanäisch',
+'nort3165': 'Nordwestsemitisch',
+'hadr1235': 'Hadramitisch',
+'mina1279': 'Minäisch',
+'faif1234': 'Faifi',
+'jaba1234': 'Jabal Razih',
+'mode1270': 'Modernes Sayhadisch',
+'qata1238': 'Qatabanisch',
+'saba1279': 'Sabäisch',
+'sayh1236': 'Sayhadisch',
+'cent2236': 'Zentralsemitisch',
+'geez1241': 'Geez',
+'addi1235': 'Addis Abeba',
+'gojj1234': 'Gojjam-Amharisch',
+'gond1266': 'Gondar-Amharisch',
+'shoa1235': 'Shoa-Amharisch',
+'woll1236': 'Wollo-Amharisch',
+'amha1245': 'Amharisch',
+'argo1244': 'Argobba',
+'amha1244': 'Amharisch-Argobba',
+'hara1271': 'Harari',
+'silt1240': 'Silt´e',
+'wola1253': 'Wolane',
+'silt1239': 'Silte-Wolane',
+'zayy1238': 'Zay',
+'hara1270': 'Harari-Ost-Gurage',
+'gafa1240': 'Gafat',
+'dobi1240': 'Dobbi',
+'gali1268': 'Galila',
+'sodd1242': 'Soddo',
+'kist1241': 'Kistane',
+'ngro1237': 'N-Gruppe',
+'mesq1240': 'Mesqan',
+'eneg1238': 'Endegegny',
+'ener1234': 'Ener',
+'gyet1241': 'Gyeta',
+'inor1240': 'Inor',
+'inor1238': 'Inorisch',
+'mesm1243': 'Mesmes',
+'inor1239': 'Peripheres West-Gurage',
+'chah1248': 'Chaha',
+'ezha1238': 'Ezha',
+'gume1239': 'Gumer',
+'gura1260': 'Gura',
+'muhe1234': 'Muher',
+'seba1251': 'Sebat Bet Gurage',
+'ttgr1237': 'TT-Gruppe',
+'oute1258': 'Äußeres Süd-Äthiopisch',
+'sout3078': 'Süd-Äthiopisch',
+'daha1247': 'Dahalik',
+'betg1234': 'Bet-Guk',
+'mans1267': 'Mansa´',
+'cent2338': 'Zentral-Tigre',
+'alga1234': 'Algaden',
+'3adt1234': 'Ad-Tekles',
+'beni1253': 'Beni-Amer Tigre',
+'haba1239': 'Habab-Tigre',
+'mary1234': 'Marya Qayah',
+'mary1235': 'Marya Sallam',
+'nort3292': 'Nordwest-Tigre',
+'gend1251': 'Genda3',
+'mash1273': 'Mashalit',
+'mass1268': 'Massawa',
+'sout3273': 'Südost-Tigre',
+'tigr1270': 'Tigre',
+'tigr1277': 'Tigre-Dahalik',
+'nort3336': 'Nord-Tigrinya',
+'sout3326': 'Süd-Tigrinya',
+'tigr1271': 'Tigrinya',
+'ethi1244': 'Äthiopisch-Semitisch',
+'cent2214': 'Zentral-Jibbali',
+'kuri1269': 'Kuria Muria',
+'west2759': 'West-Jibbali',
+'sheh1240': 'Jibbali',
+'abda1238': 'Abd Al-Kuri',
+'cent2215': 'Zentral-Soqotri',
+'nort3092': 'Nord-Zentral-Soqotri',
+'nort3091': 'Nordwest-Zentral-Soqotri',
+'nort3090': 'Nord-Soqotri',
+'sout3075': 'Süd-Soqotri',
+'west2760': 'West-Soqotri',
+'soqo1240': 'Soqotri',
+'east2766': 'Ost-Neusüdarabisch',
+'hoby1242': 'Hobyót',
+'bath1244': 'Bathari',
+'hars1241': 'Harsusi',
+'nagd1238': 'Nagdi',
+'east2679': 'Ostjemenitisches Mehri',
+'west2936': 'Westjemenitisches Mehri',
+'west2761': 'Jemenitisches Mehri',
+'mehr1241': 'Mehri',
+'west2859': 'West-Neusüdarabisch',
+'hoby1243': 'Hobyot-West-Neusüdarabisch',
+'mode1252': 'Neusüdarabisch',
+'west2786': 'Westsemitisch',
+'semi1276': 'Semitisch'};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 2b  –  LÄNDER-OVERRIDE (OPTIONAL)
+════════════════════════════════════════════════════════════════ */
+const countryData = {};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 3a  –  NEWICK-STRING
+   ⚠ IMMER BACKTICKS verwenden!
+════════════════════════════════════════════════════════════════ */
+const rawNewick = `(((('Middle Assyrian [midd1371]':1,'Neo-Assyrian [neoa1235]':1,'Old Assyrian [olda1248]':1)'Assyrian [assy1242]':1,('Early Babylonian [earl1248]':1,'Late Babylonian [late1257]':1,'Middle Babylonian [midd1370]':1,'Neo-Babylonian [neob1234]':1,'Old Babylonian [oldb1249]':1)'Diyala-Babylonian [diya1235]':1,'Old Akkadian [olda1247]':1)'Akkadian [akka1240][akk]-l-':1,'Eblaite [ebla1238][xeb]-l-':1)'East Semitic [east2678]':1,('Amorite [amor1239]-l-':1)'Unclassified Semitic [uncl1507]':1,(((('Dadanitic [dada1236]':1,'Dumaitic [duma1255]':1,'Hasaitic [hasa1249]':1,'Hismaic [hism1236]':1,'Safaitic [safa1245]':1,'Taymanitic [taym1240]':1)'Ancient North Arabian [anci1245][xna]-l-':1,(('Hadrami Arabic [hadr1236][ayh]-l-':1,('Coastal Tihaamah [coas1310]':1,'North Hijazi [nort3136]':1,'South Hijazi [sout3118]':1,'Valley Tihaamah [vall1257]':1)'Hijazi Arabic [hija1235][acw]-l-':1,(('''Aden [aden1242]':1,'Beda [beda1249]':1,'Habban [habb1238]':1,'San''a [sana1296]':1)'Judeo-Yemeni Arabic [jude1267][jye]-l-':1,'Sanaani Arabic [sana1295][ayn]-l-':1)'Judeo-Muslim Sanaani Arabic [jude1277]':1,('Baharna Arabic [baha1259][abv]-l-':1,('Dhofari Arabic [dhof1235][adf]-l-':1,'Ru''us al-Jibal [shih1239][ssh]-l-':1)'Dhofaric [dhof1236]':1,('Al-Hasaa [alha1241]':1,'Al-Hasâ [alha1242]':1,'Bahraini Gulf Arabic [bahr1247]':1,'Khamseh [kham1298]':1,'Kuwaiti Hadari Arabic [kuwa1251]':1,'North Qatari Arabic [nort3138]':1,'South Qatari Arabic [sout3120]':1,'Zubair-Faau Arabic [zuba1242]':1)'Gulf Arabic [gulf1241][afb]-l-':1,(('Anizah of the Syrian desert [aniz1234]':1,'Arid-Washm-Sudair [arid1234]':1,'Central Bedouin Najdi [cent2323]':1)'Central Najdi [cent2224]':1,'North Najdi [nort3137]':1,'Qasim-Dhafir [qasi1234]':1,('Najran-Ghatan [najr1234]':1,'al-Murrah-Ajman [almu1234]':1)'South Najdi [sout3119]':1)'Najdi Arabic [najd1235][ars]-l-':1,'Omani Arabic [oman1239][acx]-l-':1)'North Arabian Beduin Arabic [nort3402]':1,('Adeni [aden1241]':1,'Ta''izzi [taiz1243]':1)'Ta''izzi-Adeni Arabic [taiz1242][acq]-l-':1)'Arabian Peninsula Arabic [arab1393]':1,((('Balkh Arabic [balk1259]':1,'Buxara Arabic [buxa1234]':1)'Tajiki Arabic [taji1248][abh]-l-':1,(('Arabkhane [arab1400]':1,'Khamse [kham1303]':1,'Sarakhs [sara1352]':1,'Zir Kuh [zirk1234]':1)'Khorasan Arabic [khor1274]-l-':1,('Djeinau [qash1241]':1,'Qamashi [qama1234]':1)'Qashqa-Darya Arabic [uzbe1248][auz]-l-':1)'Xorasan-Qashqa-Darya Arabic [xora1234]':1)'Central Asian Arabic [cent2410]':1,('Anatolian Cluster [anat1256]':1,'Euphrates Cluster [euph1238]':1,'Kawliya [koli1251]':1,'Tigris Cluster [tigr1275]':1)'Gilit Mesopotamian Arabic [meso1252][acm]-l-':1,('Judeo-Iraqi Arabic [jude1266][yhd]-l-':1,(('Diyarbakir [diya1234]':1,'Kozluk-Sason-Mush [kozl1234]':1,('Azex [azex1234]':1,'Kosa-Mhallami [kosa1252]':1,'Mardin Plains [mard1249]':1,'Mardin Town [mard1247]':1,'Mardin Villages [mard1248]':1)'Mardinic [mard1246]':1,'Mosul Arabic [mosu1235]':1,'Siirt [siir1234]':1)'Anatolian Qeltu [anat1261]':1,'Euphrat Qeltu [euph1239]':1,'Tigris Qeltu [tigr1278]':1)'North Mesopotamian Arabic [nort3142][ayp]-l-':1)'Qeltu [qelt1235]':1)'Eastern Arabic [east2729]':1,(('North Levantine Bedawi Arabic [nort3130]':1,'Northeast Egyptian Bedawi Arabic [nort3131]':1,'Nuclear Eastern Egyptian Bedawi Arabic [nucl1707]':1,'South Levantine Bedawi Arabic [sout3112]':1)'Eastern Egyptian Bedawi Arabic [east2690][avl]-l-':1,(('Cairene Arabic [cair1238]':1,'Central Delta Nile Arabic [sout3113]':1,('Central-Northern-Eastern Šarqiyya [cent2361]':1,'Northern frontier ilŠarqiyya-Parts of idDaqahliyya [nort3335]':1,'Southwestern frontier ilŠarqiyya-Southern parts of idDaqahliyya-Southeastern parts of the centre of the Delta [sout3322]':1)'Eastern Egyptian Arabic [east2848]':1,'Helebi [hele1238]':1,('Daqahliyya-Eastern Kr. išŠēx-Parts of Ġarbiyya [daqa1234]':1,'Manzala [manz1244]':1)'Northeast Nile Delta Arabic [nort3132]':1,('Biḥēra-Western Minufiyya-Western Ġarbiyya-Parts of Gīze [bihe1234]':1,'Burullus [buru1324]':1,'Eastern Biḥēra-Kafr išŠēx-Parts of Ġarbiyya [east2849]':1,'Far Western Minufiyya [farw1237]':1)'Western Nile Delta Arabic [west2938]':1)'Egyptian Arabic [egyp1253][arz]-l-':1,('Asyūṭ–Gina [asyu1234]':1,'Gina–Assuan [gina1240]':1,('South Bani Swēf–ilMinya [sout3325]':1,'South Gize-North Bani Swēf-ilFayyūm [sout3324]':1)'Northern Middle Egypt Arabic [midd1342]':1,'Southern Minya [sout3323]':1,('Asyūṭ–Luxor [asyu1235]':1,'Bʿēri [beri1256]':1,'Esna–Assuan and South of Luxor–Assuan [esna1234]':1,'Nagʿ Ḥammādi–South of Gina [nagh1239]':1)'Upper Egypt Arabic [uppe1453]':1,'Western Desert Egyptian Arabic [west2939]':1)'Saidi Arabic [said1239][aec]-l-':1,(('Batha [bath1248]':1,'Chari-Baguirmi [char1283]':1)'Chadian Arabic [chad1249][shu]-l-':1,('Nubi [nubi1253][kcn]-l-':1,'South Sudanese Creole Arabic [suda1237][pga]-l-':1,('Ja''ali [jaal1238]':1,'Khartoum [khar1296]':1,'North Kordofan Arabic [nort3133]':1,'Shukri [shuk1244]':1,'Western Sudanese [west2773]':1)'Sudanese Arabic [suda1236][apd]-l-':1)'East Sudanic Arabic [east2897]':1)'Sudanese-Chadian Arabic [suda1235]':1)'Egypto-Sudanic Arabic [egyp1254]':1)'Egyptic Arabic [egyp1251]':1,('Cypriot Arabic [cypr1248][acy]-l-':1,('Aleppo [alep1241]':1,'Beqaa Arabic [beqa1238]':1,'Cilicia-Antioch Arabic [cili1234]':1,'Iqlim-Al-Kharrub Sunni Arabic [iqli1238]':1,'Jdaideh Arabic [jdai1238]':1,'North Lebanese Arabic [nort3140]':1,'North-Central Lebanese Arabic [nort3141]':1,'Saida Sunni Arabic [said1240]':1,'South Lebanese Arabic [sout3122]':1,('Fellahi [fell1238]':1,'Madani [mada1297]':1)'South Levantine Arabic [sout3123][ajp]':1,'South-Central Lebanese Arabic [sout3121]':1,'Standard Lebanese Arabic [stan1323]':1,'Sunni Beiruti Arabic [sunn1238]':1)'Levantine Arabic [nort3139][apc]-l-':1)'Levantine-Cypriot Arabic [leva1239]':1,('Judeo-Tripolitanian Arabic [jude1264][yud]-l-':1,('Eastern Libyan Arabic [east2691]':1,'Southern Libyan Arabic [sout3116]':1,'Tripolitanian Arabic [trip1239]':1,'Western Egyptian Bedawi Arabic [west2774]':1)'Libyan Arabic [liby1240][ayl]-l-':1,('Hassaniyya [hass1238][mey]-l-':1,(('Algiers [algi1247]':1,'Constantine [cons1245]':1,'Oran [oran1236]':1)'Algerian Arabic [alge1239][arq]-l-':1,'Algerian Saharan Arabic [alge1240][aao]-l-':1,'Andalusian Arabic [anda1287][xaa]-l-':1,('Kjal [kjal1234]':1,'Wqal [wqal1234]':1)'Judeo-Moroccan Arabic [jude1265][aju]-l-':1,(('Gozo [gozo1238]':1,'Port Maltese [port1290]':1,'Rural Central Maltese [rura1250]':1,'Rural East Maltese [rura1251]':1,'Rural West Maltese [rura1249]':1,'Standard Maltese [stan1322]':1,'Zurrieq [zurr1238]':1)'Maltese [malt1254][mlt]-l-':1,(('Alger Judeo-Arabic [alge1241]':1,'Tunis Judeo-Arabic [tuni1261]':1)'Judeo-Tunisian Arabic [jude1263][ajt]':1,'North-Western Tunisian [nort3135]':1,'Sahil [sahi1245]':1,'Sfax [sfax1238]':1,'South-Eastern Tunisian [sout3115]':1,'South-Western Tunisian [sout3114]':1,'Tunis {Tunisian Arabic} [tuni1260]':1)'Tunisian Arabic [tuni1259][aeb]-l-':1)'Malta-Tunisian Arabic [malt1259]':1,('Fez. Meknes [fezm1238]':1,'Jebli [jebl1238]':1,'Marrakech [marr1264]':1,'Oujda [oujd1238]':1,'Rabat-Casablanca Arabic [raba1252]':1,'Southern Morocco Arabic [sout3117]':1,'Tangier [tang1371]':1)'Moroccan Arabic [moro1292][ary]-l-':1)'Maghrebi [magh1239]':1)'Western Middle Arabic [west3017]':1)'North African Arabic [nort3191]':1,('Classical Arabic [clas1259]':1,'Siculo Arabic [sicu1235][sqr]':1)'Standard Arabic [stan1318][arb]-l-':1)'Arabic [arab1395]':1)'Arabian [arab1394]':1,((('Imperial Aramaic {700-300 BCE} [impe1235][arc]-l-':1,(((('Gardabani Bohtan Neo-Aramaic [boht1238][bhn]-l-':1,('Hértevin Proper [hert1242]':1,'Jinet [jine1238]':1,'Umraya [umra1238]':1)'Hertevin [hert1241][hrt]-l-':1)'Bohtan [boht1239]':1,((('Anhar [anha1242]':1,'Mar Bishu [marb1243]':1,'Nochiya [noch1239]':1,'Tergawar [terg1238]':1)'Central Assyrian Neo-Aramaic [cent2218]':1,'Iranian Koine [iran1268]':1,('Baz [bazz1238]':1,'Dez [dezz1235]':1,'Gavar {Aramaic} [gava1245]':1,'Jilu [jilu1238]':1,'Qudshanis [quds1238]':1,'Salamas [sala1281]':1,'Upper Barwari [uppe1449]':1,'Van {Aramaic} [vann1248]':1)'Northern Assyrian Neo-Aramaic [nort3096]':1,('Aradhin [arad1238]':1,'Benatha [bena1272]':1,'Daudiya [daud1238]':1,'Inishke [inis1238]':1,'Tina [tina1254]':1)'Sapna cluster [sapn1238]':1,('Sipurghan [sipu1244]':1,'Solduz [sold1238]':1,'Urmi [urmi1250]':1)'Urmian group [urmi1249]':1,('Christian Tiyare Neo-Aramaic [chri1234]':1,'Lewin [lewi1238]':1,'Lower Barwari [lowe1435]':1,'Tal {Aramaic} [tall1254]':1,'Tkhuma [tkhu1242]':1)'Western Group [west2765]':1)'Assyrian Neo-Aramaic [assy1241][aii]-l-':1,(('Erbil {Arbel} Christian Neo-Aramaic [erbi1235]':1,('Senaya [sena1268][syn]':1,'Sulemaniyya Christian Neo-Aramaic [sule1247]':1)'Sulemaniyya-Sanandaj Christian Neo-Aramaic [sule1246]':1)'Christian Neo-Aramaic East of Zab [chri1236]':1,('Christian Dihok Neo-Aramaic [diho1238]':1,'Christian Mangesh Neo-Aramaic [mang1421]':1,'Christian Shirnak-Chizre Neo-Aramaic [shir1272]':1,'Christian Zakho Neo-Aramaic [chri1237]':1)'Christian Neo-Aramaic West of Zab [chri1235]':1,('Christian Alqosh [alqo1238]':1,'Christian Baretla [bart1242]':1,'Christian Qaraqosh [chri1238]':1,'Christian Telkepe [telk1238]':1,'Christian Tisqopa [tisq1238]':1)'Mosul Plain Christian Neo-Aramaic [mosu1234]':1)'Chaldean Neo-Aramaic [chal1275][cld]-l-':1,'Jewish Babylonian Aramaic {ca. 200-1200 CE} [jewi1240][tmr]-l-':1,(('Barzan [barz1242]':1,'Bijil [biji1250]':1,'Sandu [sand1282]':1,'Shahe [shah1261]':1)'Barzani Jewish Neo-Aramaic [barz1241][bjf]-l-':1,('Amadiya Jewish Neo-Aramaic [amad1244]':1,'Atrush Jewish Neo-Aramaic [atru1243]':1,'Barashe Jewish Neo-Aramaic [bara1398]':1,'Bétanure Jewish Neo-Aramaic [beta1257]':1,'Challa Jewish Neo-Aramaic [chal1276]':1,'Cizre Jewish Neo-Aramaic [cizr1234]':1,'Dohuk Jewish Neo-Aramaic [dohu1239]':1,'Nerwa Jewish Neo-Aramaic [nerw1238]':1,'Shukho Jewish Neo-Aramaic [shuk1240]':1,'Zakho {Lishana Deni} [zakh1247]':1)'Lishana Deni [lish1247][lsd]-l-':1)'Northwestern Jewish Neo-Aramaic [nort3242]':1,(('Jewish Sanandaj [sana1291]':1,'Kerend [kere1298]':1,'Saqiz [saqi1238]':1,'Suleimaniya Jewish Neo-Aramaic [sule1243]':1)'Hulaulá [hula1244][huy]-l-':1,(('Anatolia [anat1252]':1,'Salmas [salm1240]':1)'Northern Cluster Lishán Didán [nort3098]':1,('Mahabad [maha1304]':1,'Naghada [nagh1238]':1,'Ushno [ushn1238]':1)'Southern Cluster Lishán Didán [sout3077]':1)'Lishán Didán [lish1246][trg]-l-':1,('Koy Sanjaq Jewish Neo-Aramaic [koys1242][kqd]-l-':1,((('Rustaqa [rust1238]':1,'Rwanduz [rwan1245]':1)'Northeastern Lishanid Noshan [nort3097]':1,('Koy Sanjaq [koys1241]':1,'Qaladze [qala1238]':1)'Southeastern Lishanid Noshan [sout3076]':1)'Eastern cluster Lishanid Noshan [east2682]':1,'Ranye [rany1242]':1,'Shaqlawa [shaq1238]':1,('Arbel [arbe1239]':1,'Dobe [dobe1242]':1)'Western cluster Lishanid Noshan [west2766]':1)'Lishanid Noshan [lish1245][aij]-l-':1)'Western Trans-Zab [sout3213]':1)'Trans-Zab [tran1290]':1)'North-Eastern Neo-Aramaic [nort3241]':1,('Mlahsô [mlah1239][lhs]-l-':1,('Anhil [anhi1238]':1,'Iwardo [iwar1238]':1,'Kfarze [kfar1238]':1,'Midin [midi1241]':1,'Midyat [midy1238]':1,'Raite [rait1238]':1)'Turoyo [turo1239][tru]-l-':1)'Turoyo-Mlahso [turo1240]':1)'Central Eastern Aramaic [cent2217]':1,('Eastern Syriac [east2681]':1,'Western Syriac [west2764]':1)'Classical Syriac [clas1252][syc]-l-':1,('Classical Mandaic [clas1253][myz]-l-':1,('Ahwaz [ahwa1239]':1,'Iraqi Neo-Mandaic [iraq1245]':1,'Shushtar [shus1252]':1)'Neo-Mandaic [nucl1706][mid]-l-':1)'Macro-Mandaic [mand1468]':1)'Eastern Aramaic [east2680]':1,('Dead Sea-New Testament Aramaic [dead1234]':1,'Hatran [hatr1234]':1,'Nabatean [naba1259]':1,'Palmyrene [palm1242]':1)'Middle Aramaic [midd1366]-l-':1,(('Christian Palestinian Aramaic [chri1239]':1,'Jewish Palestinian Aramaic [pale1261][jpa]':1,('Galilean Aramaic [gali1269]':1,'Samaritan Aramaic [sama1314][sam]':1)'Samaritan-Galilean Aramaic [sama1316]':1)'Late Palestinian Aramaic [late1255]-l-':1,('Bakh''a [bakh1251]':1,'Jub-''adin [juba1242]':1,'Maaloula [malu1250]':1)'Western Neo-Aramaic [west2763][amw]-l-':1)'Western Aramaic [west2815]':1)'Middle-Modern Aramaic [midd1367]':1)'Imperial-Middle-Modern Aramaic [impe1236]':1,('Old Aramaic {up to 700 BCE} [olda1246]':1,'Sam''alian [sama1317]':1)'Old Aramaic-Sam''alian [olda1245][oar]-l-':1)'Aramaic [aram1259]':1,((('Ammonite [ammo1234][qgg]':1,'Biblical Hebrew [bibl1238]':1,'Edomite [edom1234][xdm]':1,'Moabite [moab1234][obm]':1)'Ancient Hebrew [anci1244][hbo]-l-':1,('Oriental Hebrew [orie1241]':1,'Standard Hebrew [stan1314]':1)'Modern Hebrew [hebr1245][heb]-l-':1,'Samaritan [sama1313][smp]-l-':1)'Hebrewic [hebr1246]':1,(('Phoenician [phoe1239][phn]-l-':1,('Neo-Punic [neop1239]':1)'Punic [puni1241][xpu]-l-':1)'Phoenician-Punic [phoe1238]':1,'Ugaritic [ugar1238][uga]-l-':1)'Ugarito-Phoenician [ugar1239]':1)'Canaanite [cana1267]':1)'Northwest Semitic [nort3165]':1,('Hadrami [hadr1235][xhd]-l-':1,'Minaean [mina1279][inm]-l-':1,('Faifi [faif1234][fif]-l-':1,'Jabal Razih [jaba1234][rzh]-l-':1)'Modern Sayhadic [mode1270]':1,'Qatabanian [qata1238][xqt]-l-':1,'Sabaic [saba1279][xsa]-l-':1)'Sayhadic [sayh1236]':1)'Central Semitic [cent2236]':1,('Geez [geez1241][gez]-l-':1,((('Addis Ababa [addi1235]':1,'Gojjam Amharic [gojj1234]':1,'Gondar Amharic [gond1266]':1,'Shoa Amharic [shoa1235]':1,'Wollo Amharic [woll1236]':1)'Amharic [amha1245][amh]-l-':1,'Argobba [argo1244][agj]-l-':1)'Amharic-Argobba [amha1244]':1,('Harari [hara1271][har]-l-':1,('Silt''e [silt1240][stv]-l-':1,'Wolane [wola1253][wle]-l-':1)'Silte-Wolane [silt1239]':1,'Zay [zayy1238][zwa]-l-':1)'Harari-East Gurage [hara1270]':1,(('Gafat [gafa1240][gft]-l-':1,('Dobbi [dobi1240]':1,'Galila {Lake Wonchi} [gali1268]':1,'Soddo [sodd1242]':1)'Kistane [kist1241][gru]-l-':1)'N-Group [ngro1237]':1,('Mesqan [mesq1240][mvz]-l-':1,(('Endegegny [eneg1238]':1,'Ener [ener1234]':1,'Gyeta [gyet1241]':1,'Inor [inor1240]':1)'Inoric [inor1238][ior]-l-':1,'Mesmes [mesm1243][mys]-l-':1)'Peripheral Western Gurage [inor1239]':1,('Chaha [chah1248]':1,'Ezha [ezha1238]':1,'Gumer [gume1239]':1,'Gura {Semitic} [gura1260]':1,'Muher [muhe1234]':1)'Sebat Bet Gurage [seba1251][sgw]-l-':1)'TT-Group [ttgr1237]':1)'Outer South Ethiopic [oute1258]':1)'South Ethiopic [sout3078]':1,('Dahalik [daha1247][dlk]-l-':1,(('Bet-Guk [betg1234]':1,'Mansa'' [mans1267]':1)'Central Tigre [cent2338]':1,('''Algaden [alga1234]':1,'3Ad-Tekles [3adt1234]':1,'Beni-3Amer Tigre [beni1253]':1,'Habab Tigre [haba1239]':1,'Marya Qayah [mary1234]':1,'Marya Sallam [mary1235]':1)'North-Western Tigre [nort3292]':1,('Genda3 [gend1251]':1,'Mashalit [mash1273]':1,'Massawa [mass1268]':1,'Zula Tigre [zula1234]':1)'South-Eastern Tigre [sout3273]':1)'Tigre [tigr1270][tig]-l-':1)'Tigre-Dahalik [tigr1277]':1,('Northern Tigrinya [nort3336]':1,'Southern Tigrinya [sout3326]':1)'Tigrinya [tigr1271][tir]-l-':1)'Ethiosemitic [ethi1244]':1,((('Central Jibbali [cent2214]':1,'Kuria Muria [kuri1269]':1,'Western Jibbali [west2759]':1)'Jibbali [sheh1240][shv]-l-':1,('''Abd Al-Kuri [abda1238]':1,'Central Soqotri [cent2215]':1,('North Central Soqotri [nort3092]':1,'Northwest Central Soqotri [nort3091]':1)'Northern Soqotri [nort3090]':1,'Southern Soqotri [sout3075]':1,'Western Soqotri [west2760]':1)'Soqotri [soqo1240][sqt]-l-':1)'Eastern MSA [east2766]':1,('Hobyót [hoby1242][hoh]-l-':1,('Bathari [bath1244][bhm]-l-':1,'Harsusi [hars1241][hss]-l-':1,('Nagdi [nagd1238]':1,('Eastern Yemeni Mehri [east2679]':1,'Western Yemeni Mehri [west2936]':1)'Yemeni Mehri [west2761]':1)'Mehri [mehr1241][gdq]-l-':1)'Western MSA [west2859]':1)'Hobyot-Western MSA [hoby1243]':1)'Modern South Arabian [mode1252]':1)'West Semitic [west2786]':1)'Semitic [semi1276]':1`;
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 3b  –  GEOJSON
+════════════════════════════════════════════════════════════════ */
+const rawGeoJSON = {
+  "type": "FeatureCollection",
+  "properties": {
+    "layer": "semi1276"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3088,
+        "language": {
+          "pk": 3088,
+          "name": "Eblaite",
+          "longitude": 36.798,
+          "latitude": 35.798,
+          "id": "ebla1238"
+        },
+        "name": "Eblaite"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          36.798,
+          35.798
+        ]
+      },
+      "id": "ebla1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3088,
+        "language": {
+          "pk": 3088,
+          "name": "Akkadian",
+          "longitude": 44.1,
+          "latitude": 33.1,
+          "id": "akka1240"
+        },
+        "name": "Akkadian"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          44.1,
+          33.1
+        ]
+      },
+      "id": "akka1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Tigrinya",
+          "longitude": 38.9266,
+          "latitude": 15.3359,
+          "id": "tigr1271"
+        },
+        "name": "Tigrinya"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38.9266,
+          15.3359
+        ]
+      },
+      "id": "tigr1271"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Geez",
+          "longitude": 40.6821,
+          "latitude": 10.1342,
+          "id": "geez1241"
+        },
+        "name": "Geez"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          40.6821,
+          10.1342
+        ]
+      },
+      "id": "geez1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Tigre",
+          "longitude": 38.2233,
+          "latitude": 17.3494,
+          "id": "tigr1270"
+        },
+        "name": "Tigre"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38.2233,
+          17.3494
+        ]
+      },
+      "id": "tigr1270"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Dahalik",
+          "longitude": 40.081897,
+          "latitude": 15.732898,
+          "id": "daha1247"
+        },
+        "name": "Dahalik"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          40.081897,
+          15.732898
+        ]
+      },
+      "id": "daha1247"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Ancient North Arabian",
+          "longitude": 39.776,
+          "latitude": 29.044,
+          "id": "anci1245"
+        },
+        "name": "Ancient North Arabian"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          39.776,
+          29.044
+        ]
+      },
+      "id": "anci1245"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Qatabanian",
+          "longitude": 45.733333,
+          "latitude": 14.8,
+          "id": "qata1238"
+        },
+        "name": "Qatabanian"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          45.733333,
+          14.8
+        ]
+      },
+      "id": "qata1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Minaean",
+          "longitude": 44.672778,
+          "latitude": 16.166667,
+          "id": "mina1279"
+        },
+        "name": "Minaean"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          44.672778,
+          16.166667
+        ]
+      },
+      "id": "mina1279"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Hadrami",
+          "longitude": 47.603,
+          "latitude": 15.528,
+          "id": "hadr1235"
+        },
+        "name": "Hadrami"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          47.603,
+          15.528
+        ]
+      },
+      "id": "hadr1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Sabaic",
+          "longitude": 45.35,
+          "latitude": 15.42,
+          "id": "saba1279"
+        },
+        "name": "Sabaic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          45.35,
+          15.42
+        ]
+      },
+      "id": "saba1279"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Jibbali",
+          "longitude": 53.99526,
+          "latitude": 17.29154,
+          "id": "sheh1240"
+        },
+        "name": "Jibbali"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          53.99526,
+          17.29154
+        ]
+      },
+      "id": "sheh1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Soqotri",
+          "longitude": 53.9168,
+          "latitude": 12.4892,
+          "id": "soqo1240"
+        },
+        "name": "Soqotri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          53.9168,
+          12.4892
+        ]
+      },
+      "id": "soqo1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Hobyót",
+          "longitude": 52.8334,
+          "latitude": 17.216,
+          "id": "hoby1242"
+        },
+        "name": "Hobyót"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          52.8334,
+          17.216
+        ]
+      },
+      "id": "hoby1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Argobba",
+          "longitude": 39.756,
+          "latitude": 10.6596,
+          "id": "argo1244"
+        },
+        "name": "Argobba"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          39.756,
+          10.6596
+        ]
+      },
+      "id": "argo1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Amharic",
+          "longitude": 39.543456,
+          "latitude": 11.708182,
+          "id": "amha1245"
+        },
+        "name": "Amharic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          39.543456,
+          11.708182
+        ]
+      },
+      "id": "amha1245"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Zay",
+          "longitude": 38.8258,
+          "latitude": 8.01148,
+          "id": "zayy1238"
+        },
+        "name": "Zay"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38.8258,
+          8.01148
+        ]
+      },
+      "id": "zayy1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Harari",
+          "longitude": 42.1332,
+          "latitude": 9.30485,
+          "id": "hara1271"
+        },
+        "name": "Harari"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          42.1332,
+          9.30485
+        ]
+      },
+      "id": "hara1271"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Standard Arabic",
+          "longitude": 43.8525,
+          "latitude": 27.9625,
+          "id": "stan1318"
+        },
+        "name": "Standard Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          43.8525,
+          27.9625
+        ]
+      },
+      "id": "stan1318"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Old Aramaic-Sam'alian",
+          "longitude": 37,
+          "latitude": 32.84,
+          "id": "olda1245"
+        },
+        "name": "Old Aramaic-Sam'alian"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37,
+          32.84
+        ]
+      },
+      "id": "olda1245"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Jabal Razih",
+          "longitude": 43.2416905,
+          "latitude": 16.9092,
+          "id": "jaba1234"
+        },
+        "name": "Jabal Razih"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          43.2416905,
+          16.9092
+        ]
+      },
+      "id": "jaba1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Faifi",
+          "longitude": 43.148,
+          "latitude": 17.292,
+          "id": "faif1234"
+        },
+        "name": "Faifi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          43.148,
+          17.292
+        ]
+      },
+      "id": "faif1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Central Soqotri",
+          "longitude": 53.788,
+          "latitude": 12.475,
+          "id": "cent2215"
+        },
+        "name": "Central Soqotri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          53.788,
+          12.475
+        ]
+      },
+      "id": "cent2215"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Southern Soqotri",
+          "longitude": 54.01,
+          "latitude": 12.34,
+          "id": "sout3075"
+        },
+        "name": "Southern Soqotri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          54.01,
+          12.34
+        ]
+      },
+      "id": "sout3075"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Northern Soqotri",
+          "longitude": 53.837,
+          "latitude": 12.593,
+          "id": "nort3090"
+        },
+        "name": "Northern Soqotri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          53.837,
+          12.593
+        ]
+      },
+      "id": "nort3090"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Western Soqotri",
+          "longitude": 53.384,
+          "latitude": 12.548,
+          "id": "west2760"
+        },
+        "name": "Western Soqotri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          53.384,
+          12.548
+        ]
+      },
+      "id": "west2760"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "'Abd Al-Kuri",
+          "longitude": 52.2282,
+          "latitude": 12.1959,
+          "id": "abda1238"
+        },
+        "name": "'Abd Al-Kuri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          52.2282,
+          12.1959
+        ]
+      },
+      "id": "abda1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Mehri",
+          "longitude": 52.473,
+          "latitude": 16.793,
+          "id": "mehr1241"
+        },
+        "name": "Mehri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          52.473,
+          16.793
+        ]
+      },
+      "id": "mehr1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Bathari",
+          "longitude": 55.61232,
+          "latitude": 17.88699,
+          "id": "bath1244"
+        },
+        "name": "Bathari"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          55.61232,
+          17.88699
+        ]
+      },
+      "id": "bath1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Harsusi",
+          "longitude": 56.1562,
+          "latitude": 19.6511,
+          "id": "hars1241"
+        },
+        "name": "Harsusi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          56.1562,
+          19.6511
+        ]
+      },
+      "id": "hars1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Silt'e",
+          "longitude": 38.1449,
+          "latitude": 7.77004,
+          "id": "silt1240"
+        },
+        "name": "Silt'e"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38.1449,
+          7.77004
+        ]
+      },
+      "id": "silt1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Wolane",
+          "longitude": 38.14,
+          "latitude": 8.23,
+          "id": "wola1253"
+        },
+        "name": "Wolane"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38.14,
+          8.23
+        ]
+      },
+      "id": "wola1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Sebat Bet Gurage",
+          "longitude": 37.9891,
+          "latitude": 8.11879,
+          "id": "seba1251"
+        },
+        "name": "Sebat Bet Gurage"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.9891,
+          8.11879
+        ]
+      },
+      "id": "seba1251"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Mesqan",
+          "longitude": 38.3386,
+          "latitude": 8.10617,
+          "id": "mesq1240"
+        },
+        "name": "Mesqan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38.3386,
+          8.10617
+        ]
+      },
+      "id": "mesq1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Kistane",
+          "longitude": 38.4763,
+          "latitude": 8.33561,
+          "id": "kist1241"
+        },
+        "name": "Kistane"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38.4763,
+          8.33561
+        ]
+      },
+      "id": "kist1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Gafat",
+          "longitude": 38.18108,
+          "latitude": 10.11067,
+          "id": "gafa1240"
+        },
+        "name": "Gafat"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38.18108,
+          10.11067
+        ]
+      },
+      "id": "gafa1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Cypriot Arabic",
+          "longitude": 33.0943,
+          "latitude": 35.1674,
+          "id": "cypr1248"
+        },
+        "name": "Cypriot Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          33.0943,
+          35.1674
+        ]
+      },
+      "id": "cypr1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Levantine Arabic",
+          "longitude": 36.0468,
+          "latitude": 34.1709,
+          "id": "nort3139"
+        },
+        "name": "Levantine Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          36.0468,
+          34.1709
+        ]
+      },
+      "id": "nort3139"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Gilit Mesopotamian Arabic",
+          "longitude": 43.1095,
+          "latitude": 33.8178,
+          "id": "meso1252"
+        },
+        "name": "Gilit Mesopotamian Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          43.1095,
+          33.8178
+        ]
+      },
+      "id": "meso1252"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Eastern Egyptian Bedawi Arabic",
+          "longitude": 33.6113,
+          "latitude": 29.6742,
+          "id": "east2690"
+        },
+        "name": "Eastern Egyptian Bedawi Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          33.6113,
+          29.6742
+        ]
+      },
+      "id": "east2690"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Libyan Arabic",
+          "longitude": 15.0014,
+          "latitude": 22.0032,
+          "id": "liby1240"
+        },
+        "name": "Libyan Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.0014,
+          22.0032
+        ]
+      },
+      "id": "liby1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Judeo-Tripolitanian Arabic",
+          "longitude": 34.7422,
+          "latitude": 31.9567,
+          "id": "jude1264"
+        },
+        "name": "Judeo-Tripolitanian Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          34.7422,
+          31.9567
+        ]
+      },
+      "id": "jude1264"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Ta'izzi-Adeni Arabic",
+          "longitude": 45.6411,
+          "latitude": 13.6555,
+          "id": "taiz1242"
+        },
+        "name": "Ta'izzi-Adeni Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          45.6411,
+          13.6555
+        ]
+      },
+      "id": "taiz1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Hadrami Arabic",
+          "longitude": 48.6524,
+          "latitude": 15.4468,
+          "id": "hadr1236"
+        },
+        "name": "Hadrami Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.6524,
+          15.4468
+        ]
+      },
+      "id": "hadr1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Hijazi Arabic",
+          "longitude": 38.9237,
+          "latitude": 22.8346,
+          "id": "hija1235"
+        },
+        "name": "Hijazi Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38.9237,
+          22.8346
+        ]
+      },
+      "id": "hija1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Imperial Aramaic (700-300 BCE)",
+          "longitude": 42.185,
+          "latitude": 33.905,
+          "id": "impe1235"
+        },
+        "name": "Imperial Aramaic (700-300 BCE)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          42.185,
+          33.905
+        ]
+      },
+      "id": "impe1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Ugaritic",
+          "longitude": 35.78,
+          "latitude": 35.6,
+          "id": "ugar1238"
+        },
+        "name": "Ugaritic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.78,
+          35.6
+        ]
+      },
+      "id": "ugar1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Samaritan",
+          "longitude": 35.4487,
+          "latitude": 32.0817,
+          "id": "sama1313"
+        },
+        "name": "Samaritan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.4487,
+          32.0817
+        ]
+      },
+      "id": "sama1313"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Modern Hebrew",
+          "longitude": 35.0179,
+          "latitude": 31.1056,
+          "id": "hebr1245"
+        },
+        "name": "Modern Hebrew"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.0179,
+          31.1056
+        ]
+      },
+      "id": "hebr1245"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Ancient Hebrew",
+          "longitude": 35.1725,
+          "latitude": 31.7761,
+          "id": "anci1244"
+        },
+        "name": "Ancient Hebrew"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.1725,
+          31.7761
+        ]
+      },
+      "id": "anci1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Northwest Central Soqotri",
+          "longitude": 53.49,
+          "latitude": 12.69,
+          "id": "nort3091"
+        },
+        "name": "Northwest Central Soqotri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          53.49,
+          12.69
+        ]
+      },
+      "id": "nort3091"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "North Central Soqotri",
+          "longitude": 54.018,
+          "latitude": 12.649,
+          "id": "nort3092"
+        },
+        "name": "North Central Soqotri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          54.018,
+          12.649
+        ]
+      },
+      "id": "nort3092"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Mesmes",
+          "longitude": 37.5742,
+          "latitude": 7.53825,
+          "id": "mesm1243"
+        },
+        "name": "Mesmes"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.5742,
+          7.53825
+        ]
+      },
+      "id": "mesm1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Inoric",
+          "longitude": 37.7968,
+          "latitude": 7.94883,
+          "id": "inor1238"
+        },
+        "name": "Inoric"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          37.7968,
+          7.94883
+        ]
+      },
+      "id": "inor1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "South Levantine Arabic",
+          "longitude": 38.0837,
+          "latitude": 31.5601,
+          "id": "sout3123"
+        },
+        "name": "South Levantine Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          38.0837,
+          31.5601
+        ]
+      },
+      "id": "sout3123"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Tajiki Arabic",
+          "longitude": 67.3267,
+          "latitude": 37.2176,
+          "id": "taji1248"
+        },
+        "name": "Tajiki Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          67.3267,
+          37.2176
+        ]
+      },
+      "id": "taji1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "North Mesopotamian Arabic",
+          "longitude": 42.0047,
+          "latitude": 36.2986,
+          "id": "nort3142"
+        },
+        "name": "North Mesopotamian Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          42.0047,
+          36.2986
+        ]
+      },
+      "id": "nort3142"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Judeo-Iraqi Arabic",
+          "longitude": 41.2595,
+          "latitude": 31.5339,
+          "id": "jude1266"
+        },
+        "name": "Judeo-Iraqi Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          41.2595,
+          31.5339
+        ]
+      },
+      "id": "jude1266"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Egyptian Arabic",
+          "longitude": 31,
+          "latitude": 31,
+          "id": "egyp1253"
+        },
+        "name": "Egyptian Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          31,
+          31
+        ]
+      },
+      "id": "egyp1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Saidi Arabic",
+          "longitude": 30.5302,
+          "latitude": 25.4132,
+          "id": "said1239"
+        },
+        "name": "Saidi Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          30.5302,
+          25.4132
+        ]
+      },
+      "id": "said1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Hassaniyya",
+          "longitude": -14.11,
+          "latitude": 18.29,
+          "id": "hass1238"
+        },
+        "name": "Hassaniyya"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -14.11,
+          18.29
+        ]
+      },
+      "id": "hass1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Omani Arabic",
+          "longitude": 58.5,
+          "latitude": 23.25,
+          "id": "oman1239"
+        },
+        "name": "Omani Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          58.5,
+          23.25
+        ]
+      },
+      "id": "oman1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Baharna Arabic",
+          "longitude": 50.580811,
+          "latitude": 26.223615,
+          "id": "baha1259"
+        },
+        "name": "Baharna Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          50.580811,
+          26.223615
+        ]
+      },
+      "id": "baha1259"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Najdi Arabic",
+          "longitude": 42.1773,
+          "latitude": 30.3371,
+          "id": "najd1235"
+        },
+        "name": "Najdi Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          42.1773,
+          30.3371
+        ]
+      },
+      "id": "najd1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Gulf Arabic",
+          "longitude": 47.5,
+          "latitude": 30.17,
+          "id": "gulf1241"
+        },
+        "name": "Gulf Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          47.5,
+          30.17
+        ]
+      },
+      "id": "gulf1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Judeo-Yemeni Arabic",
+          "longitude": 45,
+          "latitude": 15,
+          "id": "jude1267"
+        },
+        "name": "Judeo-Yemeni Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          45,
+          15
+        ]
+      },
+      "id": "jude1267"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Sanaani Arabic",
+          "longitude": 44.8412,
+          "latitude": 15.6552,
+          "id": "sana1295"
+        },
+        "name": "Sanaani Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          44.8412,
+          15.6552
+        ]
+      },
+      "id": "sana1295"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Middle Aramaic",
+          "longitude": 35.43693,
+          "latitude": 31.73632,
+          "id": "midd1366"
+        },
+        "name": "Middle Aramaic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.43693,
+          31.73632
+        ]
+      },
+      "id": "midd1366"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Punic",
+          "longitude": 10.356444,
+          "latitude": 36.527295,
+          "id": "puni1241"
+        },
+        "name": "Punic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.356444,
+          36.527295
+        ]
+      },
+      "id": "puni1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Phoenician",
+          "longitude": 35.65,
+          "latitude": 34.12,
+          "id": "phoe1239"
+        },
+        "name": "Phoenician"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.65,
+          34.12
+        ]
+      },
+      "id": "phoe1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Eastern Yemeni Mehri",
+          "longitude": 53.03,
+          "latitude": 16.63,
+          "id": "east2679"
+        },
+        "name": "Eastern Yemeni Mehri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          53.03,
+          16.63
+        ]
+      },
+      "id": "east2679"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Qashqa-Darya Arabic",
+          "longitude": 65.3864,
+          "latitude": 40.2612,
+          "id": "uzbe1248"
+        },
+        "name": "Qashqa-Darya Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          65.3864,
+          40.2612
+        ]
+      },
+      "id": "uzbe1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Khorasan Arabic",
+          "longitude": 59.14336,
+          "latitude": 35.857626,
+          "id": "khor1274"
+        },
+        "name": "Khorasan Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          59.14336,
+          35.857626
+        ]
+      },
+      "id": "khor1274"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Chadian Arabic",
+          "longitude": 13.5,
+          "latitude": 14.67,
+          "id": "chad1249"
+        },
+        "name": "Chadian Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.5,
+          14.67
+        ]
+      },
+      "id": "chad1249"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Judeo-Moroccan Arabic",
+          "longitude": -7.5,
+          "latitude": 33.5,
+          "id": "jude1265"
+        },
+        "name": "Judeo-Moroccan Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -7.5,
+          33.5
+        ]
+      },
+      "id": "jude1265"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Moroccan Arabic",
+          "longitude": -7.5,
+          "latitude": 32.5,
+          "id": "moro1292"
+        },
+        "name": "Moroccan Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -7.5,
+          32.5
+        ]
+      },
+      "id": "moro1292"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Algerian Arabic",
+          "longitude": 3.23033,
+          "latitude": 35.4208,
+          "id": "alge1239"
+        },
+        "name": "Algerian Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.23033,
+          35.4208
+        ]
+      },
+      "id": "alge1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Andalusian Arabic",
+          "longitude": -5.2,
+          "latitude": 36.54,
+          "id": "anda1287"
+        },
+        "name": "Andalusian Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.2,
+          36.54
+        ]
+      },
+      "id": "anda1287"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Algerian Saharan Arabic",
+          "longitude": 4.80626,
+          "latitude": 20.8884,
+          "id": "alge1240"
+        },
+        "name": "Algerian Saharan Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.80626,
+          20.8884
+        ]
+      },
+      "id": "alge1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Ru'us al-Jibal",
+          "longitude": 56.1711,
+          "latitude": 25.939,
+          "id": "shih1239"
+        },
+        "name": "Ru'us al-Jibal"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          56.1711,
+          25.939
+        ]
+      },
+      "id": "shih1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Dhofari Arabic",
+          "longitude": 54.4894,
+          "latitude": 17.0796,
+          "id": "dhof1235"
+        },
+        "name": "Dhofari Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          54.4894,
+          17.0796
+        ]
+      },
+      "id": "dhof1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Western Neo-Aramaic",
+          "longitude": 36.484,
+          "latitude": 33.8162,
+          "id": "west2763"
+        },
+        "name": "Western Neo-Aramaic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          36.484,
+          33.8162
+        ]
+      },
+      "id": "west2763"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Late Palestinian Aramaic",
+          "longitude": 35.195,
+          "latitude": 32.276389,
+          "id": "late1255"
+        },
+        "name": "Late Palestinian Aramaic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.195,
+          32.276389
+        ]
+      },
+      "id": "late1255"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Classical Syriac",
+          "longitude": 42.1432,
+          "latitude": 37.1129,
+          "id": "clas1252"
+        },
+        "name": "Classical Syriac"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          42.1432,
+          37.1129
+        ]
+      },
+      "id": "clas1252"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Batha",
+          "longitude": 12.360552,
+          "latitude": 12.188285,
+          "id": "bath1248"
+        },
+        "name": "Batha"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.360552,
+          12.188285
+        ]
+      },
+      "id": "bath1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Sudanese Arabic",
+          "longitude": 33.3179,
+          "latitude": 17.8021,
+          "id": "suda1236"
+        },
+        "name": "Sudanese Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          33.3179,
+          17.8021
+        ]
+      },
+      "id": "suda1236"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "South Sudanese Creole Arabic",
+          "longitude": 28.774,
+          "latitude": 5.654,
+          "id": "suda1237"
+        },
+        "name": "South Sudanese Creole Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          28.774,
+          5.654
+        ]
+      },
+      "id": "suda1237"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Nubi",
+          "longitude": 34.7552,
+          "latitude": -0.183215,
+          "id": "nubi1253"
+        },
+        "name": "Nubi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          34.7552,
+          -0.183215
+        ]
+      },
+      "id": "nubi1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Tunisian Arabic",
+          "longitude": 9.56156,
+          "latitude": 33.7966,
+          "id": "tuni1259"
+        },
+        "name": "Tunisian Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          9.56156,
+          33.7966
+        ]
+      },
+      "id": "tuni1259"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Maltese",
+          "longitude": 14.4508,
+          "latitude": 35.8884,
+          "id": "malt1254"
+        },
+        "name": "Maltese"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4508,
+          35.8884
+        ]
+      },
+      "id": "malt1254"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Classical Mandaic",
+          "longitude": 49.5659,
+          "latitude": 36.1203,
+          "id": "clas1253"
+        },
+        "name": "Classical Mandaic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          49.5659,
+          36.1203
+        ]
+      },
+      "id": "clas1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Neo-Mandaic",
+          "longitude": 48.8128,
+          "latitude": 31.3443,
+          "id": "nucl1706"
+        },
+        "name": "Neo-Mandaic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          48.8128,
+          31.3443
+        ]
+      },
+      "id": "nucl1706"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Judeo-Tunisian Arabic",
+          "longitude": 35.25,
+          "latitude": 31.75,
+          "id": "jude1263"
+        },
+        "name": "Judeo-Tunisian Arabic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.25,
+          31.75
+        ]
+      },
+      "id": "jude1263"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Samaritan Aramaic",
+          "longitude": 35.258,
+          "latitude": 32.3107,
+          "id": "sama1314"
+        },
+        "name": "Samaritan Aramaic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.258,
+          32.3107
+        ]
+      },
+      "id": "sama1314"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Jewish Babylonian Aramaic (ca. 200-1200 CE)",
+          "longitude": 44.245,
+          "latitude": 32.273,
+          "id": "jewi1240"
+        },
+        "name": "Jewish Babylonian Aramaic (ca. 200-1200 CE)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          44.245,
+          32.273
+        ]
+      },
+      "id": "jewi1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Assyrian Neo-Aramaic",
+          "longitude": 43,
+          "latitude": 36.75,
+          "id": "assy1241"
+        },
+        "name": "Assyrian Neo-Aramaic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          43,
+          36.75
+        ]
+      },
+      "id": "assy1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Chaldean Neo-Aramaic",
+          "longitude": 43.5027,
+          "latitude": 37.0972,
+          "id": "chal1275"
+        },
+        "name": "Chaldean Neo-Aramaic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          43.5027,
+          37.0972
+        ]
+      },
+      "id": "chal1275"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Turoyo",
+          "longitude": 42.1451,
+          "latitude": 37.2275,
+          "id": "turo1239"
+        },
+        "name": "Turoyo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          42.1451,
+          37.2275
+        ]
+      },
+      "id": "turo1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Mlahsô",
+          "longitude": 41.2209,
+          "latitude": 37.0311,
+          "id": "mlah1239"
+        },
+        "name": "Mlahsô"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          41.2209,
+          37.0311
+        ]
+      },
+      "id": "mlah1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Gardabani Bohtan Neo-Aramaic",
+          "longitude": 45.084,
+          "latitude": 41.459,
+          "id": "boht1238"
+        },
+        "name": "Gardabani Bohtan Neo-Aramaic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          45.084,
+          41.459
+        ]
+      },
+      "id": "boht1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Hertevin",
+          "longitude": 42.5192,
+          "latitude": 37.373,
+          "id": "hert1241"
+        },
+        "name": "Hertevin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          42.5192,
+          37.373
+        ]
+      },
+      "id": "hert1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Lishana Deni",
+          "longitude": 35.2225,
+          "latitude": 31.7745,
+          "id": "lish1247"
+        },
+        "name": "Lishana Deni"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.2225,
+          31.7745
+        ]
+      },
+      "id": "lish1247"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Barzani Jewish Neo-Aramaic",
+          "longitude": 35.1536,
+          "latitude": 31.7696,
+          "id": "barz1241"
+        },
+        "name": "Barzani Jewish Neo-Aramaic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          35.1536,
+          31.7696
+        ]
+      },
+      "id": "barz1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Urmian group",
+          "longitude": 45.0421,
+          "latitude": 37.3319,
+          "id": "urmi1249"
+        },
+        "name": "Urmian group"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          45.0421,
+          37.3319
+        ]
+      },
+      "id": "urmi1249"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Lishán Didán",
+          "longitude": 44.37,
+          "latitude": 36.23,
+          "id": "lish1246"
+        },
+        "name": "Lishán Didán"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          44.37,
+          36.23
+        ]
+      },
+      "id": "lish1246"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Hulaulá",
+          "longitude": 43.4865,
+          "latitude": 31.9111,
+          "id": "hula1244"
+        },
+        "name": "Hulaulá"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          43.4865,
+          31.9111
+        ]
+      },
+      "id": "hula1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Lishanid Noshan",
+          "longitude": 44.065281,
+          "latitude": 36.213298,
+          "id": "lish1245"
+        },
+        "name": "Lishanid Noshan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          44.065281,
+          36.213298
+        ]
+      },
+      "id": "lish1245"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Koy Sanjaq Jewish Neo-Aramaic",
+          "longitude": 44.6365,
+          "latitude": 36.0451,
+          "id": "koys1242"
+        },
+        "name": "Koy Sanjaq Jewish Neo-Aramaic"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          44.6365,
+          36.0451
+        ]
+      },
+      "id": "koys1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3087,
+        "language": {
+          "pk": 3087,
+          "name": "Senaya",
+          "longitude": 51.4363,
+          "latitude": 35.7776,
+          "id": "sena1268"
+        },
+        "name": "Senaya"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          51.4363,
+          35.7776
+        ]
+      },
+      "id": "sena1268"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 3086,
+        "language": {
+          "pk": 3086,
+          "name": "Amorite",
+          "longitude": 40.72,
+          "latitude": 34.71,
+          "id": "amor1239"
+        },
+        "name": "Amorite"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          40.72,
+          34.71
+        ]
+      },
+      "id": "amor1239"
+    }
+  ]
+};
+
+/* ════════════════════════════════════════════════════════════════
+   AB HIER NICHTS MEHR ÄNDERN
+════════════════════════════════════════════════════════════════ */
+
+/* ── Farb-Palette ── */
+const _PALETTE = [
+  "#7ec8c8","#c87868","#a0b878","#787ec8",
+  "#c87898","#88b8a0","#c8b878","#b878c8",
+  "#78b8c8","#c8a878","#98c878","#c87848"
+];
+let _autoColorMap = {};
+
+function _buildColorMap(root) {
+  _autoColorMap = {};
+  if (!root) return;
+  _autoColorMap[root.id] = "#c8973a";
+  (root.children || []).forEach((g, i) =>
+    _assignCol(g, _PALETTE[i % _PALETTE.length])
+  );
+}
+function _assignCol(node, col) {
+  _autoColorMap[node.id] = col;
+  if (node.children) node.children.forEach(c => _assignCol(c, col));
+}
+
+/* ── Auto-Länder via Nominatim ── */
+const _autoCountry = {};
+const _geocodeDone = new Set();
+
+function _flagFromCode(cc) {
+  if (!cc || cc.length !== 2) return '';
+  return [...cc.toUpperCase()].map(c =>
+    String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))
+  ).join('');
+}
+
+async function _geocodeLang(id, lat, lon) {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=de`,
+      { headers: { 'User-Agent': 'SprachfamilienAtlas/4.0' } }
+    );
+    if (!r.ok) return;
+    const j    = await r.json();
+    const addr = j.address || {};
+    const cc   = (addr.country_code || '').toUpperCase();
+    const name = addr.country || '';
+    const reg  = addr.state || addr.province || addr.region || '';
+    if (cc && name) _autoCountry[id] = [{ flag: _flagFromCode(cc), name, region: reg }];
+  } catch(e) { /* silent */ } finally {
+    _geocodeDone.add(id);
+    if (selNode && selNode.data.id === id) showPanel(selNode);
+  }
+}
+
+function _startGeocoding() {
+  geoData.forEach((lang, i) => {
+    if (!countryData[lang.id])
+      setTimeout(() => _geocodeLang(lang.id, lang.lat, lang.lon), i * 1200);
+    else
+      _geocodeDone.add(lang.id);
+  });
+}
+
+function _getCountries(d) {
+  const id = d.data.id;
+  if (countryData[id]) return countryData[id];
+  if (_autoCountry[id]) return _autoCountry[id];
+  const seen = new Set(), res = [];
+  function collect(node) {
+    (_autoCountry[node.id] || []).forEach(e => {
+      if (!seen.has(e.name)) { seen.add(e.name); res.push({ flag: e.flag, name: e.name, region: '' }); }
+    });
+    if (node.children) node.children.forEach(collect);
+  }
+  collect(d.data);
+  return res.length ? res : null;
+}
+
+function _isPending(d) {
+  const id = d.data.id;
+  if (countryData[id] || _geocodeDone.has(id)) return false;
+  function hasCoord(node) {
+    if (_geocodeDone.has(node.id)) return false;
+    if (node.lat != null) return true;
+    return (node.children || []).some(hasCoord);
+  }
+  return hasCoord(d.data);
+}
+
+/* ── Hilfsfunktionen ── */
+function getDisplayName(id, fallback) { return nameTranslations[id] || fallback || id; }
+
+function colorByGroup(id) {
+  for (const g of mapLegendGroups)
+    if (g.ids && g.ids.includes(id)) return g.color;
+  return _autoColorMap[id] || "#c8973a";
+}
+
+const NODE_COLORS = { family:"#c8973a", language:"#7ec8c8", subgroup:"#c87868", dialect:"#a0b878" };
+function nodeRadius(type, fontSize) {
+  // Punkt-Radius proportional zur Schriftgröße
+  const base = { family: 9, language: 7, subgroup: 6, dialect: 5 };
+  const b = base[type] || 5;
+  return Math.max(3, Math.round(b * fontSize / 11));
+}
+function typeName(t) {
+  return { family:"Sprachfamilie", language:"Sprache", subgroup:"Untergruppe", dialect:"Dialekt / Varietät" }[t] || t;
+}
+
+/* ── Newick-Parser ── */
+function parseNewick(s) {
+  s = s.trim().replace(/;$/, '');
+  function parseNode(pos) {
+    const node = { children: [] };
+    if (s[pos] === '(') {
+      pos++;
+      while (pos < s.length) {
+        const r = parseNode(pos); node.children.push(r.node); pos = r.pos;
+        if (s[pos] === ',') { pos++; continue; }
+        if (s[pos] === ')') { pos++; break; }
+      }
+    }
+    let label = '';
+   if (s[pos] === "'") { pos++; while (pos < s.length && s[pos] !== "'") label += s[pos++]; pos++;
+  while (pos < s.length && !/[,);:]/.test(s[pos])) label += s[pos++];
+}
+    else { while (pos < s.length && !/[,);:(]/.test(s[pos])) label += s[pos++]; }
+    if (s[pos] === ':') { pos++; while (pos < s.length && /[0-9.eE+\-]/.test(s[pos])) pos++; }
+    node.rawLabel = label.trim();
+    return { node, pos };
+  }
+  function parseLabel(raw) {
+    if (!raw) return { id:'unknown', nameOrig:'Unknown', iso:null, isLanguage:false };
+    const isLang = raw.includes('-l-');
+    const clean  = raw.replace(/-l-/g,'').trim();
+    const isoM   = clean.match(/\[([a-z]{3})\]\s*$/);
+    const glotMs = clean.match(/\[([a-z]+\d{4})\]/g);
+    const gid    = glotMs ? glotMs[0].replace(/[\[\]]/g,'') : null;
+  const nm = clean.replace(/\[[^\]]*\]/g,'').replace(/\{[^}]*\}/g,'').replace(/-f-/g,'').replace(/-lnk-/g,'').trim();
+   const isLink = raw.includes('-lnk-');
+const urlM   = raw.match(/\{([^}]+)\}/);
+const url    = isLink && urlM ? urlM[1] : null;
+return { id: gid || nm.toLowerCase().replace(/\s+/g,'_'), nameOrig: nm, iso: isoM ? isoM[1] : null, isLanguage: isLang, isLink, url };
+  }
+  function build(raw, depth) {
+  const { id, nameOrig, iso, isLanguage, isLink, url } = parseLabel(raw.rawLabel);
+    let type;
+    if      (depth === 0)                                type = 'family';
+    else if (isLanguage)                                 type = 'language';
+    else if (raw.children && raw.children.length > 0)   type = depth === 1 ? 'family' : 'subgroup';
+    else if (raw.rawLabel && raw.rawLabel.includes('-f-')) type = 'subgroup';
+    else                                                   type = 'dialect';   const node = { id, nameOrig, type, iso: iso||null, lat:null, lon:null, name: getDisplayName(id, nameOrig), isLink: isLink||false, url: url||null };
+    if (raw.children && raw.children.length > 0)
+      node.children = raw.children.map(c => build(c, depth + 1));
+    return node;
+  }
+  return build(parseNode(0).node, 0);
+}
+
+/* ── GeoJSON → internes Format ── */
+function geoJSONtoGeoData(geo) {
+  if (!geo || !geo.features) return [];
+  return geo.features.map(f => {
+    const lang = f.properties?.language || {};
+    const id   = f.id || lang.id || '';
+    const lat  = lang.latitude  ?? f.geometry?.coordinates?.[1] ?? null;
+    const lon  = lang.longitude ?? f.geometry?.coordinates?.[0] ?? null;
+    const raw  = lang.name || f.properties?.name || id;
+    return { id, name: getDisplayName(id, raw), nameOrig: raw, lat, lon, color: colorByGroup(id) };
+  }).filter(d => d.lat != null && d.lon != null);
+}
+
+function enrichCoords(node, map) {
+  if (map[node.id]) { node.lat = map[node.id].lat; node.lon = map[node.id].lon; }
+  if (node.children) node.children.forEach(c => enrichCoords(c, map));
+}
+
+/* ── Legende aufbauen ── */
+function _buildLegend() {
+  const el = document.getElementById('map-legend-items');
+  el.innerHTML = '';
+  const hasManual = mapLegendGroups.some(g => g.ids && g.ids.length > 0);
+  const source = hasManual
+    ? mapLegendGroups.map(g => ({ name: g.label, col: g.color }))
+    : (treeData && treeData.children
+        ? treeData.children.map((g, i) => ({ name: g.name, col: _PALETTE[i % _PALETTE.length] }))
+        : []);
+  source.forEach(s => {
+    const d = document.createElement('div'); d.className = 'ov-item';
+    d.innerHTML = `<div class="ov-dot" style="background:${s.col}"></div>${s.name}`;
+    el.appendChild(d);
+  });
+}
+
+/* ── Daten initialisieren ── */
+let treeData = null, geoData = [];
+
+function initData() {
+  try { treeData = parseNewick(rawNewick); }
+  catch(e) { console.error('Newick-Fehler:', e); return; }
+
+  _buildColorMap(treeData);
+  geoData = geoJSONtoGeoData(rawGeoJSON);
+  const cm = {};
+  geoData.forEach(d => { cm[d.id] = d; });
+  enrichCoords(treeData, cm);
+
+  document.getElementById('nav-glyph').textContent = familyGlyph;
+  const title = treeData ? getDisplayName(treeData.id, treeData.nameOrig) : 'Sprachfamilien-Atlas';
+  document.getElementById('nav-title-main').textContent = title;
+  document.title = title + ' – Atlas';
+  document.getElementById('chip-fam').textContent = familyMeta.families  + ' Familien';
+  document.getElementById('chip-lan').textContent = familyMeta.languages + ' Sprachen';
+  document.getElementById('chip-dia').textContent = familyMeta.dialects  + ' Dialekte';
+
+  _buildLegend();
+  _startGeocoding();
+}
+
+/* ── View umschalten ── */
+let mapReady = false;
+function switchView(id) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.view === id));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('visible', v.id === 'view-' + id));
+  if (id === 'map' && !mapReady) { initMap(); mapReady = true; }
+  if (id === 'tree') setTimeout(() => { if (rootNode) drawTree(rootNode); }, 80);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   D3 STAMMBAUM mit DRAG & DROP & DYNAMISCHEN LINIEN
+════════════════════════════════════════════════════════════════ */
+let svgSel, gSel, rootNode, zoomBeh;
+let currentZoom  = d3.zoomIdentity;
+let selNode      = null;
+let currentFontSize = 11;
+let _searchTimer = null;
+let _sliderTimer = null;
+let draggedNode  = null;
+let dragOffsets  = null;
+let textBboxes   = []; // Speichert Text-Positionen für Masking
+
+/* Spacing: automatisch aus Schriftgröße berechnen */
+function spacingFromFont(fs) {
+  return Math.round(fs * 2.4);
+}
+
+/* Textopazität – immer sichtbar */
+function getTextOpacity(d) {
+  if (d._searchMatch) return 1;
+  return 1;
+}
+
+function getTextFill(d) {
+  if (d._searchMatch) return '#f0c060';
+  if (d.depth === 0)  return '#f5d070';
+  if (d.data.type === 'family')   return '#e0b860';
+  if (d.data.type === 'language') return '#b0e0e0';
+  if (d.data.type === 'subgroup') return '#e0a898';
+  return '#c8c0a0';
+}
+
+function countTreeLeaves(node) {
+  if (!node.children || !node.children.length) return 1;
+  return node.children.reduce((s, c) => s + countTreeLeaves(c), 0);
+}
+
+function syncFontUI(val) {
+  const sl = document.getElementById('fontsize-sl');
+  const sv = document.getElementById('fs-val');
+  if (sl) sl.value = Math.round(val);
+  if (sv) sv.textContent = Math.round(val) + ' px';
+}
+
+function onFontsizeChange(v) {
+  currentFontSize = +v;
+  document.getElementById('fs-val').textContent = v + ' px';
+  clearTimeout(_sliderTimer);
+  _sliderTimer = setTimeout(() => { if (rootNode) drawTree(rootNode); }, 60);
+}
+
+/* Baum initialisieren */
+function initTree() {
+  svgSel = d3.select('#tree-svg');
+  gSel   = d3.select('#tree-g');
+
+  zoomBeh = d3.zoom().scaleExtent([0.02, 8]).on('zoom', ev => {
+    currentZoom = ev.transform;
+    gSel.attr('transform', currentZoom);
+    document.getElementById('zoom-info').textContent = Math.round(currentZoom.k * 100) + '%';
+    updateLineDynamics();
+  });
+  svgSel.call(zoomBeh);
+
+  if (!treeData) return;
+  rootNode = d3.hierarchy(treeData);
+
+  const total = countTreeLeaves(treeData);
+  const collapseFrom = total <= 25 ? 99 : total <= 80 ? 2 : 1;
+  rootNode.descendants().forEach((d, i) => {
+    d._uid = i; d._searchMatch = false;
+    if (d.depth >= collapseFrom && d.children) { d._ch = d.children; d.children = null; }
+  });
+
+  currentFontSize = 11;
+  syncFontUI(currentFontSize);
+  drawTree(rootNode);
+  setTimeout(() => fitView(false), 120);
+}
+
+/* Radialer Fächer-Layout-Algorithmus */
+function computeFanLayout(root, canvasW, canvasH, fontSize) {
+  const maxLabelLen = 18;
+  const charW = fontSize * 0.62;
+  const levelGap = Math.max(fontSize * 2.2 + maxLabelLen * charW * 0.5, 140);
+
+  let maxDepth = 0;
+  root.each(d => { if (d.depth > maxDepth) maxDepth = d.depth; });
+
+  root.each(d => {
+    d.y = d.depth * levelGap;
+  });
+
+  function countLeaves(node) {
+    if (!node.children || node.children.length === 0) return 1;
+    return node.children.reduce((s, c) => s + countLeaves(c), 0);
+  }
+
+  const leafSpacing = Math.max(fontSize * 2.0, 18);
+  const totalLeaves = countLeaves(root);
+
+  let leafIndex = 0;
+  function assignX(node) {
+    if (!node.children || node.children.length === 0) {
+      node.x = leafIndex * leafSpacing;
+      leafIndex++;
+      return;
+    }
+    node.children.forEach(c => assignX(c));
+    const first = node.children[0].x;
+    const last  = node.children[node.children.length - 1].x;
+    node.x = (first + last) / 2;
+  }
+  assignX(root);
+
+  const minX = Math.min(...root.descendants().map(d => d.x));
+  const maxX = Math.max(...root.descendants().map(d => d.x));
+  const offsetX = (canvasH / 2) - (minX + maxX) / 2;
+  root.each(d => { d.x += offsetX; });
+
+   return { levelGap };
+}
+
+/* Dynamische Liniendicke basierend auf Zoom */
+function calculateStrokeWidth(baseWidth = 3) {
+  if (!currentZoom) return baseWidth;
+  const zoomFactor = currentZoom.k || 1;
+  return Math.max(0.8, baseWidth / (zoomFactor * 0.8));
+}
+
+function updateLineDynamics() {
+  if (!gSel) return;
+  const sw = calculateStrokeWidth(3);
+  gSel.selectAll('path.link').style('stroke-width', sw + 'px');
+}
+
+/* Erfasse Text-Positionen für Clipping */
+function captureTextBboxes() {
+  textBboxes = [];
+  gSel.selectAll('g.node text').each(function(d) {
+    try {
+      const bbox = this.getBBox();
+      const transform = d3.select(this.parentNode).attr('transform');
+      const match = transform ? transform.match(/translate\(([-\d.]+),([-\d.]+)\)/) : null;
+      if (match) {
+        const tx = parseFloat(match[1]);
+        const ty = parseFloat(match[2]);
+        textBboxes.push({
+          x: tx + bbox.x,
+          y: ty + bbox.y,
+          width: bbox.width,
+          height: bbox.height,
+          padding: Math.max(3, currentFontSize * 0.4)
+        });
+      }
+    } catch(e) { /* ignore */ }
+  });
+}
+
+/* Prüfe ob Punkt in Text-Zone liegt */
+function isInTextZone(x, y) {
+  return textBboxes.some(box => 
+    x >= box.x - box.padding && 
+    x <= box.x + box.width + box.padding &&
+    y >= box.y - box.padding && 
+    y <= box.y + box.height + box.padding
+  );
+}
+
+/* Splitte Linie um Text zu vermeiden - nutzt Dashing statt echtem Clipping */
+function applyTextClipping() {
+  gSel.selectAll('path.link').style('stroke-dasharray', null);
+}
+
+/* Baum zeichnen */
+function drawTree(src) {
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const fs = currentFontSize;
+
+  computeFanLayout(rootNode, canvasW, canvasH, fs);
+
+  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+  const dur  = 320;
+
+  /* Links */
+  const link = gSel.selectAll('path.link').data(rootNode.links(), d => d.target._uid);
+  const linkE = link.enter().append('path').attr('class','link')
+    .attr('d', () => {
+      const o = { x: src.x0 ?? 0, y: src.y0 ?? 0 };
+      return diag({ source: o, target: o });
+    });
+  linkE.merge(link).transition().duration(dur)
+    .attr('d', diag)
+    .style('stroke', d => {
+      const col = NODE_COLORS[d.source.data.type] || '#c8973a';
+      return d.source.depth === 0 ? col + '55' : col + '30';
+    })
+    .style('stroke-width', () => calculateStrokeWidth(3) + 'px');
+  link.exit().transition().duration(dur)
+    .attr('d', () => {
+      const o = { x: src.x, y: src.y };
+      return diag({ source: o, target: o });
+    }).remove();
+
+  /* Nodes */
+  const node = gSel.selectAll('g.node').data(rootNode.descendants(), d => d._uid);
+  const enter = node.enter().append('g').attr('class','node')
+    .attr('transform', () => `translate(${src.y0 ?? 0},${src.x0 ?? 0})`)
+    .style('cursor','pointer')
+   .on('click', (ev, d) => {
+  ev.stopPropagation();
+ if (d.data.isLink && d.data.url) { window.location.href = d.data.url; return; }
+  if (miniMap) { try { miniMap.remove(); } catch(e) {} miniMap = null; miniMarker = null; }
+  toggle(d);
+  showPanel(d);
+})
+enter.filter(d => d.data.isLink)
+  .append('title')
+  .text(d => `→ Zu ${d.data.nameOrig}`);
+
+  enter.append('circle').attr('class','halo')
+    .attr('r', d => nodeRadius(d.data.type, fs) + 5)
+    .style('fill', d => (NODE_COLORS[d.data.type] || '#c8973a') + '18')
+    .style('stroke','none');
+  enter.append('circle').attr('r', 0)
+    .style('fill',   d => d._ch
+      ? (NODE_COLORS[d.data.type] || '#7ec8c8') + '55'
+      : (NODE_COLORS[d.data.type] || '#7ec8c8'))
+    .style('stroke', d => d._searchMatch
+      ? '#f0c060'
+      : (NODE_COLORS[d.data.type] || '#c8973a'));
+  enter.append('text').attr('dy','0.35em');
+
+  const merged = enter.merge(node);
+  merged.transition().duration(dur)
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+
+  merged.select('circle.halo').transition().duration(dur)
+    .attr('r', d => nodeRadius(d.data.type, fs) + 5);
+
+  merged.select('circle:not(.halo)').transition().duration(dur)
+    .attr('r', d => nodeRadius(d.data.type, fs))
+    .style('fill', d => d._ch
+      ? (NODE_COLORS[d.data.type] || '#7ec8c8') + '55'
+      : (NODE_COLORS[d.data.type] || '#7ec8c8'))
+    .style('stroke', d => d._searchMatch
+      ? '#f0c060'
+      : (NODE_COLORS[d.data.type] || '#c8973a'))
+    .style('stroke-width', d =>
+      d._searchMatch ? '3px' : (d === selNode ? '3px' : '1.5px'));
+
+  merged.select('text').transition().duration(dur)
+    .attr('x', d => {
+      const r = nodeRadius(d.data.type, fs);
+      return (d.children || d._ch) ? -(r + 6) : (r + 6);
+    })
+    .attr('text-anchor', d => (d.children || d._ch) ? 'end' : 'start')
+    .style('font-size', d => {
+      if (d.depth === 0)                return Math.round(fs * 1.2) + 'px';
+      if (d.data.type === 'family')     return Math.round(fs * 1.1) + 'px';
+      if (d.data.type === 'dialect')    return Math.round(fs * 0.88) + 'px';
+      return fs + 'px';
+    })
+    .text(d => {
+      const n  = d.data.name;
+      const mx = d.depth === 0 ? 40 : d.depth <= 2 ? 32 : 26;
+      return n.length > mx ? n.slice(0, mx - 1) + '…' : n;
+    })
+    .style('fill', d => getTextFill(d))
+    .attr('opacity', 1);
+
+  merged.classed('sel', d => selNode && d.data.id === selNode.data.id);
+
+  /* DRAG BEHAVIOR */
+  merged.call(d3.drag()
+    .on('start', dragStarted)
+    .on('drag', dragging)
+    .on('end', dragEnded));
+
+  node.exit().transition().duration(dur)
+    .attr('transform', `translate(${src.y},${src.x})`).remove();
+
+  rootNode.descendants().forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+  
+  /* Text-Clipping nach Render */
+  setTimeout(() => {
+    captureTextBboxes();
+    applyTextClipping();
+  }, dur + 50);
+}
+
+/* DRAG FUNKTIONEN */
+function dragStarted(event, d) {
+  draggedNode = d;
+  dragOffsets = new Map();
+  
+  function collectOffsets(node, baseX, baseY) {
+    dragOffsets.set(node._uid, { x: node.x - baseX, y: node.y - baseY });
+    if (node.children) {
+      node.children.forEach(c => collectOffsets(c, baseX, baseY));
+    }
+  }
+  
+  collectOffsets(d, d.x, d.y);
+  d3.select(this).classed('dragging', true);
+  d3.select(this).select('circle:not(.halo)').style('filter', 'drop-shadow(0 0 8px rgba(240,192,96,.6))');
+}
+
+function dragging(event, d) {
+  if (!draggedNode || !dragOffsets) return;
+  
+  const dx = event.dx / currentZoom.k;
+  const dy = event.dy / currentZoom.k;
+  
+  dragOffsets.forEach((offset, uid) => {
+    const node = rootNode.descendants().find(n => n._uid === uid);
+    if (node) {
+      node.x += dy;
+      node.y += dx;
+    }
+  });
+  
+  // OPTIMIERUNG: Nur direkt die Knoten verschieben, nicht neu zeichnen!
+  // Das macht Drag & Drop 10x flüssiger
+  gSel.selectAll('g.node').transition().duration(0)
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+  
+  // Auch Links updaten
+  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+  gSel.selectAll('path.link').transition().duration(0)
+    .attr('d', diag);
+}
+
+function dragEnded(event, d) {
+  d3.select(this).classed('dragging', false);
+  d3.select(this).select('circle:not(.halo)').style('filter', null);
+  draggedNode = null;
+  dragOffsets = null;
+}
+
+/* Übersicht */
+function fitView(anim = true) {
+  if (!rootNode) return;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  const nodes   = rootNode.descendants().filter(d => d.x != null && d.y != null);
+  if (!nodes.length) return;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(d => {
+    if (d.x < minX) minX = d.x; if (d.x > maxX) maxX = d.x;
+    if (d.y < minY) minY = d.y; if (d.y > maxY) maxY = d.y;
+  });
+
+  const svgW    = Math.max(maxY - minY, 1);
+  const svgH    = Math.max(maxX - minX, 1);
+  const padL    = 80;
+  const padR    = currentFontSize * 18;
+  const padV    = 50;
+  const scaleX  = (canvasW - padL - padR) / svgW;
+  const scaleY  = (canvasH - 2 * padV)    / svgH;
+  const scale   = Math.min(scaleX, scaleY, 1.6);
+  const tx      = padL - minY * scale;
+  const ty      = canvasH / 2 - (minX + maxX) / 2 * scale;
+
+  const t = d3.zoomIdentity.translate(tx, ty).scale(scale);
+  (anim ? svgSel.transition().duration(450) : svgSel).call(zoomBeh.transform, t);
+}
+
+function fitToNodes(nodes) {
+  if (!nodes.length) return;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(d => {
+    if (d.x != null) { if (d.x < minX) minX = d.x; if (d.x > maxX) maxX = d.x; }
+    if (d.y != null) { if (d.y < minY) minY = d.y; if (d.y > maxY) maxY = d.y; }
+  });
+  if (!isFinite(minX)) return;
+  if (maxX === minX) { minX -= 40; maxX += 40; }
+  if (maxY === minY) { minY -= 100; maxY += 100; }
+  const svgW  = Math.max(maxY - minY, 1);
+  const svgH  = Math.max(maxX - minX, 1);
+  const scaleX = (canvasW - 80 - 220) / svgW;
+  const scaleY = (canvasH - 120)       / svgH;
+  const scale  = Math.min(scaleX, scaleY, 2.8);
+  const tx = (canvasW - svgW * scale) / 2 - minY * scale;
+  const ty = canvasH / 2 - (minX + maxX) / 2 * scale;
+  svgSel.transition().duration(550)
+    .call(zoomBeh.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+function toggle(d) {
+  if (d.children) { d._ch = d.children; d.children = null; }
+  else if (d._ch) { d.children = d._ch; d._ch = null; }
+  drawTree(d);
+}
+
+function expandAll() {
+  rootNode.descendants().forEach(d => { if (d._ch) { d.children = d._ch; d._ch = null; } });
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function collapseAll() {
+  rootNode.descendants().forEach(d => {
+    if (d.depth > 0 && d.children) { d._ch = d.children; d.children = null; }
+  });
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function _hasLanguageDescendant(node) {
+  // Hilfsfunktion: Prüft ob ein Knoten eine Sprache als Nachkomme hat
+  if (node.data.type === 'language') return true;
+  if (node.children) {
+    return node.children.some(child => _hasLanguageDescendant(child));
+  }
+  if (node._ch) {
+    return node._ch.some(child => _hasLanguageDescendant(child));
+  }
+  return false;
+}
+
+function toggleDialects() {
+  if (!rootNode) return;
+  
+  // Neue Strategie:
+  // - Alle Sprachen-Knoten (type === 'language') bleiben OFFEN
+  // - Alle Übergruppen, die Sprachen als Nachkommen haben, bleiben OFFEN
+  // - Alle Übergruppen, die KEINE Sprachen als Nachkommen haben, werden EINGEKLAPPT
+  // - Damit sind nur Sprachen und ihre direkten Vorfahren sichtbar
+  
+  rootNode.descendants().forEach(d => {
+    if (d.children) {
+      // Checke: Enthält dieser Knoten oder seine Kinder eine Sprache?
+      const hasLanguageChild = d.children.some(child => _hasLanguageDescendant(child));
+      
+      // Wenn KEINE Sprache als Nachkomme vorhanden: einklappen
+      if (!hasLanguageChild) {
+        d._ch = d.children;
+        d.children = null;
+      }
+      // Sonst: offen lassen (Sprachen bleiben sichtbar)
+    }
+  });
+  
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function zoomBy(f) {
+  svgSel.transition().duration(260).call(zoomBeh.scaleBy, f);
+}
+
+/* Suche */
+function onSearchInput(q) {
+  clearTimeout(_searchTimer);
+  if (!q.trim()) { clearSearch(); return; }
+  _searchTimer = setTimeout(() => doSearch(q.trim()), 320);
+}
+
+function doSearch(q) {
+  if (!rootNode) return;
+  const ql = q.toLowerCase();
+  const matches = [];
+  rootNode.descendants().forEach(d => {
+    const n  = (d.data.name     || '').toLowerCase();
+    const o  = (d.data.nameOrig || '').toLowerCase();
+    const id = (d.data.id       || '').toLowerCase();
+    d._searchMatch = n.includes(ql) || o.includes(ql) || id.includes(ql);
+    if (d._searchMatch) matches.push(d);
+  });
+  matches.forEach(m => {
+    let a = m.parent;
+    while (a) { if (a._ch) { a.children = a._ch; a._ch = null; } a = a.parent; }
+  });
+  drawTree(rootNode);
+  if (matches.length) setTimeout(() => fitToNodes(matches), 380);
+}
+
+function clearSearch() {
+  if (!rootNode) return;
+  rootNode.descendants().forEach(d => { d._searchMatch = false; });
+  drawTree(rootNode);
+}
+
+
+
+/* ════════════════════════════════════════════════════════════════
+   INFO-PANEL  (mit Mini-Karte)
+════════════════════════════════════════════════════════════════ */
+let miniMap = null;
+let miniMarker = null;
+
+function _initMiniMap(lat, lon, color) {
+  const wrap = document.getElementById('ip-minimap-wrap');
+  if (!wrap) return;
+
+  // Alte Instanz immer zerstören, da das DOM-Element bei jedem Klick neu erstellt wird
+  if (miniMap) {
+    try { miniMap.remove(); } catch(e) {}
+    miniMap = null;
+    miniMarker = null;
+  }
+
+  miniMap = L.map('ip-minimap', {
+    zoomControl: true,
+    scrollWheelZoom: true,
+    dragging: true,
+    attributionControl: false,
+    zoomSnap: 0.5
+  });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd', maxZoom: 18
+  }).addTo(miniMap);
+  L.control.attribution({ prefix: '© OSM · CARTO' }).addTo(miniMap);
+
+  const icon = L.divIcon({
+    html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 6px ${color}aa;"></div>`,
+    className: '', iconSize: [12,12], iconAnchor: [6,6]
+  });
+  miniMarker = L.marker([lat, lon], { icon }).addTo(miniMap);
+  miniMap.setView([lat, lon], 5, { animate: false });
+  // Mehrfach invalidieren um sicherzustellen, dass Tiles vollständig geladen werden
+  setTimeout(() => miniMap.invalidateSize(), 100);
+  setTimeout(() => miniMap.invalidateSize(), 400);
+}
+
+function showPanel(d) {
+  selNode = d;
+  drawTree(d);
+  document.getElementById('ip-empty').style.display = 'none';
+  document.getElementById('ip-content').classList.add('on');
+
+  const data = d.data;
+  document.getElementById('ip-name').textContent = data.name;
+  const origEl = document.getElementById('ip-orig');
+  if (data.nameOrig && data.nameOrig !== data.name) {
+    origEl.textContent = data.nameOrig; origEl.style.display = 'block';
+  } else { origEl.style.display = 'none'; }
+
+  const body = document.getElementById('ip-body');
+  body.innerHTML = '';
+
+  const secKl = mkSec('Klassifikation');
+  const br = document.createElement('div'); br.className = 'ip-row';
+  br.innerHTML = `<span class="ip-key">Typ</span><span class="ip-badge badge-${data.type}">${typeName(data.type)}</span>`;
+  secKl.appendChild(br);
+  addRow(secKl, 'Ebene', d.depth);
+  body.appendChild(secKl);
+
+  const secId = mkSec('Identifikatoren');
+  addRow(secId, 'Glottolog', data.id, true);
+  if (data.iso) addRow(secId, 'ISO 639-3', data.iso, true);
+  body.appendChild(secId);
+
+  if (data.lat != null && data.lon != null) {
+    const secG = mkSec('Koordinaten');
+    addRow(secG, 'Breite', data.lat.toFixed(4) + '°');
+    addRow(secG, 'Länge',  data.lon.toFixed(4) + '°');
+    body.appendChild(secG);
+  }
+
+if (data.lat != null && data.lon != null) {
+    const secM = mkSec('Karte');
+    const wrap = document.createElement('div');
+    wrap.id = 'ip-minimap-wrap';
+    wrap.innerHTML = '<div id="ip-minimap"></div>';
+    secM.appendChild(wrap);
+    body.appendChild(secM);
+    // Längere Verzögerung damit das DOM sicher gerendert ist, bevor Leaflet initialisiert
+    setTimeout(() => {
+      const col = NODE_COLORS[data.type] || '#c8973a';
+      _initMiniMap(data.lat, data.lon, col);
+    }, 150);
+  } else {
+    // Alte Instanz aufräumen wenn kein Standort vorhanden
+    if (miniMap) {
+      try { miniMap.remove(); } catch(e) {}
+      miniMap = null;
+      miniMarker = null;
+    }
+  }
+
+  const countries = _getCountries(d);
+  const pending   = !countries && _isPending(d);
+  if (countries && countries.length) {
+    const secC = mkSec('Gesprochen in');
+    countries.forEach(c => {
+      const row = document.createElement('div'); row.className = 'ip-country';
+      row.innerHTML = `
+        <span class="ip-country-flag">${c.flag}</span>
+        <span class="ip-country-info">
+          <span class="ip-country-name">${c.name}</span>
+          ${c.region ? `<span class="ip-country-region">${c.region}</span>` : ''}
+        </span>`;
+      secC.appendChild(row);
+    });
+    body.appendChild(secC);
+  } else if (pending) {
+    const secC = mkSec('Gesprochen in');
+    const ld = document.createElement('div'); ld.className = 'ip-country-loading';
+    ld.textContent = 'Wird ermittelt…';
+    secC.appendChild(ld); body.appendChild(secC);
+  }
+
+  const kids = d.children || d._ch || [];
+  if (kids.length) {
+    const secK = mkSec(`Untereinheiten (${kids.length})`);
+    const ul = document.createElement('ul'); ul.className = 'ip-child-list';
+    kids.forEach(c => {
+      const li = document.createElement('li');
+      const dot = document.createElement('div'); dot.className = 'ip-child-dot';
+      dot.style.background = NODE_COLORS[c.data.type] || '#7a6a48';
+      li.appendChild(dot);
+      const sp = document.createElement('span'); sp.textContent = c.data.name;
+      li.appendChild(sp); ul.appendChild(li);
+    });
+    secK.appendChild(ul); body.appendChild(secK);
+  }
+
+  if (d.depth > 0) {
+    const ancs = d.ancestors().slice(1).reverse();
+    if (ancs.length) {
+      const secA = mkSec('Übergeordnet');
+      ancs.forEach((a, i) => {
+        const r = document.createElement('div'); r.className = 'ip-row';
+        r.innerHTML = `<span class="ip-key" style="padding-left:${i*8}px">${i?'└ ':''}${typeName(a.data.type)}</span><span class="ip-val">${a.data.name}</span>`;
+        secA.appendChild(r);
+      });
+      body.appendChild(secA);
+    }
+  }
+}
+
+function mkSec(title) {
+  const s = document.createElement('div'); s.className = 'ip-section';
+  const t = document.createElement('div'); t.className = 'ip-sec-title'; t.textContent = title;
+  s.appendChild(t); return s;
+}
+function addRow(p, key, val, mono=false) {
+  const r = document.createElement('div'); r.className = 'ip-row';
+  r.innerHTML = `<span class="ip-key">${key}</span><span class="ip-val${mono?' mono':''}">${val}</span>`;
+  p.appendChild(r);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   LEAFLET-HAUPTKARTE  (ohne Clustering, direkte Marker)
+════════════════════════════════════════════════════════════════ */
+let leafMap = null;
+
+function initMap() {
+  leafMap = L.map('map', {
+    center: mapConfig.center,
+    zoom:   mapConfig.zoom,
+    zoomControl: false
+  });
+
+  L.control.zoom({ position: 'bottomright' }).addTo(leafMap);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(leafMap);
+
+  geoData.forEach(lang => {
+    const col = lang.color || "#c8973a";
+    const icon = L.divIcon({
+      html: `<div style="
+        width:12px;height:12px;border-radius:50%;
+        background:${col};
+        border:2px solid rgba(255,255,255,0.85);
+        box-shadow:0 0 6px ${col}aa,0 1px 4px rgba(0,0,0,.5);
+        cursor:pointer;
+      "></div>`,
+      className: '', iconSize: [12,12], iconAnchor: [6,6], popupAnchor: [0,-8]
+    });
+    const popup = `
+      <div class="lp-name">${lang.name}</div>
+      ${lang.nameOrig !== lang.name ? `<div class="lp-orig">${lang.nameOrig}</div>` : ''}
+      <div class="lp-row"><span>Glottolog:</span><span class="lp-badge">${lang.id}</span></div>
+      <div class="lp-row" style="font-size:.63rem;color:#666">📍 ${lang.lat.toFixed(4)}° · ${lang.lon.toFixed(4)}°</div>`;
+    const m = L.marker([lang.lat, lang.lon], { icon });
+    m.bindPopup(popup, { maxWidth: 230 });
+    m.on('mouseover', () => m.openPopup());
+    m.addTo(leafMap);
+  });
+
+  setTimeout(() => leafMap.invalidateSize(), 150);
+}
+
+/* ── Start ── */
+window.addEventListener('resize', () => {
+  if (rootNode) drawTree(rootNode);
+  if (leafMap) leafMap.invalidateSize();
+  if (miniMap) miniMap.invalidateSize();
+});
+
+document.addEventListener('DOMContentLoaded', () => { initData(); initTree(); });
+</script>
+</body>
+</html>
