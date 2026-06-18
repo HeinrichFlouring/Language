@@ -1,0 +1,4397 @@
+<!DOCTYPE html>
+<!--
+╔══════════════════════════════════════════════════════════════════════╗
+║  SPRACHFAMILIEN-ATLAS · VORLAGE v4                                  ║
+╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title id="page-title">Sprachfamilien-Atlas</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+  --bg-primary:  #0a0a0f;
+  --bg-nav:      #0d0d14;
+  --bg-panel:    #13131c;
+  --gold-bright: #f0c060;
+  --gold-mid:    #c8973a;
+  --gold-glow:   rgba(240,192,96,0.15);
+  --text-primary:#e8d5a0;
+  --text-dim:    #9a8a68;      /* heller als vorher (#7a6a48) */
+  --text-muted:  #7a6a52;      /* heller als vorher (#4a4030) */
+  --border:      #1e1e2e;
+  --border-gold: rgba(200,151,58,0.3);
+  --node-family: #c8973a;
+  --node-lang:   #7ec8c8;
+  --node-sub:    #c87868;
+  --node-dial:   #a0b878;
+  --nav-h:       52px;
+  --toolbar-h:   46px;
+  --panel-w:     300px;
+}
+    html, body { height:100%; width:100%; overflow:hidden; font-family:'Georgia',serif; background:var(--bg-primary); color:var(--text-primary); }
+
+    /* ── NAV ── */
+    #nav { position:fixed; top:0; left:0; right:0; height:var(--nav-h); background:var(--bg-nav); border-bottom:1px solid var(--border-gold); display:flex; align-items:center; justify-content:space-between; padding:0 24px; z-index:1000; box-shadow:0 2px 20px rgba(0,0,0,.6); }
+    #nav-left { display:flex; align-items:center; gap:10px; }
+    .title-glyph { font-size:1.3rem; color:var(--gold-bright); text-shadow:0 0 12px rgba(240,192,96,.4); }
+    .title-main  { font-size:1rem; color:var(--gold-bright); letter-spacing:2px; text-transform:uppercase; font-weight:normal; }
+    .title-sub   { font-size:.65rem; color:var(--text-dim); letter-spacing:1px; font-family:'Segoe UI',sans-serif; }
+    #nav-tabs { display:flex; gap:4px; background:rgba(0,0,0,.4); border:1px solid var(--border-gold); border-radius:8px; padding:4px; }
+    .nav-tab { display:flex; align-items:center; gap:7px; padding:6px 18px; border-radius:6px; border:1px solid transparent; cursor:pointer; font-family:'Segoe UI',sans-serif; font-size:.78rem; color:var(--text-dim); background:transparent; transition:all .25s; user-select:none; }
+    .nav-tab:hover  { color:var(--gold-mid); background:var(--gold-glow); }
+    .nav-tab.active { color:var(--gold-bright); background:rgba(200,151,58,.18); border-color:var(--border-gold); }
+    .nav-tab svg { width:14px; height:14px; fill:currentColor; flex-shrink:0; }
+    #nav-meta { display:flex; gap:10px; }
+    .meta-chip { font-family:'Segoe UI',sans-serif; font-size:.65rem; color:var(--text-dim); background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:10px; padding:2px 10px; letter-spacing:.5px; }
+
+    /* ── VIEWS ── */
+    #views { position:fixed; top:var(--nav-h); left:0; right:0; bottom:0; }
+    .view { position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity .4s; }
+    .view.visible { opacity:1; pointer-events:all; }
+
+    /* ── TREE VIEW ── */
+    #view-tree { background:var(--bg-primary); display:flex; flex-direction:column; }
+    #tree-toolbar { min-height:var(--toolbar-h); height:auto; background:var(--bg-panel); border-bottom:1px solid var(--border); display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:6px 16px; flex-shrink:0; }
+    .tb-label { font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-muted); letter-spacing:1px; white-space:nowrap; }
+    .tb-btn { display:flex; align-items:center; gap:5px; padding:4px 12px; border-radius:6px; border:1px solid var(--border-gold); background:transparent; color:var(--gold-mid); font-family:'Segoe UI',sans-serif; font-size:.72rem; cursor:pointer; transition:all .2s; white-space:nowrap; }
+    .tb-btn:hover { background:var(--gold-glow); color:var(--gold-bright); border-color:var(--gold-bright); }
+    .tb-btn svg { width:11px; height:11px; fill:currentColor; }
+    .tb-divider { width:1px; height:22px; background:var(--border); flex-shrink:0; }
+    #zoom-info { font-family:monospace; font-size:.7rem; color:var(--text-muted); min-width:38px; text-align:center; }
+    .tb-input { background:rgba(255,255,255,.05); border:1px solid var(--border-gold); border-radius:6px; color:var(--text-primary); font-family:'Segoe UI',sans-serif; font-size:.72rem; padding:4px 10px; width:145px; outline:none; transition:border-color .2s, background .2s; }
+    .tb-input:focus { border-color:var(--gold-bright); background:rgba(240,192,96,.07); }
+    .tb-input::placeholder { color:var(--text-muted); }
+    #tree-legend { display:flex; align-items:center; gap:12px; margin-left:auto; }
+    .leg-item { display:flex; align-items:center; gap:5px; font-family:'Segoe UI',sans-serif; font-size:.65rem; color:var(--text-dim); }
+    .leg-dot  { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+    #tree-main { flex:1; display:flex; overflow:hidden; min-height:0; }
+    #tree-canvas { flex:1; overflow:hidden; position:relative; }
+    #tree-canvas svg { width:100%; height:100%; cursor:grab; }
+    #tree-canvas svg:active { cursor:grabbing; }
+
+    /* ── INFO PANEL ── */
+    #info-panel { width:var(--panel-w); flex-shrink:0; background:var(--bg-panel); border-left:1px solid var(--border-gold); display:flex; flex-direction:column; overflow:hidden; }
+    #ip-header { padding:14px 16px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+    .ip-label { font-family:'Segoe UI',sans-serif; font-size:.62rem; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; }
+    #ip-name  { font-family:'Georgia',serif; font-size:1.05rem; color:var(--gold-bright); line-height:1.3; word-break:break-word; }
+    #ip-orig  { font-family:'Segoe UI',sans-serif; font-size:.7rem; color:var(--text-dim); font-style:italic; margin-top:3px; display:none; }
+    #ip-body  { flex:1; overflow-y:auto; padding:12px 16px; }
+    .ip-section { margin-bottom:14px; }
+    .ip-sec-title { font-family:'Segoe UI',sans-serif; font-size:.6rem; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    .ip-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:5px; font-family:'Segoe UI',sans-serif; font-size:.72rem; }
+    .ip-key { color:var(--text-muted); flex-shrink:0; }
+    .ip-val { color:var(--text-dim); text-align:right; word-break:break-word; }
+    .ip-val.mono { color:var(--node-lang); font-family:monospace; font-size:.75rem; }
+    .ip-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-family:'Segoe UI',sans-serif; font-size:.65rem; letter-spacing:.5px; border:1px solid; }
+    .badge-family   { color:var(--node-family); border-color:var(--node-family); background:rgba(200,151,58,.1); }
+    .badge-language { color:var(--node-lang);   border-color:var(--node-lang);   background:rgba(126,200,200,.1); }
+    .badge-subgroup { color:var(--node-sub);    border-color:var(--node-sub);    background:rgba(200,120,104,.1); }
+    .badge-dialect  { color:var(--node-dial);   border-color:var(--node-dial);   background:rgba(160,184,120,.1); }
+    .ip-country { display:flex; align-items:flex-start; gap:9px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,.04); font-family:'Segoe UI',sans-serif; font-size:.72rem; }
+    .ip-country:last-child { border-bottom:none; }
+    .ip-country-flag   { font-size:1.25rem; line-height:1.1; flex-shrink:0; }
+    .ip-country-info   { display:flex; flex-direction:column; gap:1px; }
+    .ip-country-name   { color:var(--text-dim); line-height:1.4; }
+    .ip-country-region { font-size:.62rem; color:var(--text-muted); }
+    .ip-country-loading { font-size:.68rem; color:var(--text-muted); font-style:italic; padding:3px 0; }
+    .ip-child-list { list-style:none; }
+    .ip-child-list li { display:flex; align-items:center; gap:6px; padding:3px 0; font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-dim); border-bottom:1px solid rgba(255,255,255,.03); }
+    .ip-child-list li:last-child { border-bottom:none; }
+    .ip-child-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    #ip-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:10px; color:var(--text-muted); font-family:'Segoe UI',sans-serif; font-size:.72rem; text-align:center; padding:20px; }
+    #ip-empty .ei { font-size:2rem; opacity:.3; }
+    #ip-content { display:none; height:100%; flex-direction:column; overflow:hidden; }
+    #ip-content.on { display:flex; }
+
+    /* Mini-Karte im Info-Panel */
+    #ip-minimap-wrap { width:100%; height:160px; border-radius:8px; overflow:hidden; border:1px solid var(--border-gold); margin-top:6px; flex-shrink:0; position:relative; }
+    #ip-minimap { width:100%; height:100%; }
+
+    /* ── D3 ELEMENTE ── */
+    .link { fill:none; stroke:rgba(200,151,58,.22); stroke-width:3px; }
+    /* Trennlinie zwischen Haupt-Familienästen */
+    .family-sep { fill:none; stroke:rgba(200,151,58,.12); stroke-width:1px; stroke-dasharray:4,4; }
+    .node circle { stroke-width:1.5px; transition:all .25s; }
+    .node:hover circle { stroke-width:2.5px; }
+    .node.dragging circle { filter: drop-shadow(0 0 8px rgba(240,192,96,.6)); stroke-width:3px; }
+    /* Textgröße wird dynamisch per inline-style gesetzt */
+    .node text { font-family:'Georgia',serif; pointer-events:none; }
+    .node.sel circle { stroke-width:3px; }
+    #tree-bar { height:34px; background:var(--bg-panel); border-top:1px solid var(--border); display:flex; align-items:center; padding:0 20px; gap:20px; flex-shrink:0; }
+    #tree-bar .bi { font-family:'Segoe UI',sans-serif; font-size:.67rem; color:var(--text-muted); }
+    #tree-bar .bi span { color:var(--text-dim); }
+
+    /* ── MAP VIEW ── */
+    #view-map { background:#1a1a2e; }
+    #map { width:100%; height:100%; }
+    /* Legende links unten */
+    #map-overlay {
+      position:absolute;
+      bottom:32px; left:16px;
+      z-index:900;
+      background:rgba(10,10,15,.88);
+      border:1px solid var(--border-gold);
+      border-radius:10px;
+      padding:12px 16px;
+      backdrop-filter:blur(8px);
+      min-width:180px;
+    }
+    .ov-title { font-size:.7rem; color:var(--gold-mid); letter-spacing:1.5px; text-transform:uppercase; font-family:'Segoe UI',sans-serif; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border-gold); }
+    .ov-item  { display:flex; align-items:center; gap:8px; margin-bottom:5px; font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-dim); }
+    .ov-dot   { width:10px; height:10px; border-radius:50%; flex-shrink:0; border:1.5px solid rgba(255,255,255,.2); }
+
+    /* ── LEAFLET OVERRIDES ── */
+    .leaflet-container { background:#2a3a4a !important; }
+    .leaflet-popup-content-wrapper { background:var(--bg-panel) !important; color:var(--text-primary) !important; border:1px solid var(--border-gold) !important; border-radius:10px !important; box-shadow:0 8px 32px rgba(0,0,0,.7) !important; }
+    .leaflet-popup-tip { background:var(--bg-panel) !important; }
+    .leaflet-popup-close-button { color:var(--text-dim) !important; }
+    .lp-name  { font-family:'Georgia',serif; font-size:1rem; color:var(--gold-bright); margin-bottom:4px; }
+    .lp-orig  { font-size:.68rem; color:var(--text-dim); font-style:italic; margin-bottom:6px; }
+    .lp-row   { display:flex; gap:6px; align-items:center; font-size:.7rem; color:var(--text-dim); margin-bottom:3px; }
+    .lp-badge { font-size:.62rem; background:rgba(200,151,58,.2); border:1px solid var(--border-gold); border-radius:4px; padding:1px 6px; color:var(--gold-mid); font-family:monospace; }
+    /* Zoom-Buttons: rechts unten auf der Karte */
+    .leaflet-control-zoom { margin-right:16px !important; margin-bottom:16px !important; }
+    .leaflet-bottom.leaflet-right { bottom:0; right:0; }
+    .leaflet-control-zoom a { background:rgba(13,13,20,0.92) !important; color:var(--gold-mid) !important; border-color:var(--border-gold) !important; }
+    .leaflet-control-attribution { background:rgba(10,10,15,.7) !important; color:var(--text-muted) !important; font-size:.55rem !important; }
+
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+    * { scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+
+    /* Mini-Map Leaflet overrides */
+    #ip-minimap .leaflet-control-zoom { display:none !important; }
+    #ip-minimap .leaflet-control-attribution { font-size:.45rem !important; }
+
+    /* ── ERROR SCREEN ── */
+    #error-screen { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:var(--bg-primary); z-index:10000; flex-direction:column; align-items:center; justify-content:center; padding:40px; text-align:center; }
+    #error-screen.visible { display:flex; }
+    .error-icon { font-size:3rem; margin-bottom:20px; }
+    .error-title { font-size:1.4rem; color:var(--gold-bright); margin-bottom:10px; font-weight:700; }
+    .error-message { font-size:0.95rem; color:var(--text-dim); max-width:600px; line-height:1.6; margin-bottom:20px; font-family:'Segoe UI',monospace; background:rgba(255,0,0,.1); border:1px solid rgba(200,100,100,.3); border-radius:8px; padding:15px; }
+    .error-details { font-size:0.8rem; color:var(--text-muted); max-width:700px; }
+
+    @media (max-width:700px) { #nav-meta{display:none;} .nav-tab{padding:5px 10px;} #tree-legend{display:none;} }
+    @media (max-width:480px) { #info-panel{display:none;} }
+  </style>
+</head>
+<body>
+
+<nav id="nav">
+  <div id="nav-left">
+    <span class="title-glyph" id="nav-glyph">◈</span>
+    <div>
+      <div class="title-main" id="nav-title-main">Sprachfamilien-Atlas</div>
+      <div class="title-sub">Interaktiver Sprach-Atlas</div>
+    </div>
+  </div>
+  <div id="nav-tabs">
+    <div class="nav-tab active" data-view="tree" onclick="switchView('tree')">
+      <svg viewBox="0 0 16 16"><path d="M1 1h5v3H4v2h2v3H1V7h2V4H1zm7 0h5v3h-2v2h2v3H8V7h2V4H8zm0 7h5v3h-2v2h2v3H8v-3h2v-2H8z"/></svg>
+      Stammbaum
+    </div>
+    <div class="nav-tab" data-view="map" onclick="switchView('map')">
+      <svg viewBox="0 0 16 16"><path d="M8 0a5 5 0 0 0-5 5c0 3.5 5 11 5 11s5-7.5 5-11a5 5 0 0 0-5-5zm0 7.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+      Verbreitungskarte
+    </div>
+  </div>
+  <div id="nav-meta">
+    <span class="meta-chip" id="chip-fam">– Familien</span>
+    <span class="meta-chip" id="chip-lan">– Sprachen</span>
+    <span class="meta-chip" id="chip-dia">– Dialekte</span>
+  </div>
+</nav>
+
+<div id="views">
+
+  <!-- STAMMBAUM -->
+  <div id="view-tree" class="view visible">
+    <div id="tree-toolbar">
+      <button class="tb-btn" onclick="expandAll()">
+        <svg viewBox="0 0 12 12"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        Aufklappen
+      </button>
+      <button class="tb-btn" onclick="collapseAll()">
+        <svg viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        Einklappen
+      </button>
+      <button class="tb-btn" onclick="toggleDialects()">
+        <svg viewBox="0 0 12 12"><path d="M2 3h3v3H2zm5 0h3v3H7zm-5 5h3v3H2zm5 0h3v3H7z" stroke="currentColor" stroke-width="0.8" fill="currentColor"/></svg>
+        Dialekte verbergen
+      </button>
+      <button class="tb-btn" onclick="fitView()">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><polyline points="1,4 1,1 4,1"/><polyline points="8,1 11,1 11,4"/><polyline points="11,8 11,11 8,11"/><polyline points="4,11 1,11 1,8"/></svg>
+        Übersicht
+      </button>
+      <div class="tb-divider"></div>
+      <button class="tb-btn" onclick="zoomBy(1.3)">＋</button>
+      <span id="zoom-info">100%</span>
+      <button class="tb-btn" onclick="zoomBy(0.77)">－</button>
+      <div class="tb-divider"></div>
+      <input id="tree-search" type="text" class="tb-input" placeholder="🔍  Sprache suchen…"
+             oninput="onSearchInput(this.value)"
+             onkeydown="if(event.key==='Escape'){this.value='';clearSearch();}"/>
+      <div class="tb-divider"></div>
+      <!-- Schriftgröße-Regler (ersetzt Abstand-Regler) -->
+      <span class="tb-label">Schriftgröße</span>
+      <input type="range" id="fontsize-sl" min="5" max="20" value="11" step="1"
+             style="width:72px;accent-color:var(--gold-mid);cursor:pointer;vertical-align:middle;"
+             oninput="onFontsizeChange(this.value)"/>
+      <span id="fs-val" style="font-size:.65rem;color:var(--text-muted);min-width:32px">11 px</span>
+      <div id="tree-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#c8973a"></div>Familie</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#7ec8c8"></div>Sprache</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#c87868"></div>Gruppe</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#a0b878"></div>Dialekt</div>
+      </div>
+    </div>
+
+    <div id="tree-main">
+      <div id="tree-canvas">
+        <svg id="tree-svg">
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <clipPath id="text-clip">
+              <!-- Wird dynamisch gefüllt -->
+            </clipPath>
+          </defs>
+          <g id="tree-g"></g>
+        </svg>
+      </div>
+      <div id="info-panel">
+        <div id="ip-empty">
+          <div class="ei">◈</div>
+          <div>Knoten anklicken<br>für Details</div>
+        </div>
+        <div id="ip-content">
+          <div id="ip-header">
+            <div class="ip-label">Details</div>
+            <div id="ip-name">–</div>
+            <div id="ip-orig"></div>
+          </div>
+          <div id="ip-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tree-bar">
+      <div class="bi">Klick: <span>Details / Ein-/Ausklappen</span></div>
+      <div class="bi">Ziehen: <span>Verschieben (Knoten + Astgruppe)</span></div>
+      <div class="bi">Scroll: <span>Zoom</span></div>
+      <div class="bi">Regler: <span>Schriftgröße &amp; Abstände</span></div>
+    </div>
+  </div>
+
+  <!-- KARTE -->
+  <div id="view-map" class="view">
+    <div id="map"></div>
+    <div id="map-overlay">
+      <div class="ov-title">Sprachgruppen</div>
+      <div id="map-legend-items"></div>
+    </div>
+  </div>
+
+</div><!-- #views -->
+
+<!-- ERROR SCREEN -->
+<div id="error-screen">
+  <div class="error-icon">⚠️</div>
+  <div class="error-title">Syntax-Fehler im Newick-String</div>
+  <div class="error-message" id="error-msg"></div>
+  <div class="error-details">
+    <p>Überprüfen Sie Ihren Newick-String auf:</p>
+    <ul style="text-align:left;display:inline-block;margin-top:10px;">
+      <li>✓ Backticks: const rawNewick = `...` (nicht "..." oder '...')</li>
+      <li>✓ Korrekte Klammer-Balance: ( und )</li>
+      <li>✓ Text mit Leerzeichen in Quotes: 'Name mit Leerzeichen'</li>
+      <li>✓ Sprachen markieren mit: -l-</li>
+    </ul>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1a  –  GLYPH
+════════════════════════════════════════════════════════════════ */
+const familyGlyph = "☼";
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1b  –  ZÄHLER
+════════════════════════════════════════════════════════════════ */
+const familyMeta = {
+  families:  78,
+  languages:118,
+  dialects:  175
+};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1c  –  KARTEN-KONFIGURATION
+════════════════════════════════════════════════════════════════ */
+const mapConfig = {
+  center: [7.616877503225176,20.67538098915554],
+  zoom:   5
+};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1d  –  KARTEN-LEGENDE (OPTIONAL)
+════════════════════════════════════════════════════════════════ */
+const mapLegendGroups = [];
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 2a  –  DEUTSCHE NAMEN
+════════════════════════════════════════════════════════════════ */
+const nameTranslations = {'gyak1238': 'Gyakan',
+'nucl1372': 'Kern-Kwa',
+'kwaa1262': 'Baa',
+'ebod1238': 'Ebode',
+'lala1262': 'Lala (Nigeria)',
+'roba1240': 'Roba',
+'lala1261': 'Lala-Roba',
+'bena1260': 'Bena (Nigeria)',
+'voro1240': 'Voro',
+'yung1254': 'Yungur-Voro',
+'bena1259': 'Bena',
+'kaan1247': 'Kaan',
+'bang1349': 'Banga (Nigeria)',
+'nucl1373': 'Gәna',
+'hand1239': 'Handa',
+'mboi1246': 'Mboi',
+'bena1258': 'Bena-Mboi',
+'bura1271': 'Burak',
+'looo1238': 'Loo',
+'bura1270': 'Burak-Loo',
+'pany1242': 'Panya',
+'zooo1239': 'Zo',
+'makn1235': 'Mak (Nigeria)',
+'magh1238': 'Mághdì',
+'makt1234': 'Mak-Tal',
+'nort3378': 'Nord-Bikwin-Jen',
+'kyak1243': 'Kyak',
+'leel1242': 'Leelau',
+'mooo1239': 'Moo',
+'bamb1263': 'Bambuka-Gomu-Leelau',
+'jaul1239': 'Jaule',
+'kaig1239': 'Kaigama',
+'lare1247': 'Laredo',
+'dzaa1238': 'Dza',
+'ming1254': 'Mingang Doso',
+'doso1240': 'Doso-Dza',
+'thaa1239': 'Tha',
+'jenn1241': 'Jen',
+'sout3355': 'Süd-Bikwin-Jen',
+'bikw1235': 'Bikwin-Jen',
+'kuga1239': 'Gengle-Kugama',
+'kumb1238': 'Kumba',
+'gnoo1238': 'Gnoore',
+'gong1252': 'Gongla',
+'gola1256': 'Gôla (Nigeria)',
+'jeng1242': 'Jeng Mumuye',
+'kwaj1241': 'Kwaji',
+'mang1386': 'Mang (Nigeria)',
+'meek1238': 'Meeka',
+'yaaa1241': 'Yaa',
+'yako1251': 'Yakoko',
+'zinn1239': 'Zing',
+'nort3407': 'Nordost-Mumuye',
+'jali1243': 'Jalingo',
+'kasaa1249': 'Kasaa',
+'lank1241': 'Lankaviri',
+'nyaa1241': 'Nyaaja',
+'saaw1242': 'Saawa',
+'yoro1242': 'Yoro',
+'kpug1234': 'Kpugbong',
+'kugo1238': 'Kugong',
+'sagb1238': 'Sagbee',
+'shaa1243': 'Shaari',
+'monk1234': 'Monkin',
+'sout3386': 'Südwest-Mumuye',
+'nucl1240': 'Mumuye',
+'jega1239': 'Jega',
+'komo1259': 'Komo',
+'nucl1356': 'Kern-Pangseng',
+'pang1286': 'Pangseng',
+'rang1269': 'Rang',
+'mumu1250': 'Mumuyic',
+'bali1245': 'Bali (Nigeria)',
+'kpas1242': 'Kpasam',
+'yott1234': 'Yotti',
+'bali1284': 'Bali-Kpasam',
+'teme1252': 'Teme',
+'waka1275': 'Waka',
+'kuse1238': 'Kuseki',
+'poli1239': 'Poli',
+'yofo1238': 'Yofo',
+'yend1241': 'Yendang',
+'waka1285': 'Waka-Yandang',
+'waka1284': 'Waka-Yendang-Teme',
+'yand1260': 'Yandangic',
+'mumu1249': 'Mumuye-Yandang',
+'mark1254': 'Marke',
+'sout3345': 'Süd-Teere',
+'teer1238': 'Teere-Poli',
+'doya1240': 'Doyayo',
+'baan1243': 'Baanma',
+'gemm1234': 'Gemme of Gimuru-Dehnime',
+'gomm1238': 'Kompana',
+'gimm1241': 'Gimme',
+'gomn1238': 'Beiya',
+'gind1234': 'Gindoo',
+'riti1238': 'Ritime',
+'gimn1238': 'Gimnime',
+'koma1268': 'Koma Alantika',
+'gbai1234': 'Gbaidim',
+'bang1340': 'Gbangrim',
+'kuun1237': 'Kuunem',
+'leel1241': 'Leelim',
+'liuu1238': 'Lim',
+'yeru1241': 'Yarim',
+'zanu1238': 'Zanem',
+'nucl1354': 'Geunem',
+'koma1267': 'Koma Damti',
+'nder1244': 'Vomnem',
+'koma1266': 'Koma Ndera',
+'jang1259': 'Jango (Nassarawa Koma)',
+'jang1258': 'Jango (Soncha)',
+'nucl1355': 'Mom Jango (Dan Wumba)',
+'momj1237': 'Mom Jango',
+'eili1234': 'Eilim',
+'kobo1255': 'Kobom',
+'niss1234': 'Nissim',
+'nort3260': 'Nördliches Alantika-Vere',
+'momi1243': 'Momi Bati',
+'momi1241': 'Momi Yadim',
+'vokb1234': 'Vokba',
+'womm1234': 'Wommu',
+'vere1252': 'Vere Kaadam',
+'vere1250': 'Vere',
+'vere1249': 'Vere-Gimme',
+'nort3259': 'Nord-Samba-Duru',
+'boow1238': 'Boow',
+'goom1239': 'Goom',
+'home1245': 'Home',
+'mamb1293': 'Mambe',
+'mamn1243': 'Mamna\'a',
+'ngba1279': 'Ngbang',
+'nyok1241': 'Nyok',
+'sagz1238': 'Sagzee',
+'vaaz1238': 'Vaazin',
+'diii1241': 'Dii',
+'naan1239': 'Naan',
+'saan1245': 'Saan',
+'dugu1248': 'Dugun',
+'duup1238': 'Duupa',
+'diic1235': 'Diic',
+'long1387': 'Longto',
+'danm1238': 'Dan Muure',
+'peer1242': 'Peer Muure',
+'zong1242': 'Zongbi',
+'peer1241': 'Peere',
+'kolb1240': 'Kolbila',
+'nyon1241': 'Nyong',
+'womn1235': 'Wom (Nigeria)',
+'pere1234': 'Perema-Mumbake',
+'bang1341': 'Bangla',
+'cham1337': 'Chamba Donga',
+'deen1238': 'Deenu',
+'nucl1357': 'Kern-Samba Leko',
+'samb1306': 'Samba de Wangai',
+'samp1250': 'Sampara',
+'samb1305': 'Samba Leko',
+'samb1324': 'Samba-Leko-Perema-Mumbake',
+'leko1246': 'Sambaic',
+'sout3238': 'Süd-Samba-Duru',
+'nimb1256': 'Nimbari',
+'unun9905': 'Unklassifiziertes Samba-Duru',
+'samb1323': 'Samba-Duru',
+'duli1241': 'Duli-Gewe',
+'uncl1524': 'Unklassifiziertes Zentral-Adamawa',
+'samb1322': 'Zentral-Adamawa',
+'nucl1359': 'Djong',
+'mayo1279': 'Mayo Djarendi-Mandi',
+'mbam1255': 'Mbamaka-Tapi',
+'ngom1264': 'Ngoumi',
+'kara1478': 'Karang',
+'kari1305': 'Kari (Zentralafrikanische Republik)',
+'tale1239': 'Tale',
+'kare1338': 'Kare (Zentralafrikanische Republik)',
+'gong1240': 'Gonge',
+'mann1247': 'Man',
+'pana1294': 'Pana',
+'pond1249': 'Pondo',
+'pana1293': 'Pana (Zentralafrikanische Republik)',
+'kare1351': 'Kare-Pana',
+'nucl1360': 'Kern-Nzakambay',
+'zoli1238': 'Zoli',
+'nzak1246': 'Nzakambay',
+'kara1477': 'Karangic',
+'bour1249': 'Bouroum Koh',
+'paok1236': 'Pao Koh',
+'kuoo1238': 'Kuo',
+'cent2020': 'Zentral-Mbum',
+'gbet1241': 'Gbete',
+'mber1254': 'Mbere (Mboum)',
+'mbou1244': 'Mboum',
+'mbum1254': 'Mbum',
+'dama1267': 'Dama (Kamerun)',
+'ndai1238': 'Ndai',
+'dama1266': 'Dama-Galke',
+'mamb1294': 'Mambai',
+'mono1269': 'Mono (Kamerun)',
+'gela1262': 'Gelama',
+'imba1239': 'Imbana',
+'kizi1242': 'Kiziere',
+'torr1258': 'Torrock-Kaélé',
+'mund1325': 'Mundang',
+'pamm1242': 'Pam (Kamerun)',
+'mund1324': 'Mundangic',
+'bang1344': 'Bang-Ling',
+'bang1343': 'Bang-Were',
+'faal1238': 'Faale-Piyew',
+'podo1242': 'Podokge',
+'tupu1244': 'Tupuri',
+'tupu1245': 'Tupuri-Mundang-Mambai',
+'nort2773': 'Nord-Mbum',
+'tooo1238': 'To',
+'unun9907': 'Unklassifiziertes Mbum',
+'mbum1257': 'Mbumic',
+'mong1345': 'Mongoba-Kazibati',
+'gbay1278': 'Gbayi',
+'dend1242': 'Dendi (Zentralafrikanische Republik)',
+'mban1262': 'Mbangi',
+'nort2774': 'Nord-Ngbandi',
+'rive1257': 'Fluss-Sango',
+'sang1328': 'Sango',
+'sang1327': 'Sangoic',
+'sout2784': 'Süd-Ngbandi',
+'yako1252': 'Yakoma',
+'nucl1737': 'Kern-Ngbandic',
+'ngba1280': 'Ngbandic',
+'ngba1290': 'Ngbandi-Mongoba-Kazibati',
+'golo1234': 'Golo',
+'band1348': 'Banda-Yangere',
+'buka1254': 'Buka (Banda-Mbres)',
+'mbre1245': 'Mbre (Banda-Mbres)',
+'moru1251': 'Moruba',
+'saba1261': 'Sabanga',
+'wada1260': 'Wada',
+'band1342': 'Banda-Mbrès',
+'band1347': 'Banda-Kpaya',
+'jung1239': 'Junguru',
+'ngao1244': 'Ngao',
+'ngba1288': 'Ngbala',
+'band1346': 'Kern-Banda-Ndélé',
+'tang1341': 'Tangbago',
+'band1345': 'Banda-Ndélé',
+'gben1241': 'Gbende',
+'joto1238': 'Joto',
+'lind1246': 'Linda',
+'ndok1253': 'Ndokpa',
+'ngap1238': 'Ngapo',
+'band1344': 'Banda-Bambari',
+'bere1248': 'Bereya',
+'buru1297': 'Buru (Banda-Banda)',
+'gbag1255': 'Gbaga-Süd',
+'gbam1238': 'Gbambiya',
+'govo1238': 'Govoro',
+'haii1241': 'Hai',
+'kaaa1238': 'Ka',
+'mbii1238': 'Mbi',
+'ndii1240': 'Ndi',
+'ngal1297': 'Ngalabo',
+'ngol1244': 'Ngola (Banda-Banda)',
+'nucl1365': 'Kern-Banda-Banda',
+'vidi1238': 'Vidiri',
+'wund1238': 'Wundu',
+'band1343': 'Banda-Banda',
+'gobu1238': 'Gobu',
+'bong1283': 'Bongo (Mittel-Süd-Banda)',
+'dukp1238': 'Dukpu',
+'wasa1245': 'Wasa (Mittel-Süd-Banda)',
+'yakp1238': 'Yakpa',
+'mids1243': 'Mittel-Süd-Banda',
+'lind1250': 'Lindaic',
+'bili1251': 'Bili',
+'buba1239': 'Bubanda',
+'gala1253': 'Galaba',
+'kaga1253': 'Kaga (Demokratische Republik Kongo)',
+'mpak1240': 'Mpaka',
+'mono1270': 'Mono (Demokratische Republik Kongo)',
+'kpag1238': 'Kpagua',
+'ngun1266': 'Ngundu',
+'ngun1281': 'Ngundu-Kpagua',
+'togb1242': 'Togbo',
+'vara1239': 'Vara',
+'togb1241': 'Togbo-Vara Banda',
+'cent2022': 'Kern-Zentral-Bandaic',
+'cent2021': 'Zentral-Bandaic',
+'ngbu1241': 'Ngbundu',
+'gbad1235': 'Gbado',
+'kala1382': 'Kala',
+'mban1263': 'Mbandja',
+'dakp1243': 'Dakpa',
+'gbag1254': 'Gbaga-Nord',
+'gbii1241': 'Gbi',
+'vita1238': 'Vita',
+'wojo1239': 'Wojo',
+'west2458': 'West-Zentral-Banda',
+'cent2423': 'Zentral-Nordwest-Bandaic',
+'lang1318': 'Langbashe',
+'lang1317': 'Langba',
+'ngbu1242': 'Ngbugu',
+'sout2787': 'Süd-Zentral-Banda',
+'sout2786': 'Ngbugu-Langbasi',
+'sout3415': 'Südwest-Bandaic',
+'nucl1797': 'Kern-Bandaic',
+'band1341': 'Bandaic',
+'made1252': 'Ma (Demokratische Republik Kongo)',
+'dong1290': 'Dongo',
+'mbaa1245': 'Mba',
+'ndun1249': 'Ndunga',
+'ndun1248': 'Ndunga-Mba',
+'ndun1247': 'Ndunga-Mba-Dongo',
+'mbai1246': 'Mbaic',
+'kopa1246': 'Kopa (Bangba)',
+'tora1258': 'Tora (Bangba)',
+'bang1345': 'Bangba',
+'madi1259': 'Madimadoko',
+'madi1258': 'Madipia',
+'mayo1261': 'Mayogo',
+'mayo1260': 'Mayogo-Bangba',
+'shat1243': 'Shatt (Mundu)',
+'mund1326': 'Mündü',
+'east2391': 'Ost-Mundu-Baka',
+'baka1272': 'Baka (Kamerun)',
+'ganz1247': 'Ganzi',
+'baka1278': 'Baka-Komplex',
+'gund1247': 'Gundi',
+'lima1246': 'Limassa',
+'baka1271': 'Baka-Gundi',
+'gili1241': 'Gilima',
+'ngba1284': 'Ngbaka Ma\'bo',
+'bwak1244': 'Bwaka',
+'gban1258': 'Gbanziri-Boraka',
+'kpal1241': 'Kpala',
+'yang1289': 'Yango',
+'kpal1242': 'Kpala-Bakpa',
+'monz1249': 'Monzombo',
+'monz1253': 'Monzomboic',
+'rive1263': 'Fluss-West-Mundu-Baka',
+'west2836': 'West-Mundu-Baka',
+'ngba1292': 'Mundu-Baka',
+'fero1244': 'Feroge',
+'mang1387': 'Mangayat',
+'fero1243': 'Feroge-Mangaya',
+'indr1247': 'Indri',
+'togo1252': 'Togoyo',
+'indr1246': 'Indri-Togoyo',
+'baii1251': 'Bai',
+'bela1255': 'Belanda Viri',
+'baiv1238': 'Bai-Viri',
+'ndog1248': 'Ndogo',
+'sere1264': 'Sere',
+'tagb1255': 'Tagbu',
+'tagb1264': 'Tagbu-Sere',
+'sere1263': 'Ndogoic',
+'sere1266': 'Sere-Indri',
+'sere1262': 'Sereic',
+'uban1245': 'Ubangi Ka',
+'bara1361': 'Barambu',
+'ngal1296': 'Ngala-Santandrea',
+'pamb1243': 'Pambia',
+'bara1360': 'Barambo-Pambia',
+'geme1245': 'Geme Kulagbolu',
+'geme1246': 'Geme Tulu',
+'geme1244': 'Geme',
+'nzak1247': 'Nzakara',
+'dioo1238': 'Dio',
+'maka1301': 'Makaraka',
+'zand1248': 'Zande',
+'zand1247': 'Zande-Nzakara',
+'zand1246': 'Zandic',
+'uban1244': 'Ubangi',
+'oblo1238': 'Oblo',
+'unun9906': 'Unklassifiziertes Kamerun-Ubangisch',
+'came1255': 'Kamerun-Ubangisch',};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 2b  –  LÄNDER-OVERRIDE (OPTIONAL)
+════════════════════════════════════════════════════════════════ */
+const countryData = {};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 3a  –  NEWICK-STRING
+   ⚠ IMMER BACKTICKS verwenden!
+════════════════════════════════════════════════════════════════ */
+const rawNewick = `(('Gyakan [gyak1238]':1,'Nuclear Kwa [nucl1372]':1)'Baa [kwaa1262][kwb]-l-':1,((('Ebode [ebod1238]':1,'Lala {Nigeria} [lala1262]':1,'Roba [roba1240]':1)'Lala-Roba [lala1261][lla]-l-':1,('Bena {Nigeria} [bena1260][yun]-l-':1,'Voro [voro1240][vor]-l-':1)'Yungur-Voro [yung1254]':1)'Bena [bena1259]':1,'Kaan [kaan1247][ldl]-l-':1,('Banga {Nigeria} [bang1349]':1,'Gәna [nucl1373]':1,'Handa [hand1239]':1)'Mboi [mboi1246][moi]-l-':1)'Bena-Mboi [bena1258]':1,((('Burak [bura1271][bys]-l-':1,'Loo [looo1238][ldo]-l-':1)'Burak-Loo [bura1270]':1,(('Panya [pany1242]':1,'Zo [zooo1239]':1)'Mak {Nigeria} [makn1235][pbl]-l-':1,'Mághdì [magh1238][gmd]-l-':1)'Mak-Tal [makt1234]':1)'Northern Bikwin-Jen [nort3378]':1,(('Kyak [kyak1243][bka]-l-':1,'Leelau [leel1242][ldk]-l-':1,'Moo [mooo1239][gwg]-l-':1)'Bambuka-Gomu-Leelau [bamb1263]':1,((('Jaule [jaul1239]':1,'Kaigama [kaig1239]':1,'Laredo [lare1247]':1)'Dza [dzaa1238][jen]-l-':1,'Mingang Doso [ming1254][mko]-l-':1)'Doso-Dza [doso1240]':1,'Tha [thaa1239][thy]-l-':1)'Jen [jenn1241]':1)'Southern Bikwin-Jen [sout3355]':1)'Bikwin-Jen [bikw1235]':1,(('Gengle-Kugama [kuga1239][kow]-l-':1,'Kumba [kumb1238][ksm]-l-':1,(((('Gnoore [gnoo1238]':1,'Gongla [gong1252]':1)'Gôla {Nigeria} [gola1256]':1,'Jeng Mumuye [jeng1242]':1,'Kwaji [kwaj1241]':1,'Mang {Nigeria} [mang1386]':1,'Meeka [meek1238]':1,'Yaa [yaaa1241]':1,'Yakoko [yako1251]':1,'Zing [zinn1239]':1)'North-East Mumuye [nort3407]':1,(('Jalingo [jali1243]':1,'Kasaa [kasa1249]':1,'Lankaviri [lank1241]':1,'Nyaaja [nyaa1241]':1,'Saawa [saaw1242]':1,'Yoro [yoro1242]':1)'Kpugbong [kpug1234]':1,('Kugong [kugo1238]':1,'Sagbee [sagb1238]':1,'Shaari [shaa1243]':1)'Monkin [monk1234]':1)'South-West Mumuye [sout3386]':1)'Mumuye [nucl1240][mzm]-l-':1,('Jega [jega1239]':1,'Komo [komo1259]':1,'Nuclear Pangseng [nucl1356]':1)'Pangseng [pang1286][pgs]-l-':1,'Rang [rang1269][rax]-l-':1)'Mumuyic [mumu1250]':1,(('Bali {Nigeria} [bali1245][bcn]-l-':1,'Kpasam [kpas1242][pbn]-l-':1,'Yotti [yott1234][yot]-l-':1)'Bali-Kpasam [bali1284]':1,('Teme [teme1252][tdo]-l-':1,('Waka [waka1275][wav]-l-':1,('Kuseki [kuse1238]':1,'Poli [poli1239]':1,'Yofo [yofo1238]':1)'Yendang [yend1241][ynq]-l-':1)'Waka-Yandang [waka1285]':1)'Waka-Yendang-Teme [waka1284]':1)'Yandangic [yand1260]':1)'Mumuye-Yandang [mumu1249]':1,((('Marke [mark1254]':1,'South Teere [sout3345]':1,'Teere-Poli [teer1238]':1)'Doyayo [doya1240][dow]-l-':1,((('Baanma [baan1243]':1,'Gemme of Gimuru-Dehnime [gemm1234]':1,'Kompana [gomm1238]':1)'Gimme [gimm1241][kmp]-l-':1,('Beiya [gomn1238]':1,'Gindoo [gind1234]':1,'Ritime [riti1238]':1)'Gimnime [gimn1238][gmn]-l-':1)'Koma Alantika [koma1268]':1,((('Gbaidim [gbai1234]':1,'Gbangrim [bang1340]':1,'Kuunem [kuun1237]':1,'Leelim [leel1241]':1,'Lim [liuu1238]':1,'Yarim [yeru1241]':1,'Zanem [zanu1238]':1)'Geunem [nucl1354]':1,'Koma Damti [koma1267]':1,'Vomnem [nder1244]':1)'Koma Ndera [koma1266][kmy]-l-':1,('Jango of Nassarawa Koma [jang1259]':1,'Jango of Soncha [jang1258]':1,'Mom Jango of Dan Wumba [nucl1355]':1)'Mom Jango [momj1237][ver]-l-':1,('Eilim [eili1234]':1,'Kobom [kobo1255]':1,'Nissim [niss1234]':1)'Northern Alantika Vere [nort3260]-l-':1,('Momi Bati [momi1243]':1,'Momi Yadim [momi1241]':1,'Vokba [vokb1234]':1,'Wommu [womm1234]':1)'Vere Kaadam [vere1252]-l-':1)'Vere [vere1250]':1)'Vere-Gimme [vere1249]':1)'Northern Samba-Duru [nort3259]':1,((('Boow [boow1238]':1,'Goom [goom1239]':1,'Home [home1245]':1,'Mambe'' [mamb1293]':1,'Mamna''a [mamn1243]':1,'Ngbang [ngba1279]':1,'Nyok [nyok1241]':1,'Sagzee [sagz1238]':1,'Vaazin [vaaz1238]':1)'Dii [diii1241][dur]-l-':1,('Naan [naan1239]':1,'Saan [saan1245]':1)'Dugun [dugu1248][ndu]-l-':1,'Duupa [duup1238][dae]-l-':1)'Diic [diic1235]':1,'Longto [long1387][wok]-l-':1,('Dan Muure [danm1238]':1,'Peer Muure [peer1242]':1,'Zongbi [zong1242]':1)'Peere [peer1241][pfe]-l-':1,('Kolbila [kolb1240][klc]-l-':1,(('Nyong [nyon1241][muo]-l-':1,'Wom {Nigeria} [womn1235][wom]-l-':1)'Perema-Mumbake [pere1234]':1,('Bangla [bang1341]':1,'Chamba Donga [cham1337]':1,'Deenu [deen1238]':1,'Nuclear Samba Leko [nucl1357]':1,'Samba de Wangai [samb1306]':1,'Sampara [samp1250]':1)'Samba Leko [samb1305][ndi]-l-':1)'Samba-Leko-Perema-Mumbake [samb1324]':1)'Sambaic [leko1246]':1)'Southern Samba-Duru [sout3238]':1,('Nimbari [nimb1256][nmr]-l-':1)'Unclassified Samba-Duru [unun9905]':1)'Samba-Duru [samb1323]':1,('Duli-Gewe [duli1241][duz]-l-':1)'Unclassified Central Adamawa [uncl1524]':1)'Central Adamawa [samb1322]':1,(((('Djong [nucl1359]':1,'Mayo Djarendi-Mandi [mayo1279]':1,'Mbamaka-Tapi [mbam1255]':1,'Ngoumi [ngom1264]':1)'Karang [kara1478][kzr]-l-':1,(('Kari {Central African Republic} [kari1305]':1,'Tale [tale1239]':1)'Kare {Central African Republic} [kare1338][kbn]-l-':1,('Gonge [gong1240]':1,'Man [mann1247]':1,'Pana [pana1294]':1,'Pondo [pond1249]':1)'Pana {Central African Republic} [pana1293][pnz]-l-':1)'Kare-Pana [kare1351]':1,('Nuclear Nzakambay [nucl1360]':1,'Zoli [zoli1238]':1)'Nzakambay [nzak1246][nzy]-l-':1)'Karangic [kara1477]':1,('Bouroum Koh [bour1249]':1,'Pao Koh [paok1236]':1)'Kuo [kuoo1238][xuo]-l-':1)'Central Mbum [cent2020]':1,('Gbete [gbet1241]':1,'Mbere {Mboum} [mber1254]':1,'Mboum [mbou1244]':1)'Mbum [mbum1254][mdd]-l-':1,(('Dama {Cameroon} [dama1267][dmm]-l-':1,'Ndai [ndai1238][gke]-l-':1)'Dama-Galke [dama1266]':1,('Mambai [mamb1294][mcs]-l-':1,('Mono {Cameroon} [mono1269][mru]-l-':1,('Gelama [gela1262]':1,'Imbana [imba1239]':1,'Kiziere [kizi1242]':1,'Torrock-Kaélé [torr1258]':1)'Mundang [mund1325][mua]-l-':1,'Pam {Cameroon} [pamm1242][pmn]-l-':1)'Mundangic [mund1324]':1,('Bang-Ling [bang1344]':1,'Bang-Were [bang1343]':1,'Faale-Piyew [faal1238]':1,'Podokge [podo1242]':1)'Tupuri [tupu1244][tui]-l-':1)'Tupuri-Mundang-Mambai [tupu1245]':1)'Northern Mbum [nort2773]':1,('To [tooo1238][toz]-l-':1)'Unclassified Mbum [unun9907]':1)'Mbumic [mbum1257]':1,(('Mongoba-Kazibati [mong1345]-l-':1,('Gbayi [gbay1278][gyg]-l-':1,('Dendi {Central African Republic} [dend1242][deq]-l-':1,'Mbangi [mban1262][mgn]-l-':1,'Northern Ngbandi [nort2774][ngb]-l-':1,('Riverain Sango [rive1257][snj]-l-':1,'Sango [sang1328][sag]-l-':1)'Sangoic [sang1327]':1,'Southern Ngbandi [sout2784][nbw]-l-':1,'Yakoma [yako1252][yky]-l-':1)'Nuclear Ngbandic [nucl1737]':1)'Ngbandic [ngba1280]':1)'Ngbandi-Mongoba-Kazibati [ngba1290]':1,(('Golo [golo1234]-l-':1,(('Banda-Yangere [band1348][yaj]-l-':1,(('Buka {Banda-Mbres} [buka1254]':1,'Mbre {Banda-Mbres} [mbre1245]':1,'Moruba [moru1251]':1,'Sabanga [saba1261]':1,'Wada [wada1260]':1)'Banda-Mbrès [band1342][bqk]-l-':1,('Banda-Kpaya [band1347]':1,'Junguru [jung1239]':1,'Ngao [ngao1244]':1,'Ngbala [ngba1288]':1,'Nuclear Banda-Ndélé [band1346]':1,'Tangbago [tang1341]':1)'Banda-Ndélé [band1345][bfl]-l-':1,(('Gbende [gben1241]':1,'Joto [joto1238]':1,'Linda [lind1246]':1,'Ndokpa [ndok1253]':1,'Ngapo [ngap1238]':1)'Banda-Bambari [band1344][liy]-l-':1,('Bereya [bere1248]':1,'Buru {Banda-Banda} [buru1297]':1,'Gbaga-South [gbag1255]':1,'Gbambiya [gbam1238]':1,'Govoro [govo1238]':1,'Hai [haii1241]':1,'Ka [kaaa1238]':1,'Mbi [mbii1238]':1,'Ndi [ndii1240]':1,'Ngalabo [ngal1297]':1,'Ngola {Banda-Banda} [ngol1244]':1,'Nuclear Banda-Banda [nucl1365]':1,'Vidiri [vidi1238]':1,'Wundu [wund1238]':1)'Banda-Banda [band1343][bpd]-l-':1,'Gobu [gobu1238][gox]-l-':1,('Bongo {Mid-Southern Banda} [bong1283]':1,'Dukpu [dukp1238]':1,'Wasa {Mid-Southern Banda} [wasa1245]':1,'Yakpa [yakp1238]':1)'Mid-Southern Banda [mids1243][bjo]-l-':1)'Lindaic [lind1250]':1,('Bili [bili1251]':1,'Bubanda [buba1239]':1,'Galaba [gala1253]':1,'Kaga {Democratic Republic of Congo} [kaga1253]':1,'Mpaka [mpak1240]':1)'Mono {Democratic Republic of Congo} [mono1270][mnh]-l-':1,('Kpagua [kpag1238][kuw]-l-':1,'Ngundu [ngun1266][nue]-l-':1)'Ngundu-Kpagua [ngun1281]':1,('Togbo [togb1242]':1,'Vara [vara1239]':1)'Togbo-Vara Banda [togb1241][tor]-l-':1)'Core Central Bandaic [cent2022]':1)'Central Bandaic [cent2021]':1,'Ngbundu [ngbu1241][nuu]-l-':1,((('Gbado [gbad1235]':1,'Kala [kala1382]':1)'Mbandja [mban1263][zmz]-l-':1,('Dakpa [dakp1243]':1,'Gbaga-Nord [gbag1254]':1,'Gbi [gbii1241]':1,'Vita [vita1238]':1,'Wojo [wojo1239]':1)'West Central Banda [west2458][bbp]-l-':1)'Central North West Bandaic [cent2423]':1,('Langbashe [lang1318][lna]-l-':1,('Langba [lang1317]':1,'Ngbugu [ngbu1242]':1)'South Central Banda [sout2787][lnl]-l-':1)'Ngbugu-Langbasi [sout2786]':1)'Southwest Bandaic [sout3415]':1)'Nuclear Bandaic [nucl1797]':1)'Bandaic [band1341]':1,('Ma {Democratic Republic of Congo} [made1252][msj]-l-':1,('Dongo [dong1290][doo]-l-':1,('Mba [mbaa1245][mfc]-l-':1,'Ndunga [ndun1249][ndt]-l-':1)'Ndunga-Mba [ndun1248]':1)'Ndunga-Mba-Dongo [ndun1247]':1)'Mbaic [mbai1246]':1,(((('Kopa {Bangba} [kopa1246]':1,'Tora {Bangba} [tora1258]':1)'Bangba [bang1345][bbe]-l-':1,('Madimadoko [madi1259]':1,'Madipia [madi1258]':1)'Mayogo [mayo1261][mdm]-l-':1)'Mayogo-Bangba [mayo1260]':1,('Shatt {Mundu} [shat1243]':1)'Mündü [mund1326][muh]-l-':1)'Eastern Mundu-Baka [east2391]':1,((('Baka {Cameroon} [baka1272][bkc]-l-':1,'Ganzi [ganz1247][gnz]-l-':1)'Baka complex [baka1278]':1,'Gundi [gund1247][gdi]-l-':1,'Limassa [lima1246][bme]-l-':1)'Baka-Gundi [baka1271]':1,(('Gilima [gili1241][gix]-l-':1,'Ngbaka Ma''bo [ngba1284][nbm]-l-':1)'Bwaka [bwak1244]':1,'Gbanziri-Boraka [gban1258][gbg]-l-':1,(('Kpala [kpal1241][kpl]-l-':1,'Yango [yang1289][yng]-l-':1)'Kpala-Bakpa [kpal1242]':1,'Monzombo [monz1249][moj]-l-':1)'Monzomboic [monz1253]':1)'River Western Mundu-Baka [rive1263]':1)'Western Mundu-Baka [west2836]':1)'Mundu-Baka [ngba1292]':1,(('Feroge [fero1244][fer]-l-':1,'Mangayat [mang1387][myj]-l-':1)'Feroge-Mangaya [fero1243]':1,(('Indri [indr1247][idr]-l-':1,'Togoyo [togo1252][tgy]-l-':1)'Indri-Togoyo [indr1246]':1,(('Bai [baii1251][bdj]-l-':1,'Belanda Viri [bela1255][bvi]-l-':1)'Bai-Viri [baiv1238]':1,'Ndogo [ndog1248][ndz]-l-':1,('Sere [sere1264][swf]-l-':1,'Tagbu [tagb1255][tbm]-l-':1)'Tagbu-Sere [tagb1264]':1)'Ndogoic [sere1263]':1)'Sere-Indri [sere1266]':1)'Sereic [sere1262]':1)'Ubangi Ka [uban1245]':1,(('Barambu [bara1361][brm]-l-':1,'Ngala-Santandrea [ngal1296]-l-':1,'Pambia [pamb1243][pmb]-l-':1)'Barambo-Pambia [bara1360]':1,(('Geme Kulagbolu [geme1245]':1,'Geme Tulu [geme1246]':1)'Geme [geme1244][geq]-l-':1,'Nzakara [nzak1247][nzk]-l-':1,('Dio [dioo1238]':1,'Makaraka [maka1301]':1)'Zande [zand1248][zne]-l-':1)'Zande-Nzakara [zand1247]':1)'Zandic [zand1246]':1)'Ubangi [uban1244]':1,('Oblo [oblo1238][obl]-l-':1)'Unclassified Cameroun-Ubangian [unun9906]':1)'Cameroun-Ubangian [came1255]':1`;
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 3b  –  GEOJSON
+════════════════════════════════════════════════════════════════ */
+const rawGeoJSON = {
+  "type": "FeatureCollection",
+  "properties": {
+    "layer": "came1255"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "Mbum",
+          "longitude": 14.2722,
+          "latitude": 7.5789,
+          "id": "mbum1254"
+        },
+        "name": "Mbum"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.2722,
+          7.5789
+        ]
+      },
+      "id": "mbum1254"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "To",
+          "longitude": 15.2819,
+          "latitude": 7.25936,
+          "id": "tooo1238"
+        },
+        "name": "To"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.2819,
+          7.25936
+        ]
+      },
+      "id": "tooo1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "Kuo",
+          "longitude": 15.4843,
+          "latitude": 7.97771,
+          "id": "kuoo1238"
+        },
+        "name": "Kuo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.4843,
+          7.97771
+        ]
+      },
+      "id": "kuoo1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "Ndai",
+          "longitude": 14.2888,
+          "latitude": 8.09039,
+          "id": "ndai1238"
+        },
+        "name": "Ndai"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.2888,
+          8.09039
+        ]
+      },
+      "id": "ndai1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "Dama (Cameroon)",
+          "longitude": 14.0597,
+          "latitude": 8.72207,
+          "id": "dama1267"
+        },
+        "name": "Dama (Cameroon)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.0597,
+          8.72207
+        ]
+      },
+      "id": "dama1267"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "Mambai",
+          "longitude": 14.0013,
+          "latitude": 9.6121,
+          "id": "mamb1294"
+        },
+        "name": "Mambai"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.0013,
+          9.6121
+        ]
+      },
+      "id": "mamb1294"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "Tupuri",
+          "longitude": 14.8697,
+          "latitude": 10.0144,
+          "id": "tupu1244"
+        },
+        "name": "Tupuri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.8697,
+          10.0144
+        ]
+      },
+      "id": "tupu1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "Karang",
+          "longitude": 15.2114,
+          "latitude": 8.01727,
+          "id": "kara1478"
+        },
+        "name": "Karang"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.2114,
+          8.01727
+        ]
+      },
+      "id": "kara1478"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "Nzakambay",
+          "longitude": 15.6675,
+          "latitude": 7.66745,
+          "id": "nzak1246"
+        },
+        "name": "Nzakambay"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.6675,
+          7.66745
+        ]
+      },
+      "id": "nzak1246"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "Mundang",
+          "longitude": 14.4751,
+          "latitude": 9.83195,
+          "id": "mund1325"
+        },
+        "name": "Mundang"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.4751,
+          9.83195
+        ]
+      },
+      "id": "mund1325"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "Pam (Cameroon)",
+          "longitude": 14.285,
+          "latitude": 7.97779,
+          "id": "pamm1242"
+        },
+        "name": "Pam (Cameroon)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.285,
+          7.97779
+        ]
+      },
+      "id": "pamm1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "Mono (Cameroon)",
+          "longitude": 14.2254,
+          "latitude": 8.78372,
+          "id": "mono1269"
+        },
+        "name": "Mono (Cameroon)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.2254,
+          8.78372
+        ]
+      },
+      "id": "mono1269"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "Pana (Central African Republic)",
+          "longitude": 15.64243,
+          "latitude": 7.10191,
+          "id": "pana1293"
+        },
+        "name": "Pana (Central African Republic)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.64243,
+          7.10191
+        ]
+      },
+      "id": "pana1293"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwRkZGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6638,
+        "language": {
+          "pk": 6638,
+          "name": "Kare (Central African Republic)",
+          "longitude": 15.2207,
+          "latitude": 7.05641,
+          "id": "kare1338"
+        },
+        "name": "Kare (Central African Republic)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          15.2207,
+          7.05641
+        ]
+      },
+      "id": "kare1338"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6640,
+        "language": {
+          "pk": 6640,
+          "name": "Baa",
+          "longitude": 11.4439,
+          "latitude": 9.42222,
+          "id": "kwaa1262"
+        },
+        "name": "Baa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.4439,
+          9.42222
+        ]
+      },
+      "id": "kwaa1262"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6634,
+        "language": {
+          "pk": 6634,
+          "name": "Mboi",
+          "longitude": 12.545,
+          "latitude": 9.86954,
+          "id": "mboi1246"
+        },
+        "name": "Mboi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.545,
+          9.86954
+        ]
+      },
+      "id": "mboi1246"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6634,
+        "language": {
+          "pk": 6634,
+          "name": "Kaan",
+          "longitude": 12.1508,
+          "latitude": 9.70781,
+          "id": "kaan1247"
+        },
+        "name": "Kaan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.1508,
+          9.70781
+        ]
+      },
+      "id": "kaan1247"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6634,
+        "language": {
+          "pk": 6634,
+          "name": "Lala-Roba",
+          "longitude": 12.169,
+          "latitude": 9.89429,
+          "id": "lala1261"
+        },
+        "name": "Lala-Roba"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.169,
+          9.89429
+        ]
+      },
+      "id": "lala1261"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6634,
+        "language": {
+          "pk": 6634,
+          "name": "Voro",
+          "longitude": 12.0719,
+          "latitude": 9.78323,
+          "id": "voro1240"
+        },
+        "name": "Voro"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.0719,
+          9.78323
+        ]
+      },
+      "id": "voro1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6634,
+        "language": {
+          "pk": 6634,
+          "name": "Bena (Nigeria)",
+          "longitude": 12.3972,
+          "latitude": 9.74861,
+          "id": "bena1260"
+        },
+        "name": "Bena (Nigeria)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.3972,
+          9.74861
+        ]
+      },
+      "id": "bena1260"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Duli-Gewe",
+          "longitude": 13.4232,
+          "latitude": 9.11241,
+          "id": "duli1241"
+        },
+        "name": "Duli-Gewe"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.4232,
+          9.11241
+        ]
+      },
+      "id": "duli1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Gengle-Kugama",
+          "longitude": 12.12947,
+          "latitude": 8.91972,
+          "id": "kuga1239"
+        },
+        "name": "Gengle-Kugama"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.12947,
+          8.91972
+        ]
+      },
+      "id": "kuga1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Kumba",
+          "longitude": 12.04155,
+          "latitude": 8.82122,
+          "id": "kumb1238"
+        },
+        "name": "Kumba"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.04155,
+          8.82122
+        ]
+      },
+      "id": "kumb1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Rang",
+          "longitude": 10.58,
+          "latitude": 8.001,
+          "id": "rang1269"
+        },
+        "name": "Rang"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          10.58,
+          8.001
+        ]
+      },
+      "id": "rang1269"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Pangseng",
+          "longitude": 11.196,
+          "latitude": 9.304,
+          "id": "pang1286"
+        },
+        "name": "Pangseng"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.196,
+          9.304
+        ]
+      },
+      "id": "pang1286"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Mumuye",
+          "longitude": 11.71545,
+          "latitude": 8.90347,
+          "id": "nucl1240"
+        },
+        "name": "Mumuye"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.71545,
+          8.90347
+        ]
+      },
+      "id": "nucl1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Peere",
+          "longitude": 12.2518,
+          "latitude": 7.82186,
+          "id": "peer1241"
+        },
+        "name": "Peere"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.2518,
+          7.82186
+        ]
+      },
+      "id": "peer1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Longto",
+          "longitude": 13.0568,
+          "latitude": 8.33313,
+          "id": "long1387"
+        },
+        "name": "Longto"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.0568,
+          8.33313
+        ]
+      },
+      "id": "long1387"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Nimbari",
+          "longitude": 13.8266,
+          "latitude": 9.67581,
+          "id": "nimb1256"
+        },
+        "name": "Nimbari"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.8266,
+          9.67581
+        ]
+      },
+      "id": "nimb1256"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Doyayo",
+          "longitude": 13.0768,
+          "latitude": 8.68604,
+          "id": "doya1240"
+        },
+        "name": "Doyayo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.0768,
+          8.68604
+        ]
+      },
+      "id": "doya1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Teme",
+          "longitude": 11.3894,
+          "latitude": 8.74437,
+          "id": "teme1252"
+        },
+        "name": "Teme"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.3894,
+          8.74437
+        ]
+      },
+      "id": "teme1252"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Yotti",
+          "longitude": 11.672759,
+          "latitude": 9.160993,
+          "id": "yott1234"
+        },
+        "name": "Yotti"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.672759,
+          9.160993
+        ]
+      },
+      "id": "yott1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Bali (Nigeria)",
+          "longitude": 11.2952,
+          "latitude": 8.81345,
+          "id": "bali1245"
+        },
+        "name": "Bali (Nigeria)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.2952,
+          8.81345
+        ]
+      },
+      "id": "bali1245"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Kpasam",
+          "longitude": 11.231,
+          "latitude": 8.75286,
+          "id": "kpas1242"
+        },
+        "name": "Kpasam"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.231,
+          8.75286
+        ]
+      },
+      "id": "kpas1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Duupa",
+          "longitude": 13.4544,
+          "latitude": 8.55031,
+          "id": "duup1238"
+        },
+        "name": "Duupa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.4544,
+          8.55031
+        ]
+      },
+      "id": "duup1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Dii",
+          "longitude": 13.9884,
+          "latitude": 7.77412,
+          "id": "diii1241"
+        },
+        "name": "Dii"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.9884,
+          7.77412
+        ]
+      },
+      "id": "diii1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Dugun",
+          "longitude": 13.3966,
+          "latitude": 8.38689,
+          "id": "dugu1248"
+        },
+        "name": "Dugun"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.3966,
+          8.38689
+        ]
+      },
+      "id": "dugu1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Kolbila",
+          "longitude": 13.2707,
+          "latitude": 8.26797,
+          "id": "kolb1240"
+        },
+        "name": "Kolbila"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.2707,
+          8.26797
+        ]
+      },
+      "id": "kolb1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Waka",
+          "longitude": 11.4932,
+          "latitude": 8.79968,
+          "id": "waka1275"
+        },
+        "name": "Waka"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.4932,
+          8.79968
+        ]
+      },
+      "id": "waka1275"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Yendang",
+          "longitude": 11.8,
+          "latitude": 9,
+          "id": "yend1241"
+        },
+        "name": "Yendang"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.8,
+          9
+        ]
+      },
+      "id": "yend1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Samba Leko",
+          "longitude": 11.7366,
+          "latitude": 8.19236,
+          "id": "samb1305"
+        },
+        "name": "Samba Leko"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.7366,
+          8.19236
+        ]
+      },
+      "id": "samb1305"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Gimme",
+          "longitude": 12.6658,
+          "latitude": 8.58084,
+          "id": "gimm1241"
+        },
+        "name": "Gimme"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.6658,
+          8.58084
+        ]
+      },
+      "id": "gimm1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Gimnime",
+          "longitude": 12.7869,
+          "latitude": 8.58129,
+          "id": "gimn1238"
+        },
+        "name": "Gimnime"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.7869,
+          8.58129
+        ]
+      },
+      "id": "gimn1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Koma Ndera",
+          "longitude": 12.7282,
+          "latitude": 8.70976,
+          "id": "koma1266"
+        },
+        "name": "Koma Ndera"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.7282,
+          8.70976
+        ]
+      },
+      "id": "koma1266"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Vere Kaadam",
+          "longitude": 12.416214,
+          "latitude": 9.006331,
+          "id": "vere1252"
+        },
+        "name": "Vere Kaadam"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.416214,
+          9.006331
+        ]
+      },
+      "id": "vere1252"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Mom Jango",
+          "longitude": 12.7473,
+          "latitude": 8.8658,
+          "id": "momj1237"
+        },
+        "name": "Mom Jango"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.7473,
+          8.8658
+        ]
+      },
+      "id": "momj1237"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Northern Alantika Vere",
+          "longitude": 12.850757,
+          "latitude": 8.829761,
+          "id": "nort3260"
+        },
+        "name": "Northern Alantika Vere"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.850757,
+          8.829761
+        ]
+      },
+      "id": "nort3260"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Wom (Nigeria)",
+          "longitude": 12.4533,
+          "latitude": 8.92708,
+          "id": "womn1235"
+        },
+        "name": "Wom (Nigeria)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          12.4533,
+          8.92708
+        ]
+      },
+      "id": "womn1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6635,
+        "language": {
+          "pk": 6635,
+          "name": "Nyong",
+          "longitude": 11.061485,
+          "latitude": 7.274185,
+          "id": "nyon1241"
+        },
+        "name": "Nyong"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.061485,
+          7.274185
+        ]
+      },
+      "id": "nyon1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8cGF0aCBkPSJNOCA4IEgzMiBWMzIgSDggVjgiIHN0eWxlPSJmaWxsOiMwMEZGMDA7c3Ryb2tlOmJsYWNrO3N0cm9rZS13aWR0aDoxcHg7c3Ryb2tlLWxpbmVjYXA6cm91bmQ7c3Ryb2tlLWxpbmVqb2luOnJvdW5kOyIvPgo8L3N2Zz4=",
+        "branch": 6636,
+        "language": {
+          "pk": 6636,
+          "name": "Oblo",
+          "longitude": 14.29,
+          "latitude": 8.18943,
+          "id": "oblo1238"
+        },
+        "name": "Oblo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          14.29,
+          8.18943
+        ]
+      },
+      "id": "oblo1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6639,
+        "language": {
+          "pk": 6639,
+          "name": "Tha",
+          "longitude": 11.1751,
+          "latitude": 9.21338,
+          "id": "thaa1239"
+        },
+        "name": "Tha"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.1751,
+          9.21338
+        ]
+      },
+      "id": "thaa1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6639,
+        "language": {
+          "pk": 6639,
+          "name": "Moo",
+          "longitude": 11.204,
+          "latitude": 9.44081,
+          "id": "mooo1239"
+        },
+        "name": "Moo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.204,
+          9.44081
+        ]
+      },
+      "id": "mooo1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6639,
+        "language": {
+          "pk": 6639,
+          "name": "Leelau",
+          "longitude": 11.1636,
+          "latitude": 9.29145,
+          "id": "leel1242"
+        },
+        "name": "Leelau"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.1636,
+          9.29145
+        ]
+      },
+      "id": "leel1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6639,
+        "language": {
+          "pk": 6639,
+          "name": "Kyak",
+          "longitude": 11.2785,
+          "latitude": 9.51524,
+          "id": "kyak1243"
+        },
+        "name": "Kyak"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.2785,
+          9.51524
+        ]
+      },
+      "id": "kyak1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6639,
+        "language": {
+          "pk": 6639,
+          "name": "Burak",
+          "longitude": 11.0698,
+          "latitude": 9.49451,
+          "id": "bura1271"
+        },
+        "name": "Burak"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.0698,
+          9.49451
+        ]
+      },
+      "id": "bura1271"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6639,
+        "language": {
+          "pk": 6639,
+          "name": "Loo",
+          "longitude": 11.0511,
+          "latitude": 9.4066,
+          "id": "looo1238"
+        },
+        "name": "Loo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.0511,
+          9.4066
+        ]
+      },
+      "id": "looo1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6639,
+        "language": {
+          "pk": 6639,
+          "name": "Mak (Nigeria)",
+          "longitude": 11.1337,
+          "latitude": 9.37299,
+          "id": "makn1235"
+        },
+        "name": "Mak (Nigeria)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.1337,
+          9.37299
+        ]
+      },
+      "id": "makn1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6639,
+        "language": {
+          "pk": 6639,
+          "name": "Mághdì",
+          "longitude": 11.0232,
+          "latitude": 9.2888,
+          "id": "magh1238"
+        },
+        "name": "Mághdì"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.0232,
+          9.2888
+        ]
+      },
+      "id": "magh1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6639,
+        "language": {
+          "pk": 6639,
+          "name": "Mingang Doso",
+          "longitude": 11.295,
+          "latitude": 9.25942,
+          "id": "ming1254"
+        },
+        "name": "Mingang Doso"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.295,
+          9.25942
+        ]
+      },
+      "id": "ming1254"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDBGRjtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6639,
+        "language": {
+          "pk": 6639,
+          "name": "Dza",
+          "longitude": 11.3884,
+          "latitude": 9.26671,
+          "id": "dzaa1238"
+        },
+        "name": "Dza"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          11.3884,
+          9.26671
+        ]
+      },
+      "id": "dzaa1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Mongoba-Kazibati",
+          "longitude": 29.5637,
+          "latitude": 2.80983,
+          "id": "mong1345"
+        },
+        "name": "Mongoba-Kazibati"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          29.5637,
+          2.80983
+        ]
+      },
+      "id": "mong1345"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Zande",
+          "longitude": 26.7157,
+          "latitude": 4.62047,
+          "id": "zand1248"
+        },
+        "name": "Zande"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          26.7157,
+          4.62047
+        ]
+      },
+      "id": "zand1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Geme",
+          "longitude": 20.6611,
+          "latitude": 8.48359,
+          "id": "geme1244"
+        },
+        "name": "Geme"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.6611,
+          8.48359
+        ]
+      },
+      "id": "geme1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Nzakara",
+          "longitude": 22.8254,
+          "latitude": 4.79567,
+          "id": "nzak1247"
+        },
+        "name": "Nzakara"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          22.8254,
+          4.79567
+        ]
+      },
+      "id": "nzak1247"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Pambia",
+          "longitude": 26.61,
+          "latitude": 3.739,
+          "id": "pamb1243"
+        },
+        "name": "Pambia"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          26.61,
+          3.739
+        ]
+      },
+      "id": "pamb1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Ngala-Santandrea",
+          "longitude": 24.61853,
+          "latitude": 6.63187,
+          "id": "ngal1296"
+        },
+        "name": "Ngala-Santandrea"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          24.61853,
+          6.63187
+        ]
+      },
+      "id": "ngal1296"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Barambu",
+          "longitude": 26.861,
+          "latitude": 3.34642,
+          "id": "bara1361"
+        },
+        "name": "Barambu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          26.861,
+          3.34642
+        ]
+      },
+      "id": "bara1361"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Ma (Democratic Republic of Congo)",
+          "longitude": 26.9939,
+          "latitude": 3.69351,
+          "id": "made1252"
+        },
+        "name": "Ma (Democratic Republic of Congo)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          26.9939,
+          3.69351
+        ]
+      },
+      "id": "made1252"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Golo",
+          "longitude": 26.85,
+          "latitude": 7.75,
+          "id": "golo1234"
+        },
+        "name": "Golo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          26.85,
+          7.75
+        ]
+      },
+      "id": "golo1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Gbayi",
+          "longitude": 21.9707,
+          "latitude": 5.57378,
+          "id": "gbay1278"
+        },
+        "name": "Gbayi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          21.9707,
+          5.57378
+        ]
+      },
+      "id": "gbay1278"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Dongo",
+          "longitude": 29.9619,
+          "latitude": 2.96683,
+          "id": "dong1290"
+        },
+        "name": "Dongo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          29.9619,
+          2.96683
+        ]
+      },
+      "id": "dong1290"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Ngbundu",
+          "longitude": 18.7183,
+          "latitude": 3.82245,
+          "id": "ngbu1241"
+        },
+        "name": "Ngbundu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          18.7183,
+          3.82245
+        ]
+      },
+      "id": "ngbu1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Mündü",
+          "longitude": 29.9967,
+          "latitude": 4.22755,
+          "id": "mund1326"
+        },
+        "name": "Mündü"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          29.9967,
+          4.22755
+        ]
+      },
+      "id": "mund1326"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Mangayat",
+          "longitude": 25.9024,
+          "latitude": 8.38023,
+          "id": "mang1387"
+        },
+        "name": "Mangayat"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          25.9024,
+          8.38023
+        ]
+      },
+      "id": "mang1387"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Feroge",
+          "longitude": 25.7171,
+          "latitude": 8.61612,
+          "id": "fero1244"
+        },
+        "name": "Feroge"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          25.7171,
+          8.61612
+        ]
+      },
+      "id": "fero1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Northern Ngbandi",
+          "longitude": 21.85251,
+          "latitude": 3.56357,
+          "id": "nort2774"
+        },
+        "name": "Northern Ngbandi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          21.85251,
+          3.56357
+        ]
+      },
+      "id": "nort2774"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Southern Ngbandi",
+          "longitude": 19.5939,
+          "latitude": 2.5414,
+          "id": "sout2784"
+        },
+        "name": "Southern Ngbandi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          19.5939,
+          2.5414
+        ]
+      },
+      "id": "sout2784"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Mbangi",
+          "longitude": 22.06451,
+          "latitude": 4.69967,
+          "id": "mban1262"
+        },
+        "name": "Mbangi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          22.06451,
+          4.69967
+        ]
+      },
+      "id": "mban1262"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Yakoma",
+          "longitude": 22.1702,
+          "latitude": 4.1651,
+          "id": "yako1252"
+        },
+        "name": "Yakoma"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          22.1702,
+          4.1651
+        ]
+      },
+      "id": "yako1252"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Dendi (Central African Republic)",
+          "longitude": 22.566,
+          "latitude": 4.48146,
+          "id": "dend1242"
+        },
+        "name": "Dendi (Central African Republic)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          22.566,
+          4.48146
+        ]
+      },
+      "id": "dend1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Ndunga",
+          "longitude": 21.5755,
+          "latitude": 2.3886,
+          "id": "ndun1249"
+        },
+        "name": "Ndunga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          21.5755,
+          2.3886
+        ]
+      },
+      "id": "ndun1249"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Mba",
+          "longitude": 25.143,
+          "latitude": 1.06885,
+          "id": "mbaa1245"
+        },
+        "name": "Mba"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          25.143,
+          1.06885
+        ]
+      },
+      "id": "mbaa1245"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Banda-Yangere",
+          "longitude": 16.5907,
+          "latitude": 3.95763,
+          "id": "band1348"
+        },
+        "name": "Banda-Yangere"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          16.5907,
+          3.95763
+        ]
+      },
+      "id": "band1348"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Gundi",
+          "longitude": 17.30096,
+          "latitude": 3.68861,
+          "id": "gund1247"
+        },
+        "name": "Gundi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          17.30096,
+          3.68861
+        ]
+      },
+      "id": "gund1247"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Limassa",
+          "longitude": 16.1874,
+          "latitude": 2.26808,
+          "id": "lima1246"
+        },
+        "name": "Limassa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          16.1874,
+          2.26808
+        ]
+      },
+      "id": "lima1246"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Gbanziri-Boraka",
+          "longitude": 20.2609,
+          "latitude": 4.68467,
+          "id": "gban1258"
+        },
+        "name": "Gbanziri-Boraka"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.2609,
+          4.68467
+        ]
+      },
+      "id": "gban1258"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Mayogo",
+          "longitude": 27.8282,
+          "latitude": 2.79827,
+          "id": "mayo1261"
+        },
+        "name": "Mayogo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          27.8282,
+          2.79827
+        ]
+      },
+      "id": "mayo1261"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Bangba",
+          "longitude": 28.3138,
+          "latitude": 3.39956,
+          "id": "bang1345"
+        },
+        "name": "Bangba"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          28.3138,
+          3.39956
+        ]
+      },
+      "id": "bang1345"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Togoyo",
+          "longitude": 25.9756,
+          "latitude": 8.6629,
+          "id": "togo1252"
+        },
+        "name": "Togoyo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          25.9756,
+          8.6629
+        ]
+      },
+      "id": "togo1252"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Indri",
+          "longitude": 25.9848,
+          "latitude": 8.81513,
+          "id": "indr1247"
+        },
+        "name": "Indri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          25.9848,
+          8.81513
+        ]
+      },
+      "id": "indr1247"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Ndogo",
+          "longitude": 27.5588,
+          "latitude": 7.73028,
+          "id": "ndog1248"
+        },
+        "name": "Ndogo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          27.5588,
+          7.73028
+        ]
+      },
+      "id": "ndog1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Sango",
+          "longitude": 20.1702,
+          "latitude": 6.78584,
+          "id": "sang1328"
+        },
+        "name": "Sango"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.1702,
+          6.78584
+        ]
+      },
+      "id": "sang1328"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Riverain Sango",
+          "longitude": 21.1733,
+          "latitude": 4.32811,
+          "id": "rive1257"
+        },
+        "name": "Riverain Sango"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          21.1733,
+          4.32811
+        ]
+      },
+      "id": "rive1257"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Mbandja",
+          "longitude": 19.4455,
+          "latitude": 3.98003,
+          "id": "mban1263"
+        },
+        "name": "Mbandja"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          19.4455,
+          3.98003
+        ]
+      },
+      "id": "mban1263"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "West Central Banda",
+          "longitude": 24.1012,
+          "latitude": 6.81435,
+          "id": "west2458"
+        },
+        "name": "West Central Banda"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          24.1012,
+          6.81435
+        ]
+      },
+      "id": "west2458"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Langbashe",
+          "longitude": 20.109,
+          "latitude": 4.87523,
+          "id": "lang1318"
+        },
+        "name": "Langbashe"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.109,
+          4.87523
+        ]
+      },
+      "id": "lang1318"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "South Central Banda",
+          "longitude": 21.051,
+          "latitude": 2.94113,
+          "id": "sout2787"
+        },
+        "name": "South Central Banda"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          21.051,
+          2.94113
+        ]
+      },
+      "id": "sout2787"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Banda-Ndélé",
+          "longitude": 23.9021,
+          "latitude": 8.03339,
+          "id": "band1345"
+        },
+        "name": "Banda-Ndélé"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          23.9021,
+          8.03339
+        ]
+      },
+      "id": "band1345"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Togbo-Vara Banda",
+          "longitude": 22.7362,
+          "latitude": 6.35815,
+          "id": "togb1241"
+        },
+        "name": "Togbo-Vara Banda"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          22.7362,
+          6.35815
+        ]
+      },
+      "id": "togb1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Mono (Democratic Republic of Congo)",
+          "longitude": 19.8264,
+          "latitude": 4.57915,
+          "id": "mono1270"
+        },
+        "name": "Mono (Democratic Republic of Congo)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          19.8264,
+          4.57915
+        ]
+      },
+      "id": "mono1270"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Banda-Mbrès",
+          "longitude": 23.0108,
+          "latitude": 7.32924,
+          "id": "band1342"
+        },
+        "name": "Banda-Mbrès"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          23.0108,
+          7.32924
+        ]
+      },
+      "id": "band1342"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Ganzi",
+          "longitude": 19.347,
+          "latitude": 6.544,
+          "id": "ganz1247"
+        },
+        "name": "Ganzi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          19.347,
+          6.544
+        ]
+      },
+      "id": "ganz1247"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Baka (Cameroon)",
+          "longitude": 13.7804,
+          "latitude": 2.16013,
+          "id": "baka1272"
+        },
+        "name": "Baka (Cameroon)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          13.7804,
+          2.16013
+        ]
+      },
+      "id": "baka1272"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Gilima",
+          "longitude": 19.0091,
+          "latitude": 4.5585,
+          "id": "gili1241"
+        },
+        "name": "Gilima"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          19.0091,
+          4.5585
+        ]
+      },
+      "id": "gili1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Ngbaka Ma'bo",
+          "longitude": 18.12,
+          "latitude": 4,
+          "id": "ngba1284"
+        },
+        "name": "Ngbaka Ma'bo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          18.12,
+          4
+        ]
+      },
+      "id": "ngba1284"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Monzombo",
+          "longitude": 18.5129,
+          "latitude": 3.19008,
+          "id": "monz1249"
+        },
+        "name": "Monzombo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          18.5129,
+          3.19008
+        ]
+      },
+      "id": "monz1249"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Bai",
+          "longitude": 26.48246,
+          "latitude": 7.57221,
+          "id": "baii1251"
+        },
+        "name": "Bai"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          26.48246,
+          7.57221
+        ]
+      },
+      "id": "baii1251"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Belanda Viri",
+          "longitude": 27.6956,
+          "latitude": 7.41311,
+          "id": "bela1255"
+        },
+        "name": "Belanda Viri"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          27.6956,
+          7.41311
+        ]
+      },
+      "id": "bela1255"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Sere",
+          "longitude": 27.4688,
+          "latitude": 4.71127,
+          "id": "sere1264"
+        },
+        "name": "Sere"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          27.4688,
+          4.71127
+        ]
+      },
+      "id": "sere1264"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Tagbu",
+          "longitude": 27.71,
+          "latitude": 7.76,
+          "id": "tagb1255"
+        },
+        "name": "Tagbu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          27.71,
+          7.76
+        ]
+      },
+      "id": "tagb1255"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Banda-Bambari",
+          "longitude": 20.9827,
+          "latitude": 6.21563,
+          "id": "band1344"
+        },
+        "name": "Banda-Bambari"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.9827,
+          6.21563
+        ]
+      },
+      "id": "band1344"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Gobu",
+          "longitude": 20.0194,
+          "latitude": 5.01201,
+          "id": "gobu1238"
+        },
+        "name": "Gobu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.0194,
+          5.01201
+        ]
+      },
+      "id": "gobu1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Banda-Banda",
+          "longitude": 22.7568,
+          "latitude": 6.63889,
+          "id": "band1343"
+        },
+        "name": "Banda-Banda"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          22.7568,
+          6.63889
+        ]
+      },
+      "id": "band1343"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Mid-Southern Banda",
+          "longitude": 22.4666,
+          "latitude": 5.87893,
+          "id": "mids1243"
+        },
+        "name": "Mid-Southern Banda"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          22.4666,
+          5.87893
+        ]
+      },
+      "id": "mids1243"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Ngundu",
+          "longitude": 20.4218,
+          "latitude": 4.88628,
+          "id": "ngun1266"
+        },
+        "name": "Ngundu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.4218,
+          4.88628
+        ]
+      },
+      "id": "ngun1266"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Kpagua",
+          "longitude": 20.1584,
+          "latitude": 4.96154,
+          "id": "kpag1238"
+        },
+        "name": "Kpagua"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.1584,
+          4.96154
+        ]
+      },
+      "id": "kpag1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Kpala",
+          "longitude": 20.3108,
+          "latitude": 4.51093,
+          "id": "kpal1241"
+        },
+        "name": "Kpala"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          20.3108,
+          4.51093
+        ]
+      },
+      "id": "kpal1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6IzAwMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 6637,
+        "language": {
+          "pk": 6637,
+          "name": "Yango",
+          "longitude": 19.0108,
+          "latitude": 2.81523,
+          "id": "yang1289"
+        },
+        "name": "Yango"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          19.0108,
+          2.81523
+        ]
+      },
+      "id": "yang1289"
+    }
+  ]
+};
+
+/* ════════════════════════════════════════════════════════════════
+   AB HIER NICHTS MEHR ÄNDERN
+════════════════════════════════════════════════════════════════ */
+
+/* ── Farb-Palette ── */
+const _PALETTE = [
+  "#7ec8c8","#c87868","#a0b878","#787ec8",
+  "#c87898","#88b8a0","#c8b878","#b878c8",
+  "#78b8c8","#c8a878","#98c878","#c87848"
+];
+let _autoColorMap = {};
+
+function _buildColorMap(root) {
+  _autoColorMap = {};
+  if (!root) return;
+  _autoColorMap[root.id] = "#c8973a";
+  (root.children || []).forEach((g, i) =>
+    _assignCol(g, _PALETTE[i % _PALETTE.length])
+  );
+}
+function _assignCol(node, col) {
+  _autoColorMap[node.id] = col;
+  if (node.children) node.children.forEach(c => _assignCol(c, col));
+}
+
+/* ── Auto-Länder via Nominatim ── */
+const _autoCountry = {};
+const _geocodeDone = new Set();
+
+function _flagFromCode(cc) {
+  if (!cc || cc.length !== 2) return '';
+  return [...cc.toUpperCase()].map(c =>
+    String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))
+  ).join('');
+}
+
+async function _geocodeLang(id, lat, lon) {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=de`,
+      { headers: { 'User-Agent': 'SprachfamilienAtlas/4.0' } }
+    );
+    if (!r.ok) return;
+    const j    = await r.json();
+    const addr = j.address || {};
+    const cc   = (addr.country_code || '').toUpperCase();
+    const name = addr.country || '';
+    const reg  = addr.state || addr.province || addr.region || '';
+    if (cc && name) _autoCountry[id] = [{ flag: _flagFromCode(cc), name, region: reg }];
+  } catch(e) { /* silent */ } finally {
+    _geocodeDone.add(id);
+    if (selNode && selNode.data.id === id) showPanel(selNode);
+  }
+}
+
+function _startGeocoding() {
+  geoData.forEach((lang, i) => {
+    if (!countryData[lang.id])
+      setTimeout(() => _geocodeLang(lang.id, lang.lat, lang.lon), i * 1200);
+    else
+      _geocodeDone.add(lang.id);
+  });
+}
+
+function _getCountries(d) {
+  const id = d.data.id;
+  if (countryData[id]) return countryData[id];
+  if (_autoCountry[id]) return _autoCountry[id];
+  const seen = new Set(), res = [];
+  function collect(node) {
+    (_autoCountry[node.id] || []).forEach(e => {
+      if (!seen.has(e.name)) { seen.add(e.name); res.push({ flag: e.flag, name: e.name, region: '' }); }
+    });
+    if (node.children) node.children.forEach(collect);
+  }
+  collect(d.data);
+  return res.length ? res : null;
+}
+
+function _isPending(d) {
+  const id = d.data.id;
+  if (countryData[id] || _geocodeDone.has(id)) return false;
+  function hasCoord(node) {
+    if (_geocodeDone.has(node.id)) return false;
+    if (node.lat != null) return true;
+    return (node.children || []).some(hasCoord);
+  }
+  return hasCoord(d.data);
+}
+
+/* ── Hilfsfunktionen ── */
+function getDisplayName(id, fallback) { return nameTranslations[id] || fallback || id; }
+
+function colorByGroup(id) {
+  for (const g of mapLegendGroups)
+    if (g.ids && g.ids.includes(id)) return g.color;
+  return _autoColorMap[id] || "#c8973a";
+}
+
+const NODE_COLORS = { family:"#c8973a", language:"#7ec8c8", subgroup:"#c87868", dialect:"#a0b878" };
+function nodeRadius(type, fontSize) {
+  // Punkt-Radius proportional zur Schriftgröße
+  const base = { family: 9, language: 7, subgroup: 6, dialect: 5 };
+  const b = base[type] || 5;
+  return Math.max(3, Math.round(b * fontSize / 11));
+}
+function typeName(t) {
+  return { family:"Sprachfamilie", language:"Sprache", subgroup:"Untergruppe", dialect:"Dialekt / Varietät" }[t] || t;
+}
+
+/* ── Newick-Parser ── */
+function parseNewick(s) {
+  s = s.trim().replace(/;$/, '');
+  function parseNode(pos) {
+    const node = { children: [] };
+    if (s[pos] === '(') {
+      pos++;
+      while (pos < s.length) {
+        const r = parseNode(pos); node.children.push(r.node); pos = r.pos;
+        if (s[pos] === ',') { pos++; continue; }
+        if (s[pos] === ')') { pos++; break; }
+      }
+    }
+    let label = '';
+   if (s[pos] === "'") { pos++; while (pos < s.length && s[pos] !== "'") label += s[pos++]; pos++;
+  while (pos < s.length && !/[,);:]/.test(s[pos])) label += s[pos++];
+}
+    else { while (pos < s.length && !/[,);:(]/.test(s[pos])) label += s[pos++]; }
+    if (s[pos] === ':') { pos++; while (pos < s.length && /[0-9.eE+\-]/.test(s[pos])) pos++; }
+    node.rawLabel = label.trim();
+    return { node, pos };
+  }
+  function parseLabel(raw) {
+    if (!raw) return { id:'unknown', nameOrig:'Unknown', iso:null, isLanguage:false };
+    const isLang = raw.includes('-l-');
+    const clean  = raw.replace(/-l-/g,'').trim();
+    const isoM   = clean.match(/\[([a-z]{3})\]\s*$/);
+    const glotMs = clean.match(/\[([a-z]+\d{4})\]/g);
+    const gid    = glotMs ? glotMs[0].replace(/[\[\]]/g,'') : null;
+  const nm = clean.replace(/\[[^\]]*\]/g,'').replace(/\{[^}]*\}/g,'').replace(/-f-/g,'').replace(/-lnk-/g,'').trim();
+   const isLink = raw.includes('-lnk-');
+const urlM   = raw.match(/\{([^}]+)\}/);
+const url    = isLink && urlM ? urlM[1] : null;
+return { id: gid || nm.toLowerCase().replace(/\s+/g,'_'), nameOrig: nm, iso: isoM ? isoM[1] : null, isLanguage: isLang, isLink, url };
+  }
+  function build(raw, depth) {
+  const { id, nameOrig, iso, isLanguage, isLink, url } = parseLabel(raw.rawLabel);
+    let type;
+    if      (depth === 0)                                type = 'family';
+    else if (isLanguage)                                 type = 'language';
+    else if (raw.children && raw.children.length > 0)   type = depth === 1 ? 'family' : 'subgroup';
+    else if (raw.rawLabel && raw.rawLabel.includes('-f-')) type = 'subgroup';
+    else                                                   type = 'dialect';   const node = { id, nameOrig, type, iso: iso||null, lat:null, lon:null, name: getDisplayName(id, nameOrig), isLink: isLink||false, url: url||null };
+    if (raw.children && raw.children.length > 0)
+      node.children = raw.children.map(c => build(c, depth + 1));
+    return node;
+  }
+  return build(parseNode(0).node, 0);
+}
+
+/* ── GeoJSON → internes Format ── */
+function geoJSONtoGeoData(geo) {
+  if (!geo || !geo.features) return [];
+  return geo.features.map(f => {
+    const lang = f.properties?.language || {};
+    const id   = f.id || lang.id || '';
+    const lat  = lang.latitude  ?? f.geometry?.coordinates?.[1] ?? null;
+    const lon  = lang.longitude ?? f.geometry?.coordinates?.[0] ?? null;
+    const raw  = lang.name || f.properties?.name || id;
+    return { id, name: getDisplayName(id, raw), nameOrig: raw, lat, lon, color: colorByGroup(id) };
+  }).filter(d => d.lat != null && d.lon != null);
+}
+
+function enrichCoords(node, map) {
+  if (map[node.id]) { node.lat = map[node.id].lat; node.lon = map[node.id].lon; }
+  if (node.children) node.children.forEach(c => enrichCoords(c, map));
+}
+
+/* ── Legende aufbauen ── */
+function _buildLegend() {
+  const el = document.getElementById('map-legend-items');
+  el.innerHTML = '';
+  const hasManual = mapLegendGroups.some(g => g.ids && g.ids.length > 0);
+  const source = hasManual
+    ? mapLegendGroups.map(g => ({ name: g.label, col: g.color }))
+    : (treeData && treeData.children
+        ? treeData.children.map((g, i) => ({ name: g.name, col: _PALETTE[i % _PALETTE.length] }))
+        : []);
+  source.forEach(s => {
+    const d = document.createElement('div'); d.className = 'ov-item';
+    d.innerHTML = `<div class="ov-dot" style="background:${s.col}"></div>${s.name}`;
+    el.appendChild(d);
+  });
+}
+
+/* ── Daten initialisieren ── */
+let treeData = null, geoData = [];
+
+function initData() {
+  try { treeData = parseNewick(rawNewick); }
+  catch(e) { console.error('Newick-Fehler:', e); return; }
+
+  _buildColorMap(treeData);
+  geoData = geoJSONtoGeoData(rawGeoJSON);
+  const cm = {};
+  geoData.forEach(d => { cm[d.id] = d; });
+  enrichCoords(treeData, cm);
+
+  document.getElementById('nav-glyph').textContent = familyGlyph;
+  const title = treeData ? getDisplayName(treeData.id, treeData.nameOrig) : 'Sprachfamilien-Atlas';
+  document.getElementById('nav-title-main').textContent = title;
+  document.title = title + ' – Atlas';
+  document.getElementById('chip-fam').textContent = familyMeta.families  + ' Familien';
+  document.getElementById('chip-lan').textContent = familyMeta.languages + ' Sprachen';
+  document.getElementById('chip-dia').textContent = familyMeta.dialects  + ' Dialekte';
+
+  _buildLegend();
+  _startGeocoding();
+}
+
+/* ── View umschalten ── */
+let mapReady = false;
+function switchView(id) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.view === id));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('visible', v.id === 'view-' + id));
+  if (id === 'map' && !mapReady) { initMap(); mapReady = true; }
+  if (id === 'tree') setTimeout(() => { if (rootNode) drawTree(rootNode); }, 80);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   D3 STAMMBAUM mit DRAG & DROP & DYNAMISCHEN LINIEN
+════════════════════════════════════════════════════════════════ */
+let svgSel, gSel, rootNode, zoomBeh;
+let currentZoom  = d3.zoomIdentity;
+let selNode      = null;
+let currentFontSize = 11;
+let _searchTimer = null;
+let _sliderTimer = null;
+let draggedNode  = null;
+let dragOffsets  = null;
+let textBboxes   = []; // Speichert Text-Positionen für Masking
+
+/* Spacing: automatisch aus Schriftgröße berechnen */
+function spacingFromFont(fs) {
+  return Math.round(fs * 2.4);
+}
+
+/* Textopazität – immer sichtbar */
+function getTextOpacity(d) {
+  if (d._searchMatch) return 1;
+  return 1;
+}
+
+function getTextFill(d) {
+  if (d._searchMatch) return '#f0c060';
+  if (d.depth === 0)  return '#f5d070';
+  if (d.data.type === 'family')   return '#e0b860';
+  if (d.data.type === 'language') return '#b0e0e0';
+  if (d.data.type === 'subgroup') return '#e0a898';
+  return '#c8c0a0';
+}
+
+function countTreeLeaves(node) {
+  if (!node.children || !node.children.length) return 1;
+  return node.children.reduce((s, c) => s + countTreeLeaves(c), 0);
+}
+
+function syncFontUI(val) {
+  const sl = document.getElementById('fontsize-sl');
+  const sv = document.getElementById('fs-val');
+  if (sl) sl.value = Math.round(val);
+  if (sv) sv.textContent = Math.round(val) + ' px';
+}
+
+function onFontsizeChange(v) {
+  currentFontSize = +v;
+  document.getElementById('fs-val').textContent = v + ' px';
+  clearTimeout(_sliderTimer);
+  _sliderTimer = setTimeout(() => { if (rootNode) drawTree(rootNode); }, 60);
+}
+
+/* Baum initialisieren */
+function initTree() {
+  svgSel = d3.select('#tree-svg');
+  gSel   = d3.select('#tree-g');
+
+  zoomBeh = d3.zoom().scaleExtent([0.02, 8]).on('zoom', ev => {
+    currentZoom = ev.transform;
+    gSel.attr('transform', currentZoom);
+    document.getElementById('zoom-info').textContent = Math.round(currentZoom.k * 100) + '%';
+    updateLineDynamics();
+  });
+  svgSel.call(zoomBeh);
+
+  if (!treeData) return;
+  rootNode = d3.hierarchy(treeData);
+
+  const total = countTreeLeaves(treeData);
+  const collapseFrom = total <= 25 ? 99 : total <= 80 ? 2 : 1;
+  rootNode.descendants().forEach((d, i) => {
+    d._uid = i; d._searchMatch = false;
+    if (d.depth >= collapseFrom && d.children) { d._ch = d.children; d.children = null; }
+  });
+
+  currentFontSize = 11;
+  syncFontUI(currentFontSize);
+  drawTree(rootNode);
+  setTimeout(() => fitView(false), 120);
+}
+
+/* Radialer Fächer-Layout-Algorithmus */
+function computeFanLayout(root, canvasW, canvasH, fontSize) {
+  const maxLabelLen = 18;
+  const charW = fontSize * 0.62;
+  const levelGap = Math.max(fontSize * 2.2 + maxLabelLen * charW * 0.5, 140);
+
+  let maxDepth = 0;
+  root.each(d => { if (d.depth > maxDepth) maxDepth = d.depth; });
+
+  root.each(d => {
+    d.y = d.depth * levelGap;
+  });
+
+  function countLeaves(node) {
+    if (!node.children || node.children.length === 0) return 1;
+    return node.children.reduce((s, c) => s + countLeaves(c), 0);
+  }
+
+  const leafSpacing = Math.max(fontSize * 2.0, 18);
+  const totalLeaves = countLeaves(root);
+
+  let leafIndex = 0;
+  function assignX(node) {
+    if (!node.children || node.children.length === 0) {
+      node.x = leafIndex * leafSpacing;
+      leafIndex++;
+      return;
+    }
+    node.children.forEach(c => assignX(c));
+    const first = node.children[0].x;
+    const last  = node.children[node.children.length - 1].x;
+    node.x = (first + last) / 2;
+  }
+  assignX(root);
+
+  const minX = Math.min(...root.descendants().map(d => d.x));
+  const maxX = Math.max(...root.descendants().map(d => d.x));
+  const offsetX = (canvasH / 2) - (minX + maxX) / 2;
+  root.each(d => { d.x += offsetX; });
+
+   return { levelGap };
+}
+
+/* Dynamische Liniendicke basierend auf Zoom */
+function calculateStrokeWidth(baseWidth = 3) {
+  if (!currentZoom) return baseWidth;
+  const zoomFactor = currentZoom.k || 1;
+  return Math.max(0.8, baseWidth / (zoomFactor * 0.8));
+}
+
+function updateLineDynamics() {
+  if (!gSel) return;
+  const sw = calculateStrokeWidth(3);
+  gSel.selectAll('path.link').style('stroke-width', sw + 'px');
+}
+
+/* Erfasse Text-Positionen für Clipping */
+function captureTextBboxes() {
+  textBboxes = [];
+  gSel.selectAll('g.node text').each(function(d) {
+    try {
+      const bbox = this.getBBox();
+      const transform = d3.select(this.parentNode).attr('transform');
+      const match = transform ? transform.match(/translate\(([-\d.]+),([-\d.]+)\)/) : null;
+      if (match) {
+        const tx = parseFloat(match[1]);
+        const ty = parseFloat(match[2]);
+        textBboxes.push({
+          x: tx + bbox.x,
+          y: ty + bbox.y,
+          width: bbox.width,
+          height: bbox.height,
+          padding: Math.max(3, currentFontSize * 0.4)
+        });
+      }
+    } catch(e) { /* ignore */ }
+  });
+}
+
+/* Prüfe ob Punkt in Text-Zone liegt */
+function isInTextZone(x, y) {
+  return textBboxes.some(box => 
+    x >= box.x - box.padding && 
+    x <= box.x + box.width + box.padding &&
+    y >= box.y - box.padding && 
+    y <= box.y + box.height + box.padding
+  );
+}
+
+/* Splitte Linie um Text zu vermeiden - nutzt Dashing statt echtem Clipping */
+function applyTextClipping() {
+  gSel.selectAll('path.link').style('stroke-dasharray', null);
+}
+
+/* Baum zeichnen */
+function drawTree(src) {
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const fs = currentFontSize;
+
+  computeFanLayout(rootNode, canvasW, canvasH, fs);
+
+  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+  const dur  = 320;
+
+  /* Links */
+  const link = gSel.selectAll('path.link').data(rootNode.links(), d => d.target._uid);
+  const linkE = link.enter().append('path').attr('class','link')
+    .attr('d', () => {
+      const o = { x: src.x0 ?? 0, y: src.y0 ?? 0 };
+      return diag({ source: o, target: o });
+    });
+  linkE.merge(link).transition().duration(dur)
+    .attr('d', diag)
+    .style('stroke', d => {
+      const col = NODE_COLORS[d.source.data.type] || '#c8973a';
+      return d.source.depth === 0 ? col + '55' : col + '30';
+    })
+    .style('stroke-width', () => calculateStrokeWidth(3) + 'px');
+  link.exit().transition().duration(dur)
+    .attr('d', () => {
+      const o = { x: src.x, y: src.y };
+      return diag({ source: o, target: o });
+    }).remove();
+
+  /* Nodes */
+  const node = gSel.selectAll('g.node').data(rootNode.descendants(), d => d._uid);
+  const enter = node.enter().append('g').attr('class','node')
+    .attr('transform', () => `translate(${src.y0 ?? 0},${src.x0 ?? 0})`)
+    .style('cursor','pointer')
+   .on('click', (ev, d) => {
+  ev.stopPropagation();
+ if (d.data.isLink && d.data.url) { window.location.href = d.data.url; return; }
+  if (miniMap) { try { miniMap.remove(); } catch(e) {} miniMap = null; miniMarker = null; }
+  toggle(d);
+  showPanel(d);
+})
+enter.filter(d => d.data.isLink)
+  .append('title')
+  .text(d => `→ Zu ${d.data.nameOrig}`);
+
+  enter.append('circle').attr('class','halo')
+    .attr('r', d => nodeRadius(d.data.type, fs) + 5)
+    .style('fill', d => (NODE_COLORS[d.data.type] || '#c8973a') + '18')
+    .style('stroke','none');
+  enter.append('circle').attr('r', 0)
+    .style('fill',   d => d._ch
+      ? (NODE_COLORS[d.data.type] || '#7ec8c8') + '55'
+      : (NODE_COLORS[d.data.type] || '#7ec8c8'))
+    .style('stroke', d => d._searchMatch
+      ? '#f0c060'
+      : (NODE_COLORS[d.data.type] || '#c8973a'));
+  enter.append('text').attr('dy','0.35em');
+
+  const merged = enter.merge(node);
+  merged.transition().duration(dur)
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+
+  merged.select('circle.halo').transition().duration(dur)
+    .attr('r', d => nodeRadius(d.data.type, fs) + 5);
+
+  merged.select('circle:not(.halo)').transition().duration(dur)
+    .attr('r', d => nodeRadius(d.data.type, fs))
+    .style('fill', d => d._ch
+      ? (NODE_COLORS[d.data.type] || '#7ec8c8') + '55'
+      : (NODE_COLORS[d.data.type] || '#7ec8c8'))
+    .style('stroke', d => d._searchMatch
+      ? '#f0c060'
+      : (NODE_COLORS[d.data.type] || '#c8973a'))
+    .style('stroke-width', d =>
+      d._searchMatch ? '3px' : (d === selNode ? '3px' : '1.5px'));
+
+  merged.select('text').transition().duration(dur)
+    .attr('x', d => {
+      const r = nodeRadius(d.data.type, fs);
+      return (d.children || d._ch) ? -(r + 6) : (r + 6);
+    })
+    .attr('text-anchor', d => (d.children || d._ch) ? 'end' : 'start')
+    .style('font-size', d => {
+      if (d.depth === 0)                return Math.round(fs * 1.2) + 'px';
+      if (d.data.type === 'family')     return Math.round(fs * 1.1) + 'px';
+      if (d.data.type === 'dialect')    return Math.round(fs * 0.88) + 'px';
+      return fs + 'px';
+    })
+    .text(d => {
+      const n  = d.data.name;
+      const mx = d.depth === 0 ? 40 : d.depth <= 2 ? 32 : 26;
+      return n.length > mx ? n.slice(0, mx - 1) + '…' : n;
+    })
+    .style('fill', d => getTextFill(d))
+    .attr('opacity', 1);
+
+  merged.classed('sel', d => selNode && d.data.id === selNode.data.id);
+
+  /* DRAG BEHAVIOR */
+  merged.call(d3.drag()
+    .on('start', dragStarted)
+    .on('drag', dragging)
+    .on('end', dragEnded));
+
+  node.exit().transition().duration(dur)
+    .attr('transform', `translate(${src.y},${src.x})`).remove();
+
+  rootNode.descendants().forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+  
+  /* Text-Clipping nach Render */
+  setTimeout(() => {
+    captureTextBboxes();
+    applyTextClipping();
+  }, dur + 50);
+}
+
+/* DRAG FUNKTIONEN */
+function dragStarted(event, d) {
+  draggedNode = d;
+  dragOffsets = new Map();
+  
+  function collectOffsets(node, baseX, baseY) {
+    dragOffsets.set(node._uid, { x: node.x - baseX, y: node.y - baseY });
+    if (node.children) {
+      node.children.forEach(c => collectOffsets(c, baseX, baseY));
+    }
+  }
+  
+  collectOffsets(d, d.x, d.y);
+  d3.select(this).classed('dragging', true);
+  d3.select(this).select('circle:not(.halo)').style('filter', 'drop-shadow(0 0 8px rgba(240,192,96,.6))');
+}
+
+function dragging(event, d) {
+  if (!draggedNode || !dragOffsets) return;
+  
+  const dx = event.dx / currentZoom.k;
+  const dy = event.dy / currentZoom.k;
+  
+  dragOffsets.forEach((offset, uid) => {
+    const node = rootNode.descendants().find(n => n._uid === uid);
+    if (node) {
+      node.x += dy;
+      node.y += dx;
+    }
+  });
+  
+  // OPTIMIERUNG: Nur direkt die Knoten verschieben, nicht neu zeichnen!
+  // Das macht Drag & Drop 10x flüssiger
+  gSel.selectAll('g.node').transition().duration(0)
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+  
+  // Auch Links updaten
+  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+  gSel.selectAll('path.link').transition().duration(0)
+    .attr('d', diag);
+}
+
+function dragEnded(event, d) {
+  d3.select(this).classed('dragging', false);
+  d3.select(this).select('circle:not(.halo)').style('filter', null);
+  draggedNode = null;
+  dragOffsets = null;
+}
+
+/* Übersicht */
+function fitView(anim = true) {
+  if (!rootNode) return;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  const nodes   = rootNode.descendants().filter(d => d.x != null && d.y != null);
+  if (!nodes.length) return;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(d => {
+    if (d.x < minX) minX = d.x; if (d.x > maxX) maxX = d.x;
+    if (d.y < minY) minY = d.y; if (d.y > maxY) maxY = d.y;
+  });
+
+  const svgW    = Math.max(maxY - minY, 1);
+  const svgH    = Math.max(maxX - minX, 1);
+  const padL    = 80;
+  const padR    = currentFontSize * 18;
+  const padV    = 50;
+  const scaleX  = (canvasW - padL - padR) / svgW;
+  const scaleY  = (canvasH - 2 * padV)    / svgH;
+  const scale   = Math.min(scaleX, scaleY, 1.6);
+  const tx      = padL - minY * scale;
+  const ty      = canvasH / 2 - (minX + maxX) / 2 * scale;
+
+  const t = d3.zoomIdentity.translate(tx, ty).scale(scale);
+  (anim ? svgSel.transition().duration(450) : svgSel).call(zoomBeh.transform, t);
+}
+
+function fitToNodes(nodes) {
+  if (!nodes.length) return;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(d => {
+    if (d.x != null) { if (d.x < minX) minX = d.x; if (d.x > maxX) maxX = d.x; }
+    if (d.y != null) { if (d.y < minY) minY = d.y; if (d.y > maxY) maxY = d.y; }
+  });
+  if (!isFinite(minX)) return;
+  if (maxX === minX) { minX -= 40; maxX += 40; }
+  if (maxY === minY) { minY -= 100; maxY += 100; }
+  const svgW  = Math.max(maxY - minY, 1);
+  const svgH  = Math.max(maxX - minX, 1);
+  const scaleX = (canvasW - 80 - 220) / svgW;
+  const scaleY = (canvasH - 120)       / svgH;
+  const scale  = Math.min(scaleX, scaleY, 2.8);
+  const tx = (canvasW - svgW * scale) / 2 - minY * scale;
+  const ty = canvasH / 2 - (minX + maxX) / 2 * scale;
+  svgSel.transition().duration(550)
+    .call(zoomBeh.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+function toggle(d) {
+  if (d.children) { d._ch = d.children; d.children = null; }
+  else if (d._ch) { d.children = d._ch; d._ch = null; }
+  drawTree(d);
+}
+
+function expandAll() {
+  rootNode.descendants().forEach(d => { if (d._ch) { d.children = d._ch; d._ch = null; } });
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function collapseAll() {
+  rootNode.descendants().forEach(d => {
+    if (d.depth > 0 && d.children) { d._ch = d.children; d.children = null; }
+  });
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function _hasLanguageDescendant(node) {
+  // Hilfsfunktion: Prüft ob ein Knoten eine Sprache als Nachkomme hat
+  if (node.data.type === 'language') return true;
+  if (node.children) {
+    return node.children.some(child => _hasLanguageDescendant(child));
+  }
+  if (node._ch) {
+    return node._ch.some(child => _hasLanguageDescendant(child));
+  }
+  return false;
+}
+
+function toggleDialects() {
+  if (!rootNode) return;
+  
+  // Neue Strategie:
+  // - Alle Sprachen-Knoten (type === 'language') bleiben OFFEN
+  // - Alle Übergruppen, die Sprachen als Nachkommen haben, bleiben OFFEN
+  // - Alle Übergruppen, die KEINE Sprachen als Nachkommen haben, werden EINGEKLAPPT
+  // - Damit sind nur Sprachen und ihre direkten Vorfahren sichtbar
+  
+  rootNode.descendants().forEach(d => {
+    if (d.children) {
+      // Checke: Enthält dieser Knoten oder seine Kinder eine Sprache?
+      const hasLanguageChild = d.children.some(child => _hasLanguageDescendant(child));
+      
+      // Wenn KEINE Sprache als Nachkomme vorhanden: einklappen
+      if (!hasLanguageChild) {
+        d._ch = d.children;
+        d.children = null;
+      }
+      // Sonst: offen lassen (Sprachen bleiben sichtbar)
+    }
+  });
+  
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function zoomBy(f) {
+  svgSel.transition().duration(260).call(zoomBeh.scaleBy, f);
+}
+
+/* Suche */
+function onSearchInput(q) {
+  clearTimeout(_searchTimer);
+  if (!q.trim()) { clearSearch(); return; }
+  _searchTimer = setTimeout(() => doSearch(q.trim()), 320);
+}
+
+function doSearch(q) {
+  if (!rootNode) return;
+  const ql = q.toLowerCase();
+  const matches = [];
+  rootNode.descendants().forEach(d => {
+    const n  = (d.data.name     || '').toLowerCase();
+    const o  = (d.data.nameOrig || '').toLowerCase();
+    const id = (d.data.id       || '').toLowerCase();
+    d._searchMatch = n.includes(ql) || o.includes(ql) || id.includes(ql);
+    if (d._searchMatch) matches.push(d);
+  });
+  matches.forEach(m => {
+    let a = m.parent;
+    while (a) { if (a._ch) { a.children = a._ch; a._ch = null; } a = a.parent; }
+  });
+  drawTree(rootNode);
+  if (matches.length) setTimeout(() => fitToNodes(matches), 380);
+}
+
+function clearSearch() {
+  if (!rootNode) return;
+  rootNode.descendants().forEach(d => { d._searchMatch = false; });
+  drawTree(rootNode);
+}
+
+
+
+/* ════════════════════════════════════════════════════════════════
+   INFO-PANEL  (mit Mini-Karte)
+════════════════════════════════════════════════════════════════ */
+let miniMap = null;
+let miniMarker = null;
+
+function _initMiniMap(lat, lon, color) {
+  const wrap = document.getElementById('ip-minimap-wrap');
+  if (!wrap) return;
+
+  // Alte Instanz immer zerstören, da das DOM-Element bei jedem Klick neu erstellt wird
+  if (miniMap) {
+    try { miniMap.remove(); } catch(e) {}
+    miniMap = null;
+    miniMarker = null;
+  }
+
+  miniMap = L.map('ip-minimap', {
+    zoomControl: true,
+    scrollWheelZoom: true,
+    dragging: true,
+    attributionControl: false,
+    zoomSnap: 0.5
+  });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd', maxZoom: 18
+  }).addTo(miniMap);
+  L.control.attribution({ prefix: '© OSM · CARTO' }).addTo(miniMap);
+
+  const icon = L.divIcon({
+    html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 6px ${color}aa;"></div>`,
+    className: '', iconSize: [12,12], iconAnchor: [6,6]
+  });
+  miniMarker = L.marker([lat, lon], { icon }).addTo(miniMap);
+  miniMap.setView([lat, lon], 5, { animate: false });
+  // Mehrfach invalidieren um sicherzustellen, dass Tiles vollständig geladen werden
+  setTimeout(() => miniMap.invalidateSize(), 100);
+  setTimeout(() => miniMap.invalidateSize(), 400);
+}
+
+function showPanel(d) {
+  selNode = d;
+  drawTree(d);
+  document.getElementById('ip-empty').style.display = 'none';
+  document.getElementById('ip-content').classList.add('on');
+
+  const data = d.data;
+  document.getElementById('ip-name').textContent = data.name;
+  const origEl = document.getElementById('ip-orig');
+  if (data.nameOrig && data.nameOrig !== data.name) {
+    origEl.textContent = data.nameOrig; origEl.style.display = 'block';
+  } else { origEl.style.display = 'none'; }
+
+  const body = document.getElementById('ip-body');
+  body.innerHTML = '';
+
+  const secKl = mkSec('Klassifikation');
+  const br = document.createElement('div'); br.className = 'ip-row';
+  br.innerHTML = `<span class="ip-key">Typ</span><span class="ip-badge badge-${data.type}">${typeName(data.type)}</span>`;
+  secKl.appendChild(br);
+  addRow(secKl, 'Ebene', d.depth);
+  body.appendChild(secKl);
+
+  const secId = mkSec('Identifikatoren');
+  addRow(secId, 'Glottolog', data.id, true);
+  if (data.iso) addRow(secId, 'ISO 639-3', data.iso, true);
+  body.appendChild(secId);
+
+  if (data.lat != null && data.lon != null) {
+    const secG = mkSec('Koordinaten');
+    addRow(secG, 'Breite', data.lat.toFixed(4) + '°');
+    addRow(secG, 'Länge',  data.lon.toFixed(4) + '°');
+    body.appendChild(secG);
+  }
+
+if (data.lat != null && data.lon != null) {
+    const secM = mkSec('Karte');
+    const wrap = document.createElement('div');
+    wrap.id = 'ip-minimap-wrap';
+    wrap.innerHTML = '<div id="ip-minimap"></div>';
+    secM.appendChild(wrap);
+    body.appendChild(secM);
+    // Längere Verzögerung damit das DOM sicher gerendert ist, bevor Leaflet initialisiert
+    setTimeout(() => {
+      const col = NODE_COLORS[data.type] || '#c8973a';
+      _initMiniMap(data.lat, data.lon, col);
+    }, 150);
+  } else {
+    // Alte Instanz aufräumen wenn kein Standort vorhanden
+    if (miniMap) {
+      try { miniMap.remove(); } catch(e) {}
+      miniMap = null;
+      miniMarker = null;
+    }
+  }
+
+  const countries = _getCountries(d);
+  const pending   = !countries && _isPending(d);
+  if (countries && countries.length) {
+    const secC = mkSec('Gesprochen in');
+    countries.forEach(c => {
+      const row = document.createElement('div'); row.className = 'ip-country';
+      row.innerHTML = `
+        <span class="ip-country-flag">${c.flag}</span>
+        <span class="ip-country-info">
+          <span class="ip-country-name">${c.name}</span>
+          ${c.region ? `<span class="ip-country-region">${c.region}</span>` : ''}
+        </span>`;
+      secC.appendChild(row);
+    });
+    body.appendChild(secC);
+  } else if (pending) {
+    const secC = mkSec('Gesprochen in');
+    const ld = document.createElement('div'); ld.className = 'ip-country-loading';
+    ld.textContent = 'Wird ermittelt…';
+    secC.appendChild(ld); body.appendChild(secC);
+  }
+
+  const kids = d.children || d._ch || [];
+  if (kids.length) {
+    const secK = mkSec(`Untereinheiten (${kids.length})`);
+    const ul = document.createElement('ul'); ul.className = 'ip-child-list';
+    kids.forEach(c => {
+      const li = document.createElement('li');
+      const dot = document.createElement('div'); dot.className = 'ip-child-dot';
+      dot.style.background = NODE_COLORS[c.data.type] || '#7a6a48';
+      li.appendChild(dot);
+      const sp = document.createElement('span'); sp.textContent = c.data.name;
+      li.appendChild(sp); ul.appendChild(li);
+    });
+    secK.appendChild(ul); body.appendChild(secK);
+  }
+
+  if (d.depth > 0) {
+    const ancs = d.ancestors().slice(1).reverse();
+    if (ancs.length) {
+      const secA = mkSec('Übergeordnet');
+      ancs.forEach((a, i) => {
+        const r = document.createElement('div'); r.className = 'ip-row';
+        r.innerHTML = `<span class="ip-key" style="padding-left:${i*8}px">${i?'└ ':''}${typeName(a.data.type)}</span><span class="ip-val">${a.data.name}</span>`;
+        secA.appendChild(r);
+      });
+      body.appendChild(secA);
+    }
+  }
+}
+
+function mkSec(title) {
+  const s = document.createElement('div'); s.className = 'ip-section';
+  const t = document.createElement('div'); t.className = 'ip-sec-title'; t.textContent = title;
+  s.appendChild(t); return s;
+}
+function addRow(p, key, val, mono=false) {
+  const r = document.createElement('div'); r.className = 'ip-row';
+  r.innerHTML = `<span class="ip-key">${key}</span><span class="ip-val${mono?' mono':''}">${val}</span>`;
+  p.appendChild(r);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   LEAFLET-HAUPTKARTE  (ohne Clustering, direkte Marker)
+════════════════════════════════════════════════════════════════ */
+let leafMap = null;
+
+function initMap() {
+  leafMap = L.map('map', {
+    center: mapConfig.center,
+    zoom:   mapConfig.zoom,
+    zoomControl: false
+  });
+
+  L.control.zoom({ position: 'bottomright' }).addTo(leafMap);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(leafMap);
+
+  geoData.forEach(lang => {
+    const col = lang.color || "#c8973a";
+    const icon = L.divIcon({
+      html: `<div style="
+        width:12px;height:12px;border-radius:50%;
+        background:${col};
+        border:2px solid rgba(255,255,255,0.85);
+        box-shadow:0 0 6px ${col}aa,0 1px 4px rgba(0,0,0,.5);
+        cursor:pointer;
+      "></div>`,
+      className: '', iconSize: [12,12], iconAnchor: [6,6], popupAnchor: [0,-8]
+    });
+    const popup = `
+      <div class="lp-name">${lang.name}</div>
+      ${lang.nameOrig !== lang.name ? `<div class="lp-orig">${lang.nameOrig}</div>` : ''}
+      <div class="lp-row"><span>Glottolog:</span><span class="lp-badge">${lang.id}</span></div>
+      <div class="lp-row" style="font-size:.63rem;color:#666">📍 ${lang.lat.toFixed(4)}° · ${lang.lon.toFixed(4)}°</div>`;
+    const m = L.marker([lang.lat, lang.lon], { icon });
+    m.bindPopup(popup, { maxWidth: 230 });
+    m.on('mouseover', () => m.openPopup());
+    m.addTo(leafMap);
+  });
+
+  setTimeout(() => leafMap.invalidateSize(), 150);
+}
+
+/* ── Start ── */
+window.addEventListener('resize', () => {
+  if (rootNode) drawTree(rootNode);
+  if (leafMap) leafMap.invalidateSize();
+  if (miniMap) miniMap.invalidateSize();
+});
+
+document.addEventListener('DOMContentLoaded', () => { initData(); initTree(); });
+</script>
+</body>
+</html>
