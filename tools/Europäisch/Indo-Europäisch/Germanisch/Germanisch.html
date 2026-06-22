@@ -344,7 +344,7 @@ const mapConfig = {
 /* ════════════════════════════════════════════════════════════════
    BEREICH 1d  –  KARTEN-LEGENDE (OPTIONAL)
 ════════════════════════════════════════════════════════════════ */
-const mapLegendGroups = [];
+const mapLegendGroups = [{ label: "Westgermanisch",   color: "#c8973a" }];
 
 /* ════════════════════════════════════════════════════════════════
    BEREICH 2a  –  DEUTSCHE NAMEN
@@ -4302,7 +4302,8 @@ return { id: gid || nm.toLowerCase().replace(/\s+/g,'_'), nameOrig: nm, iso: iso
     if      (depth === 0)                                type = 'family';
     else if (isLanguage)                                 type = 'language';
     else if (raw.children && raw.children.length > 0)   type = depth === 1 ? 'family' : 'subgroup';
-    else if (raw.rawLabel && raw.rawLabel.includes('-f-')) type = 'subgroup';
+    else if (raw.rawLabel && raw.rawLabel.includes('-f-')) type = 'family';
+    else if (raw.rawLabel && raw.rawLabel.includes('-l-')) type = 'subgroup';
     else                                                   type = 'dialect';   const node = { id, nameOrig, type, iso: iso||null, lat:null, lon:null, name: getDisplayName(id, nameOrig), isLink: isLink||false, url: url||null };
     if (raw.children && raw.children.length > 0)
       node.children = raw.children.map(c => build(c, depth + 1));
@@ -4333,12 +4334,14 @@ function enrichCoords(node, map) {
 function _buildLegend() {
   const el = document.getElementById('map-legend-items');
   el.innerHTML = '';
-  const hasManual = mapLegendGroups.some(g => g.ids && g.ids.length > 0);
-  const source = hasManual
-    ? mapLegendGroups.map(g => ({ name: g.label, col: g.color }))
-    : (treeData && treeData.children
-        ? treeData.children.map((g, i) => ({ name: g.name, col: _PALETTE[i % _PALETTE.length] }))
-        : []);
+  const source = [
+    ...mapLegendGroups.map(g => ({ name: g.label, col: g.color })),
+    ...(treeData && treeData.children
+      ? treeData.children
+          .filter(g => !g.isLink)
+          .map(g => ({ name: g.name, col: _autoColorMap[g.id] || "#c8973a" }))
+      : [])
+  ];
   source.forEach(s => {
     const d = document.createElement('div'); d.className = 'ov-item';
     d.innerHTML = `<div class="ov-dot" style="background:${s.col}"></div>${s.name}`;
