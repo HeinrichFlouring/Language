@@ -1,0 +1,3368 @@
+<!DOCTYPE html>
+<!--
+╔══════════════════════════════════════════════════════════════════════╗
+║  SPRACHFAMILIEN-ATLAS · VORLAGE v4                                  ║
+╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html lang="de">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title id="page-title">Sprachfamilien-Atlas</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+  --bg-primary:  #0a0a0f;
+  --bg-nav:      #0d0d14;
+  --bg-panel:    #13131c;
+  --gold-bright: #f0c060;
+  --gold-mid:    #c8973a;
+  --gold-glow:   rgba(240,192,96,0.15);
+  --text-primary:#e8d5a0;
+  --text-dim:    #9a8a68;      /* heller als vorher (#7a6a48) */
+  --text-muted:  #7a6a52;      /* heller als vorher (#4a4030) */
+  --border:      #1e1e2e;
+  --border-gold: rgba(200,151,58,0.3);
+  --node-family: #c8973a;
+  --node-lang:   #7ec8c8;
+  --node-sub:    #c87868;
+  --node-dial:   #a0b878;
+  --nav-h:       52px;
+  --toolbar-h:   46px;
+  --panel-w:     300px;
+}
+    html, body { height:100%; width:100%; overflow:hidden; font-family:'Georgia',serif; background:var(--bg-primary); color:var(--text-primary); }
+
+    /* ── NAV ── */
+    #nav { position:fixed; top:0; left:0; right:0; height:var(--nav-h); background:var(--bg-nav); border-bottom:1px solid var(--border-gold); display:flex; align-items:center; justify-content:space-between; padding:0 24px; z-index:1000; box-shadow:0 2px 20px rgba(0,0,0,.6); }
+    #nav-left { display:flex; align-items:center; gap:10px; }
+    .title-glyph { font-size:1.3rem; color:var(--gold-bright); text-shadow:0 0 12px rgba(240,192,96,.4); }
+    .title-main  { font-size:1rem; color:var(--gold-bright); letter-spacing:2px; text-transform:uppercase; font-weight:normal; }
+    .title-sub   { font-size:.65rem; color:var(--text-dim); letter-spacing:1px; font-family:'Segoe UI',sans-serif; }
+    #nav-tabs { display:flex; gap:4px; background:rgba(0,0,0,.4); border:1px solid var(--border-gold); border-radius:8px; padding:4px; }
+    .nav-tab { display:flex; align-items:center; gap:7px; padding:6px 18px; border-radius:6px; border:1px solid transparent; cursor:pointer; font-family:'Segoe UI',sans-serif; font-size:.78rem; color:var(--text-dim); background:transparent; transition:all .25s; user-select:none; }
+    .nav-tab:hover  { color:var(--gold-mid); background:var(--gold-glow); }
+    .nav-tab.active { color:var(--gold-bright); background:rgba(200,151,58,.18); border-color:var(--border-gold); }
+    .nav-tab svg { width:14px; height:14px; fill:currentColor; flex-shrink:0; }
+    #nav-meta { display:flex; gap:10px; }
+    .meta-chip { font-family:'Segoe UI',sans-serif; font-size:.65rem; color:var(--text-dim); background:rgba(255,255,255,.03); border:1px solid var(--border); border-radius:10px; padding:2px 10px; letter-spacing:.5px; }
+
+    /* ── VIEWS ── */
+    #views { position:fixed; top:var(--nav-h); left:0; right:0; bottom:0; }
+    .view { position:absolute; inset:0; opacity:0; pointer-events:none; transition:opacity .4s; }
+    .view.visible { opacity:1; pointer-events:all; }
+
+    /* ── TREE VIEW ── */
+    #view-tree { background:var(--bg-primary); display:flex; flex-direction:column; }
+    #tree-toolbar { min-height:var(--toolbar-h); height:auto; background:var(--bg-panel); border-bottom:1px solid var(--border); display:flex; align-items:center; flex-wrap:wrap; gap:6px; padding:6px 16px; flex-shrink:0; }
+    .tb-label { font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-muted); letter-spacing:1px; white-space:nowrap; }
+    .tb-btn { display:flex; align-items:center; gap:5px; padding:4px 12px; border-radius:6px; border:1px solid var(--border-gold); background:transparent; color:var(--gold-mid); font-family:'Segoe UI',sans-serif; font-size:.72rem; cursor:pointer; transition:all .2s; white-space:nowrap; }
+    .tb-btn:hover { background:var(--gold-glow); color:var(--gold-bright); border-color:var(--gold-bright); }
+    .tb-btn svg { width:11px; height:11px; fill:currentColor; }
+    .tb-divider { width:1px; height:22px; background:var(--border); flex-shrink:0; }
+    #zoom-info { font-family:monospace; font-size:.7rem; color:var(--text-muted); min-width:38px; text-align:center; }
+    .tb-input { background:rgba(255,255,255,.05); border:1px solid var(--border-gold); border-radius:6px; color:var(--text-primary); font-family:'Segoe UI',sans-serif; font-size:.72rem; padding:4px 10px; width:145px; outline:none; transition:border-color .2s, background .2s; }
+    .tb-input:focus { border-color:var(--gold-bright); background:rgba(240,192,96,.07); }
+    .tb-input::placeholder { color:var(--text-muted); }
+    #tree-legend { display:flex; align-items:center; gap:12px; margin-left:auto; }
+    .leg-item { display:flex; align-items:center; gap:5px; font-family:'Segoe UI',sans-serif; font-size:.65rem; color:var(--text-dim); }
+    .leg-dot  { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+
+    #tree-main { flex:1; display:flex; overflow:hidden; min-height:0; }
+    #tree-canvas { flex:1; overflow:hidden; position:relative; }
+    #tree-canvas svg { width:100%; height:100%; cursor:grab; }
+    #tree-canvas svg:active { cursor:grabbing; }
+
+    /* ── INFO PANEL ── */
+    #info-panel { width:var(--panel-w); flex-shrink:0; background:var(--bg-panel); border-left:1px solid var(--border-gold); display:flex; flex-direction:column; overflow:hidden; }
+    #ip-header { padding:14px 16px 10px; border-bottom:1px solid var(--border); flex-shrink:0; }
+    .ip-label { font-family:'Segoe UI',sans-serif; font-size:.62rem; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; }
+    #ip-name  { font-family:'Georgia',serif; font-size:1.05rem; color:var(--gold-bright); line-height:1.3; word-break:break-word; }
+    #ip-orig  { font-family:'Segoe UI',sans-serif; font-size:.7rem; color:var(--text-dim); font-style:italic; margin-top:3px; display:none; }
+    #ip-body  { flex:1; overflow-y:auto; padding:12px 16px; }
+    .ip-section { margin-bottom:14px; }
+    .ip-sec-title { font-family:'Segoe UI',sans-serif; font-size:.6rem; color:var(--text-muted); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:6px; padding-bottom:4px; border-bottom:1px solid var(--border); }
+    .ip-row { display:flex; justify-content:space-between; align-items:flex-start; gap:8px; margin-bottom:5px; font-family:'Segoe UI',sans-serif; font-size:.72rem; }
+    .ip-key { color:var(--text-muted); flex-shrink:0; }
+    .ip-val { color:var(--text-dim); text-align:right; word-break:break-word; }
+    .ip-val.mono { color:var(--node-lang); font-family:monospace; font-size:.75rem; }
+    .ip-badge { display:inline-block; padding:2px 8px; border-radius:4px; font-family:'Segoe UI',sans-serif; font-size:.65rem; letter-spacing:.5px; border:1px solid; }
+    .badge-family   { color:var(--node-family); border-color:var(--node-family); background:rgba(200,151,58,.1); }
+    .badge-language { color:var(--node-lang);   border-color:var(--node-lang);   background:rgba(126,200,200,.1); }
+    .badge-subgroup { color:var(--node-sub);    border-color:var(--node-sub);    background:rgba(200,120,104,.1); }
+    .badge-dialect  { color:var(--node-dial);   border-color:var(--node-dial);   background:rgba(160,184,120,.1); }
+    .ip-country { display:flex; align-items:flex-start; gap:9px; padding:5px 0; border-bottom:1px solid rgba(255,255,255,.04); font-family:'Segoe UI',sans-serif; font-size:.72rem; }
+    .ip-country:last-child { border-bottom:none; }
+    .ip-country-flag   { font-size:1.25rem; line-height:1.1; flex-shrink:0; }
+    .ip-country-info   { display:flex; flex-direction:column; gap:1px; }
+    .ip-country-name   { color:var(--text-dim); line-height:1.4; }
+    .ip-country-region { font-size:.62rem; color:var(--text-muted); }
+    .ip-country-loading { font-size:.68rem; color:var(--text-muted); font-style:italic; padding:3px 0; }
+    .ip-child-list { list-style:none; }
+    .ip-child-list li { display:flex; align-items:center; gap:6px; padding:3px 0; font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-dim); border-bottom:1px solid rgba(255,255,255,.03); }
+    .ip-child-list li:last-child { border-bottom:none; }
+    .ip-child-dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+    #ip-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; height:100%; gap:10px; color:var(--text-muted); font-family:'Segoe UI',sans-serif; font-size:.72rem; text-align:center; padding:20px; }
+    #ip-empty .ei { font-size:2rem; opacity:.3; }
+    #ip-content { display:none; height:100%; flex-direction:column; overflow:hidden; }
+    #ip-content.on { display:flex; }
+
+    /* Mini-Karte im Info-Panel */
+    #ip-minimap-wrap { width:100%; height:160px; border-radius:8px; overflow:hidden; border:1px solid var(--border-gold); margin-top:6px; flex-shrink:0; position:relative; }
+    #ip-minimap { width:100%; height:100%; }
+
+    /* ── D3 ELEMENTE ── */
+    .link { fill:none; stroke:rgba(200,151,58,.22); stroke-width:3px; }
+    /* Trennlinie zwischen Haupt-Familienästen */
+    .family-sep { fill:none; stroke:rgba(200,151,58,.12); stroke-width:1px; stroke-dasharray:4,4; }
+    .node circle { stroke-width:1.5px; transition:all .25s; }
+    .node:hover circle { stroke-width:2.5px; }
+    .node.dragging circle { filter: drop-shadow(0 0 8px rgba(240,192,96,.6)); stroke-width:3px; }
+    /* Textgröße wird dynamisch per inline-style gesetzt */
+    .node text { font-family:'Georgia',serif; pointer-events:none; }
+    .node.sel circle { stroke-width:3px; }
+    #tree-bar { height:34px; background:var(--bg-panel); border-top:1px solid var(--border); display:flex; align-items:center; padding:0 20px; gap:20px; flex-shrink:0; }
+    #tree-bar .bi { font-family:'Segoe UI',sans-serif; font-size:.67rem; color:var(--text-muted); }
+    #tree-bar .bi span { color:var(--text-dim); }
+
+    /* ── MAP VIEW ── */
+    #view-map { background:#1a1a2e; }
+    #map { width:100%; height:100%; }
+    /* Legende links unten */
+    #map-overlay {
+      position:absolute;
+      bottom:32px; left:16px;
+      z-index:900;
+      background:rgba(10,10,15,.88);
+      border:1px solid var(--border-gold);
+      border-radius:10px;
+      padding:12px 16px;
+      backdrop-filter:blur(8px);
+      min-width:180px;
+    }
+    .ov-title { font-size:.7rem; color:var(--gold-mid); letter-spacing:1.5px; text-transform:uppercase; font-family:'Segoe UI',sans-serif; margin-bottom:8px; padding-bottom:6px; border-bottom:1px solid var(--border-gold); }
+    .ov-item  { display:flex; align-items:center; gap:8px; margin-bottom:5px; font-family:'Segoe UI',sans-serif; font-size:.68rem; color:var(--text-dim); }
+    .ov-dot   { width:10px; height:10px; border-radius:50%; flex-shrink:0; border:1.5px solid rgba(255,255,255,.2); }
+
+    /* ── LEAFLET OVERRIDES ── */
+    .leaflet-container { background:#2a3a4a !important; }
+    .leaflet-popup-content-wrapper { background:var(--bg-panel) !important; color:var(--text-primary) !important; border:1px solid var(--border-gold) !important; border-radius:10px !important; box-shadow:0 8px 32px rgba(0,0,0,.7) !important; }
+    .leaflet-popup-tip { background:var(--bg-panel) !important; }
+    .leaflet-popup-close-button { color:var(--text-dim) !important; }
+    .lp-name  { font-family:'Georgia',serif; font-size:1rem; color:var(--gold-bright); margin-bottom:4px; }
+    .lp-orig  { font-size:.68rem; color:var(--text-dim); font-style:italic; margin-bottom:6px; }
+    .lp-row   { display:flex; gap:6px; align-items:center; font-size:.7rem; color:var(--text-dim); margin-bottom:3px; }
+    .lp-badge { font-size:.62rem; background:rgba(200,151,58,.2); border:1px solid var(--border-gold); border-radius:4px; padding:1px 6px; color:var(--gold-mid); font-family:monospace; }
+    /* Zoom-Buttons: rechts unten auf der Karte */
+    .leaflet-control-zoom { margin-right:16px !important; margin-bottom:16px !important; }
+    .leaflet-bottom.leaflet-right { bottom:0; right:0; }
+    .leaflet-control-zoom a { background:rgba(13,13,20,0.92) !important; color:var(--gold-mid) !important; border-color:var(--border-gold) !important; }
+    .leaflet-control-attribution { background:rgba(10,10,15,.7) !important; color:var(--text-muted) !important; font-size:.55rem !important; }
+
+    ::-webkit-scrollbar { width:4px; } ::-webkit-scrollbar-thumb { background:var(--border); border-radius:2px; }
+    * { scrollbar-width:thin; scrollbar-color:var(--border) transparent; }
+
+    /* Mini-Map Leaflet overrides */
+    #ip-minimap .leaflet-control-zoom { display:none !important; }
+    #ip-minimap .leaflet-control-attribution { font-size:.45rem !important; }
+
+    /* ── ERROR SCREEN ── */
+    #error-screen { display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:var(--bg-primary); z-index:10000; flex-direction:column; align-items:center; justify-content:center; padding:40px; text-align:center; }
+    #error-screen.visible { display:flex; }
+    .error-icon { font-size:3rem; margin-bottom:20px; }
+    .error-title { font-size:1.4rem; color:var(--gold-bright); margin-bottom:10px; font-weight:700; }
+    .error-message { font-size:0.95rem; color:var(--text-dim); max-width:600px; line-height:1.6; margin-bottom:20px; font-family:'Segoe UI',monospace; background:rgba(255,0,0,.1); border:1px solid rgba(200,100,100,.3); border-radius:8px; padding:15px; }
+    .error-details { font-size:0.8rem; color:var(--text-muted); max-width:700px; }
+
+    @media (max-width:700px) { #nav-meta{display:none;} .nav-tab{padding:5px 10px;} #tree-legend{display:none;} }
+    @media (max-width:480px) { #info-panel{display:none;} }
+  </style>
+</head>
+<body>
+
+<nav id="nav">
+  <div id="nav-left">
+    <span class="title-glyph" id="nav-glyph">◈</span>
+    <div>
+      <div class="title-main" id="nav-title-main">Sprachfamilien-Atlas</div>
+      <div class="title-sub">Interaktiver Sprach-Atlas</div>
+    </div>
+  </div>
+  <div id="nav-tabs">
+    <div class="nav-tab active" data-view="tree" onclick="switchView('tree')">
+      <svg viewBox="0 0 16 16"><path d="M1 1h5v3H4v2h2v3H1V7h2V4H1zm7 0h5v3h-2v2h2v3H8V7h2V4H8zm0 7h5v3h-2v2h2v3H8v-3h2v-2H8z"/></svg>
+      Stammbaum
+    </div>
+    <div class="nav-tab" data-view="map" onclick="switchView('map')">
+      <svg viewBox="0 0 16 16"><path d="M8 0a5 5 0 0 0-5 5c0 3.5 5 11 5 11s5-7.5 5-11a5 5 0 0 0-5-5zm0 7.5a2.5 2.5 0 1 1 0-5 2.5 2.5 0 0 1 0 5z"/></svg>
+      Verbreitungskarte
+    </div>
+  </div>
+  <div id="nav-meta">
+    <span class="meta-chip" id="chip-fam">– Familien</span>
+    <span class="meta-chip" id="chip-lan">– Sprachen</span>
+    <span class="meta-chip" id="chip-dia">– Dialekte</span>
+  </div>
+</nav>
+
+<div id="views">
+
+  <!-- STAMMBAUM -->
+  <div id="view-tree" class="view visible">
+    <div id="tree-toolbar">
+      <button class="tb-btn" onclick="expandAll()">
+        <svg viewBox="0 0 12 12"><path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        Aufklappen
+      </button>
+      <button class="tb-btn" onclick="collapseAll()">
+        <svg viewBox="0 0 12 12"><path d="M1 6h10" stroke="currentColor" stroke-width="1.8" fill="none" stroke-linecap="round"/></svg>
+        Einklappen
+      </button>
+      <button class="tb-btn" onclick="toggleDialects()">
+        <svg viewBox="0 0 12 12"><path d="M2 3h3v3H2zm5 0h3v3H7zm-5 5h3v3H2zm5 0h3v3H7z" stroke="currentColor" stroke-width="0.8" fill="currentColor"/></svg>
+        Dialekte verbergen
+      </button>
+      <button class="tb-btn" onclick="fitView()">
+        <svg viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><polyline points="1,4 1,1 4,1"/><polyline points="8,1 11,1 11,4"/><polyline points="11,8 11,11 8,11"/><polyline points="4,11 1,11 1,8"/></svg>
+        Übersicht
+      </button>
+      <div class="tb-divider"></div>
+      <button class="tb-btn" onclick="zoomBy(1.3)">＋</button>
+      <span id="zoom-info">100%</span>
+      <button class="tb-btn" onclick="zoomBy(0.77)">－</button>
+      <div class="tb-divider"></div>
+      <input id="tree-search" type="text" class="tb-input" placeholder="🔍  Sprache suchen…"
+             oninput="onSearchInput(this.value)"
+             onkeydown="if(event.key==='Escape'){this.value='';clearSearch();}"/>
+      <div class="tb-divider"></div>
+      <!-- Schriftgröße-Regler (ersetzt Abstand-Regler) -->
+      <span class="tb-label">Schriftgröße</span>
+      <input type="range" id="fontsize-sl" min="5" max="20" value="11" step="1"
+             style="width:72px;accent-color:var(--gold-mid);cursor:pointer;vertical-align:middle;"
+             oninput="onFontsizeChange(this.value)"/>
+      <span id="fs-val" style="font-size:.65rem;color:var(--text-muted);min-width:32px">11 px</span>
+      <div id="tree-legend">
+        <div class="leg-item"><div class="leg-dot" style="background:#c8973a"></div>Familie</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#7ec8c8"></div>Sprache</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#c87868"></div>Gruppe</div>
+        <div class="leg-item"><div class="leg-dot" style="background:#a0b878"></div>Dialekt</div>
+      </div>
+    </div>
+
+    <div id="tree-main">
+      <div id="tree-canvas">
+        <svg id="tree-svg">
+          <defs>
+            <filter id="glow">
+              <feGaussianBlur stdDeviation="3" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+            <clipPath id="text-clip">
+              <!-- Wird dynamisch gefüllt -->
+            </clipPath>
+          </defs>
+          <g id="tree-g"></g>
+        </svg>
+      </div>
+      <div id="info-panel">
+        <div id="ip-empty">
+          <div class="ei">◈</div>
+          <div>Knoten anklicken<br>für Details</div>
+        </div>
+        <div id="ip-content">
+          <div id="ip-header">
+            <div class="ip-label">Details</div>
+            <div id="ip-name">–</div>
+            <div id="ip-orig"></div>
+          </div>
+          <div id="ip-body"></div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tree-bar">
+      <div class="bi">Klick: <span>Details / Ein-/Ausklappen</span></div>
+      <div class="bi">Ziehen: <span>Verschieben (Knoten + Astgruppe)</span></div>
+      <div class="bi">Scroll: <span>Zoom</span></div>
+      <div class="bi">Regler: <span>Schriftgröße &amp; Abstände</span></div>
+    </div>
+  </div>
+
+  <!-- KARTE -->
+  <div id="view-map" class="view">
+    <div id="map"></div>
+    <div id="map-overlay">
+      <div class="ov-title">Sprachgruppen</div>
+      <div id="map-legend-items"></div>
+    </div>
+  </div>
+
+</div><!-- #views -->
+
+<!-- ERROR SCREEN -->
+<div id="error-screen">
+  <div class="error-icon">⚠️</div>
+  <div class="error-title">Syntax-Fehler im Newick-String</div>
+  <div class="error-message" id="error-msg"></div>
+  <div class="error-details">
+    <p>Überprüfen Sie Ihren Newick-String auf:</p>
+    <ul style="text-align:left;display:inline-block;margin-top:10px;">
+      <li>✓ Backticks: const rawNewick = `...` (nicht "..." oder '...')</li>
+      <li>✓ Korrekte Klammer-Balance: ( und )</li>
+      <li>✓ Text mit Leerzeichen in Quotes: 'Name mit Leerzeichen'</li>
+      <li>✓ Sprachen markieren mit: -l-</li>
+    </ul>
+  </div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<script>
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1a  –  GLYPH
+════════════════════════════════════════════════════════════════ */
+const familyGlyph = "🦎";
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1b  –  ZÄHLER
+════════════════════════════════════════════════════════════════ */
+const familyMeta = {
+  families:  59,
+  languages: 75,
+  dialects:  188
+};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1c  –  KARTEN-KONFIGURATION
+════════════════════════════════════════════════════════════════ */
+const mapConfig = {
+  center: [10.006715378027424,-8.455767519005366],
+  zoom:   5
+};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 1d  –  KARTEN-LEGENDE (OPTIONAL)
+════════════════════════════════════════════════════════════════ */
+const mapLegendGroups = [];
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 2a  –  DEUTSCHE NAMEN
+════════════════════════════════════════════════════════════════ */
+const nameTranslations = {'bara1365': 'Baraka',
+'bark1245': 'Barka (Burkina Faso)',
+'lebi1240': 'Lebir',
+'lere1242': 'Lere (Burkina Faso)',
+'biss1248': 'Bissa',
+'boko1266': 'Boko (Benin)',
+'kaia1244': 'Kaiama',
+'vill1241': 'Village Bokobaru',
+'boko1267': 'Bokobaru',
+'illo1238': 'Illo',
+'newb1246': 'New Busa',
+'wawa1248': 'Wawa (Nigeria)',
+'busa1253': 'Busa',
+'boko1265': 'Boko-Busa',
+'kyen1242': 'Kyenga',
+'shan1282': 'Shanga',
+'kyen1241': 'Kyenga-Shanga',
+'busa1252': 'Busan',
+'maty1235': 'Matya Samo',
+'bang1362': 'Bangassogo',
+'boun1244': 'Bounou',
+'gomb1251': 'Gomboro',
+'kiem1238': 'Kiembara',
+'maya1281': 'Maya Samo',
+'toma1246': 'Toma (Ost-Mande)',
+'sout2844': 'Südliches Samo',
+'mand1437': 'Mande Samo',
+'samo1302': 'Samo-Busa',
+'bisa1265': 'Bisa-Busa',
+'klad1234': 'Kla-Dan',
+'biad1234': 'Bia Dan',
+'blon1234': 'Blong Dan',
+'gaan1244': 'Gaan Dan',
+'gama1259': 'Gama Dan',
+'gbap1234': 'Gbapen',
+'gble1234': 'Gblee Dan',
+'gwaa1240': 'Gwaan Dan',
+'gwee1242': 'Gweetaawu',
+'kaad1239': 'Kaa Dan',
+'saan1247': 'Saan Dan',
+'slen1234': 'Sleng Dan',
+'teed1234': 'Tee Dan',
+'yiid1234': 'Yii Dan',
+'yoon1234': 'Yoon Dan',
+'east2794': 'Östliches Dan',
+'blow1238': 'Blowo',
+'dhoo1234': 'Dhoo Dan',
+'kada1293': 'Ka Dan',
+'lood1234': 'Loo Dan',
+'lowe1406': 'Unter-Gio',
+'rive1259': 'River Cess Gio',
+'uppe1420': 'Ober-Gio',
+'vain1234': 'Vain Dan',
+'waod1234': 'Wao Dan',
+'west2878': 'West-Yacouba-Dan',
+'yizu1234': 'Yizue',
+'west2877': 'Westliches Dan',
+'nucl1770': 'Kern-Dan',
+'dann1241': 'Dan',
+'gooa1234': 'Goo',
+'booo1257': 'Boo',
+'guse1238': 'Guse',
+'gweo1238': 'Gwéò',
+'naoo1238': 'Naò',
+'waad1238': 'Wáádú',
+'yili1249': 'Yiligele',
+'tour1242': 'Toura (Elfenbeinküste)',
+'tour1245': 'Toura-Goo',
+'dant1235': 'Dan-Toura',
+'guro1248': 'Guro',
+'bhoo1238': 'Bhoo',
+'klan1243': 'Klan',
+'taan1239': 'Taan',
+'yaan1242': 'Yaan',
+'yooo1238': 'Yoo',
+'yaou1238': 'Yaouré',
+'guro1247': 'Guro-Yaoure',
+'guro1246': 'Guro-Dan',
+'mann1248': 'Mann',
+'guro1245': 'Mano-Dan',
+'beng1286': 'Beng',
+'ngen1256': 'Ngen von Djonkro',
+'beng1291': 'Bengic',
+'boka1250': 'Bokabo',
+'bokw1238': 'Bokwa (Mande)',
+'ndaa1238': "N'da",
+'tuka1245': 'Tuka',
+'gagu1242': 'Gban',
+'beng1285': 'Ben-Gban',
+'gbin1239': 'Gbin',
+'unun9970': 'Unklassifiziertes Nwa-Ben',
+'mwan1250': 'Mwan',
+'kemu1238': 'Kemu',
+'miam1251': 'Miamu',
+'wann1242': 'Wan',
+'wanm1243': 'Wan-Mwan',
+'nwab1239': 'Nwa-Ben',
+'sout3140': 'Südost-Mande',
+'east2697': 'Ost-Mande',
+'jalk1242': 'Jalkunan',
+'jeri1242': 'Jeli',
+'jeri1241': 'Jeri',
+'atum1238': 'Atumfuor',
+'bung1267': 'Bungase',
+'dwer1238': 'Dwera',
+'gyog1238': 'Gyogo',
+'hwel1241': 'Hwela',
+'ntol1238': 'Ntoleh',
+'ligb1244': 'Ligbi',
+'tonj1246': 'Tonjon',
+'jogo1242': 'Jogo',
+'jogo1241': 'Jogo-Jeri',
+'bele1249': 'Beledugu',
+'gana1273': 'Ganadugu',
+'sann1238': 'San',
+'sego1238': 'Segou',
+'sika1260': 'Sikasso',
+'somo1238': 'Somono',
+'stan1305': 'Standard-Bambara',
+'bamb1269': 'Bambara',
+'blac1270': 'Schwarzes Bolon',
+'whit1268': 'Weißes Bolon',
+'bolo1266': 'Bolon',
+'diou1238': 'Vehikuläres Dioula',
+'kong1292': 'Kong-Jula',
+'tagb1257': 'Tagboussikan',
+'dyul1238': 'Dyula',
+'aman1263': 'Amana',
+'booo1256': 'Bö',
+'kouloun1238': 'Koulounkalan',
+'wasu1254': 'Wasulu',
+'east2426': 'Ost-Maninkakan',
+'kony1250': 'Konyanka-Maninka',
+'many1261': 'Manya',
+'kony1252': 'Konya-Manya',
+'sank1253': 'Sankaran-Maninka',
+'mane1267': 'Manenkan',
+'koro1306': 'Koro (Elfenbeinküste)',
+'nigb1238': 'Nigbi',
+'nucl1446': 'Kern-Koyaga',
+'saga1263': 'Sagaka',
+'siak1238': 'Siaka',
+'koya1253': 'Koyaga',
+'koro1315': 'Koro-Koyaga',
+'bara1364': 'Baralaka',
+'fina1241': 'Finanga',
+'koro1307': 'Koroka',
+'maho1250': 'Mahouka',
+'tene1247': 'Tenenga',
+'maho1249': 'Mahou',
+'bodo1274': 'Bodougouka',
+'nafa1259': 'Nafana',
+'odie1238': 'Odienneka',
+'sien1239': 'Sienkoka',
+'toud1238': 'Toudougouka',
+'vand1244': 'Vandougouka',
+'wasu1257': 'Wasulu (Wojenaka)',
+'woje1238': 'Wojenaka',
+'kani1280': 'Kanika',
+'kara1485': 'Karanjan',
+'woro1257': 'Worodougouka',
+'woro1256': 'Worodougou',
+'mani1303': 'Maninka-Mori',
+'gass1238': 'Gassan',
+'noun1238': 'Nouna',
+'safa1244': 'Safané',
+'mark1256': 'Marka',
+'east2425': 'Ost-Manding',
+'kago1248': 'Kagoro',
+'fula1270': 'Fulanke',
+'kita1249': 'Kita-Maninkakan',
+'kita1248': 'Kita-Kagoro',
+'mand1436': 'Mandinka',
+'jaha1245': 'Jahanka',
+'keni1246': 'Kenieba-Maninka',
+'nyox1238': 'Nyoxolonkan',
+'west2500': 'West-Maninkakan',
+'xaas1235': 'Xaasongaxango',
+'xaso1239': 'Xasonka',
+'west2499': 'West-Manding',
+'mand1435': 'Manding',
+'barr1248': 'Barrawa',
+'mank1254': 'Mankaliya',
+'mong1339': 'Mongo (Kuranko)',
+'neyy1238': 'Ney',
+'nien1238': 'Nieni',
+'samb1317': 'Sambaya',
+'seng1279': 'Sengbe',
+'kura1250': 'Kuranko',
+'kass1249': 'Kassadou Lele',
+'koun1238': 'Kounte Lele',
+'tang1346': 'Tangalto Lele',
+'yomb1246': 'Yombiro Lele',
+'lele1266': 'Lele (Guinea)',
+'cent2367': 'Zentral-Kakabe',
+'kank1246': 'Kankalabe',
+'cent2366': 'Zentral-Nordwest-Kakabe',
+'kuru1312': 'Kuru-Maninka',
+'wure1234': 'Wurekaba-Maninka',
+'kaka1265': 'Kakabe',
+'mixi1241': 'Mixifore',
+'mixi1243': 'Mixiforic',
+'nucl1445': 'Kern-Mokole',
+'mand1434': 'Manding-Mokole',
+'cent2048': 'Zentral-Kono',
+'nort2821': 'Nord-Kono',
+'kono1268': 'Kono (Sierra Leone)',
+'vaii1241': 'Vai',
+'vaik1238': 'Vai-Kono',
+'mand1433': 'Manding-Vai',
+'mand1432': 'Manding-Jogo',
+'susu1250': 'Susu',
+'firi1238': 'Firia',
+'musa1264': 'Musaia',
+'suli1238': 'Sulima',
+'yalu1240': 'Yalunka',
+'susu1249': 'Susu-Yalunka',
+'cent2047': 'Zentral-Mande',
+'guin1254': 'Guinea-Kpelle',
+'kono1267': 'Kono (Guinea)',
+'libe1247': 'Liberia-Kpelle',
+'kpel1252': 'Kpelle',
+'bulu1252': 'Buluyiema',
+'bund1255': 'Gbunde',
+'gizi1238': 'Liberianisches Gizima',
+'wubo1238': 'Wubomai',
+'ziem1238': 'Ziema',
+'lom1260': 'Loma (Liberia)',
+'fasa1234': 'Fasalo',
+'woib1234': 'Woibalaga',
+'cent2376': 'Zentral-Guineisches Loma',
+'lula1234': 'Lulama',
+'guin1261': 'Guineisches Gizima',
+'koim1234': 'Koimei',
+'veke1234': 'Vekema',
+'woim1234': 'Woima',
+'yala1268': 'Yala (Loma)',
+'ziye1234': 'Ziyema',
+'sout3340': 'Süd-Guineisches Loma',
+'toma1245': 'Toma',
+'loma1259': 'Loma',
+'hasa1248': 'Hasala',
+'hemb1243': 'Hembeh',
+'luka1238': 'Lukasa',
+'taha1240': 'Tahamba',
+'wawa1247': 'Wawana',
+'wulu1242': 'Wulukoha',
+'band1352': 'Bandi',
+'zial1235': 'Zialo',
+'band1351': 'Bandi-Zialo',
+'buya1246': 'Buya (Loko)',
+'gben1242': 'Gbendembu',
+'koya1250': 'Koya (Mande)',
+'laia1241': 'Laia',
+'libi1245': 'Libisegahun',
+'magb1238': 'Magbiambo',
+'nagb1238': 'Nagbanmba',
+'ngoa1238': 'Ngoahu',
+'ribb1238': 'Ribbi',
+'sand1272': 'Sanda',
+'loko1255': 'Loko',
+'kooo1243': 'Ko (Sierra Leone)',
+'kpaa1243': 'Kpa (Sierra Leone)',
+'sewa1250': 'Sewawa',
+'waan1239': 'Waanjama',
+'mend1266': 'Mende (Sierra Leone)',
+'mend1265': 'Mende-Loko',
+'mend1264': 'Mende-Bandi',
+'mend1263': 'Mende-Loma',
+'sout2842': 'Südwest-Mande',
+'mand1431': 'Manding-Kpelle',
+'jere1245': 'Jèrè',
+'kuko1238': 'Kukoma',
+'kure1239': 'Kure',
+'sank1252': 'Sankuma',
+'tank1238': 'Tankri',
+'yaba1247': 'Yaba',
+'nort2819': 'Nördliches Bobo Madaré',
+'beng1283': 'Benge',
+'sogo1245': 'Sogokiré',
+'syaa1239': 'Sya Bobo',
+'syab1238': 'Syabéré',
+'vore1241': 'Voré',
+'zara1248': 'Zara',
+'sout2840': 'Südliches Bobo Madaré',
+'bobo1253': 'Bobo',
+'bank1258': 'Bankagooma',
+'duun1242': 'Duungooma',
+'kpan1247': 'Kpango',
+'dzuu1242': 'Kern-Dzùùngoo',
+'dzuu1241': 'Dzùùngoo',
+'kpee1234': 'Kpeego',
+'samo1311': 'Samogogouanic',
+'duun1245': 'Duun',
+'nort2820': 'Nördliches Seeku',
+'sout2841': 'Südliches Seeku',
+'seek1238': 'Seeku',
+'samo1309': 'Duun-Seenku',
+'jowu1238': 'Jowulu',
+'duun1244': 'Duun-Jo',
+'duun1243': 'Duun-Bobo',
+'hain1253': 'Hainyaxo Bozo',
+'debo1238': 'Débo',
+'koro1305': 'Korondougou',
+'koty1238': 'Kotya',
+'pond1250': 'Pondori',
+'jena1242': 'Jenaama Bozo',
+'tiem1235': 'Tiemacèwè Bozo',
+'tiey1235': 'Tiéyaxo Bozo',
+'tibo1240': 'Ti-Bozo',
+'nucl1444': 'Kern-Bozo',
+'bozo1252': 'Bozo',
+'sini1242': 'Sininkere',
+'azer1256': 'Azer',
+'gady1242': 'Gadyaga',
+'kinb1238': 'Kinbakka',
+'xenq1238': 'Xenqenna',
+'soni1259': 'Soninke',
+'soni1258': 'Soninkean',
+'soni1257': 'Soninke-Bozo',
+'samo1308': 'Nordwest-Mande',
+'west2780': 'West-Mande',
+'mand1469': 'Mande',};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 2b  –  LÄNDER-OVERRIDE (OPTIONAL)
+════════════════════════════════════════════════════════════════ */
+const countryData = {};
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 3a  –  NEWICK-STRING
+   ⚠ IMMER BACKTICKS verwenden!
+════════════════════════════════════════════════════════════════ */
+const rawNewick = `(((('Baraka [bara1365]':1,'Barka {Burkina Faso} [bark1245]':1,'Lebir [lebi1240]':1,'Lere {Burkina Faso} [lere1242]':1)'Bissa [biss1248][bib]-l-':1,((('Boko {Benin} [boko1266][bqc]-l-':1,('Kaiama [kaia1244]':1,'Village Bokobaru [vill1241]':1)'Bokobaru [boko1267][bus]-l-':1,('Illo [illo1238]':1,'New Busa [newb1246]':1,'Wawa {Nigeria} [wawa1248]':1)'Busa [busa1253][bqp]-l-':1)'Boko-Busa [boko1265]':1,('Kyenga [kyen1242][tye]-l-':1,'Shanga [shan1282][sho]-l-':1)'Kyenga-Shanga [kyen1241]':1)'Busan [busa1252]':1,('Matya Samo [maty1235][stj]-l-':1,('Bangassogo [bang1362]':1,'Bounou [boun1244]':1,'Gomboro [gomb1251]':1,'Kiembara [kiem1238]':1)'Maya Samo [maya1281][sym]-l-':1,('Toma {Eastern Mande} [toma1246]':1)'Southern Samo [sout2844][sbd]-l-':1)'Mande Samo [mand1437]':1)'Samo-Busa [samo1302]':1)'Bisa-Busa [bisa1265]':1,((((('Kla-Dan [klad1234][lda]':1,(('Bia Dan [biad1234]':1,'Blong Dan [blon1234]':1,'Gaan Dan [gaan1244]':1,'Gama Dan [gama1259]':1,'Gbapen [gbap1234]':1,'Gblee Dan [gble1234]':1,'Gwaan Dan [gwaa1240]':1,'Gweetaawu [gwee1242]':1,'Kaa Dan [kaad1239]':1,'Saan Dan [saan1247]':1,'Sleng Dan [slen1234]':1,'Tee Dan [teed1234]':1,'Yii Dan [yiid1234]':1,'Yoon Dan [yoon1234]':1)'Eastern Dan [east2794]':1,('Blowo [blow1238]':1,'Dhoo Dan [dhoo1234]':1,'Ka Dan [kada1293]':1,'Loo Dan [lood1234]':1,'Lower Gio [lowe1406]':1,'River Cess Gio [rive1259]':1,'Upper Gio [uppe1420]':1,'Vain Dan [vain1234]':1,'Wao Dan [waod1234]':1,'West Yacouba Dan [west2878]':1,'Yizue [yizu1234]':1)'Western Dan [west2877]':1)'Nuclear Dan [nucl1770][dnj]':1)'Dan [dann1241][daf]-l-':1,('Goo [gooa1234][gov]-l-':1,('Boo [booo1257]':1,'Guse [guse1238]':1,'Gwéò [gweo1238]':1,'Naò [naoo1238]':1,'Wáádú [waad1238]':1,'Yiligele [yili1249]':1)'Toura {Côte d''Ivoire} [tour1242][neb]-l-':1)'Toura-Goo [tour1245]':1)'Dan-Toura [dant1235]':1,('Guro [guro1248][goa]-l-':1,('Bhoo [bhoo1238]':1,'Klan [klan1243]':1,'Taan [taan1239]':1,'Yaan [yaan1242]':1,'Yoo [yooo1238]':1)'Yaouré [yaou1238][yre]-l-':1)'Guro-Yaoure [guro1247]':1)'Guro-Dan [guro1246]':1,'Mann [mann1248][mev]-l-':1)'Mano-Dan [guro1245]':1,((('Beng [beng1286][nhb]-l-':1,'Ngen of Djonkro [ngen1256][gnj]-l-':1)'Bengic [beng1291]':1,('Bokabo [boka1250]':1,'Bokwa {Mande} [bokw1238]':1,'N''da [ndaa1238]':1,'Tuka [tuka1245]':1)'Gban [gagu1242][ggu]-l-':1)'Ben-Gban [beng1285]':1,('Gbin [gbin1239][xgb]-l-':1)'Unclassified Nwa-Ben [unun9970]':1,('Mwan [mwan1250][moa]-l-':1,('Kemu [kemu1238]':1,'Miamu [miam1251]':1)'Wan [wann1242][wan]-l-':1)'Wan-Mwan [wanm1243]':1)'Nwa-Ben [nwab1239]':1)'Southeastern Mande [sout3140]':1)'Eastern Mande [east2697]':1,(((((('Jalkunan [jalk1242][bxl]-l-':1,'Jeli [jeri1242][jek]-l-':1)'Jeri [jeri1241]':1,(('Atumfuor [atum1238]':1,'Bungase [bung1267]':1,'Dwera [dwer1238]':1,'Gyogo [gyog1238]':1,'Hwela [hwel1241]':1,'Ntoleh [ntol1238]':1)'Ligbi [ligb1244][lig]-l-':1,'Tonjon [tonj1246][tjn]-l-':1)'Jogo [jogo1242]':1)'Jogo-Jeri [jogo1241]':1,((((('Beledugu [bele1249]':1,'Ganadugu [gana1273]':1,'San [sann1238]':1,'Segou [sego1238]':1,'Sikasso [sika1260]':1,'Somono [somo1238]':1,'Standard Bambara [stan1305]':1)'Bambara [bamb1269][bam]-l-':1,('Black Bolon [blac1270]':1,'White Bolon [whit1268]':1)'Bolon [bolo1266][bof]-l-':1,('Dioula Véhiculaire [diou1238]':1,'Kong Jula [kong1292]':1,'Tagboussikan [tagb1257]':1)'Dyula [dyul1238][dyu]-l-':1,(('Amana [aman1263]':1,'Bö [booo1256]':1,'Koulounkalan [koul1238]':1,'Wasulu [wasu1254]':1)'Eastern Maninkakan [east2426][emk]-l-':1,('Konyanka Maninka [kony1250][mku]-l-':1,'Manya [many1261][mzj]-l-':1)'Konya-Manya [kony1252]':1,'Sankaran Maninka [sank1253][msc]-l-':1)'Manenkan [mane1267]':1,(('Koro {Côte d''Ivoire} [koro1306][kfo]-l-':1,('Nigbi [nigb1238]':1,'Nuclear Koyaga [nucl1446]':1,'Sagaka [saga1263]':1,'Siaka [siak1238]':1)'Koyaga [koya1253][kga]-l-':1)'Koro-Koyaga [koro1315]':1,('Baralaka [bara1364]':1,'Finanga [fina1241]':1,'Koroka [koro1307]':1,'Mahouka [maho1250]':1,'Tenenga [tene1247]':1)'Mahou [maho1249][mxx]-l-':1,('Bodougouka [bodo1274]':1,'Nafana [nafa1259]':1,'Odienneka [odie1238]':1,'Sienkoka [sien1239]':1,'Toudougouka [toud1238]':1,'Vandougouka [vand1244]':1,'Wasulu {Wojenaka} [wasu1257]':1)'Wojenaka [woje1238][jod]-l-':1,('Kanika [kani1280]':1,'Karanjan [kara1485]':1,'Worodougouka [woro1257]':1)'Worodougou [woro1256][jud]-l-':1)'Maninka-Mori [mani1303]':1,('Gassan [gass1238]':1,'Nouna [noun1238]':1,'Safané [safa1244]':1)'Marka [mark1256][rkm]-l-':1)'East Manding [east2425]':1,(('Kagoro [kago1248][xkg]-l-':1,('Fulanke [fula1270]':1)'Kita Maninkakan [kita1249][mwk]-l-':1)'Kita-Kagoro [kita1248]':1,'Mandinka [mand1436][mnk]-l-':1,('Jahanka [jaha1245][jad]-l-':1,('Kenieba Maninka [keni1246]':1,'Nyoxolonkan [nyox1238]':1)'Western Maninkakan [west2500][mlq]-l-':1,'Xaasongaxango [xaas1235][kao]-l-':1)'Xasonka [xaso1239]':1)'West Manding [west2499]':1)'Manding [mand1435]':1,(('Barrawa [barr1248]':1,'Mankaliya [mank1254]':1,'Mongo {Kuranko} [mong1339]':1,'Ney [neyy1238]':1,'Nieni [nien1238]':1,'Sambaya [samb1317]':1,'Sengbe [seng1279]':1)'Kuranko [kura1250][knk]-l-':1,('Kassadou Lele [kass1249]':1,'Kounte Lele [koun1238]':1,'Tangalto Lele [tang1346]':1,'Yombiro Lele [yomb1246]':1)'Lele {Guinea} [lele1266][llc]-l-':1,((('Central Kakabe [cent2367]':1,'Kankalabe [kank1246]':1)'Central-Northwestern Kakabe [cent2366]':1,'Kuru-Maninka [kuru1312]':1,'Wurekaba Maninka [wure1234]':1)'Kakabe [kaka1265][kke]-l-':1,'Mixifore [mixi1241][mfg]-l-':1)'Mixiforic [mixi1243]':1)'Nuclear Mokole [nucl1445]':1)'Manding-Mokole [mand1434]':1,(('Central Kono [cent2048]':1,'Northern Kono [nort2821]':1)'Kono {Sierra Leone} [kono1268][kno]-l-':1,'Vai [vaii1241][vai]-l-':1)'Vai-Kono [vaik1238]':1)'Manding-Vai [mand1433]':1)'Manding-Jogo [mand1432]':1,('Susu [susu1250][sus]-l-':1,('Firia [firi1238]':1,'Musaia [musa1264]':1,'Sulima [suli1238]':1)'Yalunka [yalu1240][yal]-l-':1)'Susu-Yalunka [susu1249]':1)'Central Mande [cent2047]':1,(('Guinea Kpelle [guin1254][gkp]-l-':1,'Kono {Guinea} [kono1267][knu]-l-':1,'Liberia Kpelle [libe1247][xpe]-l-':1)'Kpelle [kpel1252]':1,((('Buluyiema [bulu1252]':1,'Gbunde [bund1255]':1,'Liberian Gizima [gizi1238]':1,'Wubomai [wubo1238]':1,'Ziema [ziem1238]':1)'Loma {Liberia} [loma1260][lom]-l-':1,(('Fasalo [fasa1234]':1,'Woibalaga [woib1234]':1)'Central Guinean Loma [cent2376]':1,'Lulama [lula1234]':1,('Guinean Gizima [guin1261]':1,'Koimei [koim1234]':1,'Vekema [veke1234]':1,'Woima [woim1234]':1,'Yala {Loma} [yala1268]':1,'Ziyema [ziye1234]':1)'Southern Guinean Loma [sout3340]':1)'Toma [toma1245][tod]-l-':1)'Loma [loma1259]':1,((('Hasala [hasa1248]':1,'Hembeh [hemb1243]':1,'Lukasa [luka1238]':1,'Tahamba [taha1240]':1,'Wawana [wawa1247]':1,'Wulukoha [wulu1242]':1)'Bandi [band1352][bza]-l-':1,'Zialo [zial1235][zil]-l-':1)'Bandi-Zialo [band1351]':1,(('Buya {Loko} [buya1246]':1,'Gbendembu [gben1242]':1,'Koya {Mande} [koya1250]':1,'Laia [laia1241]':1,'Libisegahun [libi1245]':1,'Magbiambo [magb1238]':1,'Nagbanmba [nagb1238]':1,'Ngoahu [ngoa1238]':1,'Ribbi [ribb1238]':1,'Sanda [sand1272]':1)'Loko [loko1255][lok]-l-':1,('Ko {Sierra Leone} [kooo1243]':1,'Kpa {Sierra Leone} [kpaa1243]':1,'Sewawa [sewa1250]':1,'Waanjama [waan1239]':1)'Mende {Sierra Leone} [mend1266][men]-l-':1)'Mende-Loko [mend1265]':1)'Mende-Bandi [mend1264]':1)'Mende-Loma [mend1263]':1)'Southwest Mande [sout2842]':1)'Manding-Kpelle [mand1431]':1,(((('Jèrè [jere1245]':1,'Kukoma [kuko1238]':1,'Kure [kure1239]':1,'Sankuma [sank1252]':1,'Tankri [tank1238]':1,'Yaba [yaba1247]':1)'Northern Bobo Madaré [nort2819][bbo]-l-':1,('Benge [beng1283]':1,'Sogokiré [sogo1245]':1,'Sya Bobo [syaa1239]':1,'Syabéré [syab1238]':1,'Voré [vore1241]':1,'Zara [zara1248]':1)'Southern Bobo Madaré [sout2840][bwq]-l-':1)'Bobo [bobo1253]':1,((('Bankagooma [bank1258][bxw]-l-':1,'Duungooma [duun1242][dux]-l-':1,(('Kpango [kpan1247]':1,'Nuclear Dzùùngoo [dzuu1242]':1)'Dzùùngoo [dzuu1241][dnn]-l-':1,'Kpeego [kpee1234][cpo]-l-':1)'Samogogouanic [samo1311]':1)'Duun [duun1245]':1,('Northern Seeku [nort2820]':1,'Southern Seeku [sout2841]':1)'Seeku [seek1238][sos]-l-':1)'Duun-Seenku [samo1309]':1,'Jowulu [jowu1238][jow]-l-':1)'Duun-Jo [duun1244]':1)'Duun-Bobo [duun1243]':1,(('Hainyaxo Bozo [hain1253][bzx]-l-':1,(('Débo [debo1238]':1,'Korondougou [koro1305]':1,'Kotya [koty1238]':1,'Pondori [pond1250]':1)'Jenaama Bozo [jena1242][bze]-l-':1,('Tiemacèwè Bozo [tiem1235][boo]-l-':1,'Tiéyaxo Bozo [tiey1235][boz]-l-':1)'Ti-Bozo [tibo1240]':1)'Nuclear Bozo [nucl1444]':1)'Bozo [bozo1252]':1,('Sininkere [sini1242][skq]-l-':1,('Azer [azer1256]':1,'Gadyaga [gady1242]':1,'Kinbakka [kinb1238]':1,'Xenqenna [xenq1238]':1)'Soninke [soni1259][snk]-l-':1)'Soninkean [soni1258]':1)'Soninke-Bozo [soni1257]':1)'Northwestern Mande [samo1308]':1)'Western Mande [west2780]':1)'Mande [mand1469]':1`;
+
+/* ════════════════════════════════════════════════════════════════
+   BEREICH 3b  –  GEOJSON
+════════════════════════════════════════════════════════════════ */
+const rawGeoJSON = {
+  "type": "FeatureCollection",
+  "properties": {
+    "layer": "mand1469"
+  },
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Bissa",
+          "longitude": -0.3744,
+          "latitude": 11.3434,
+          "id": "biss1248"
+        },
+        "name": "Bissa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.3744,
+          11.3434
+        ]
+      },
+      "id": "biss1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Mann",
+          "longitude": -8.86405,
+          "latitude": 7.04616,
+          "id": "mann1248"
+        },
+        "name": "Mann"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -8.86405,
+          7.04616
+        ]
+      },
+      "id": "mann1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Gban",
+          "longitude": -5.51851,
+          "latitude": 6.40859,
+          "id": "gagu1242"
+        },
+        "name": "Gban"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.51851,
+          6.40859
+        ]
+      },
+      "id": "gagu1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Mwan",
+          "longitude": -5.94577,
+          "latitude": 7.87533,
+          "id": "mwan1250"
+        },
+        "name": "Mwan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.94577,
+          7.87533
+        ]
+      },
+      "id": "mwan1250"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Wan",
+          "longitude": -5.82092,
+          "latitude": 7.88773,
+          "id": "wann1242"
+        },
+        "name": "Wan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.82092,
+          7.88773
+        ]
+      },
+      "id": "wann1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Gbin",
+          "longitude": -2.811213,
+          "latitude": 8.020857,
+          "id": "gbin1239"
+        },
+        "name": "Gbin"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.811213,
+          8.020857
+        ]
+      },
+      "id": "gbin1239"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Matya Samo",
+          "longitude": -3.25128,
+          "latitude": 13.1027,
+          "id": "maty1235"
+        },
+        "name": "Matya Samo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.25128,
+          13.1027
+        ]
+      },
+      "id": "maty1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Maya Samo",
+          "longitude": -2.72732,
+          "latitude": 13.1811,
+          "id": "maya1281"
+        },
+        "name": "Maya Samo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.72732,
+          13.1811
+        ]
+      },
+      "id": "maya1281"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Southern Samo",
+          "longitude": -2.9052,
+          "latitude": 12.713,
+          "id": "sout2844"
+        },
+        "name": "Southern Samo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.9052,
+          12.713
+        ]
+      },
+      "id": "sout2844"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Ngen of Djonkro",
+          "longitude": -3.97,
+          "latitude": 7.76,
+          "id": "ngen1256"
+        },
+        "name": "Ngen of Djonkro"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.97,
+          7.76
+        ]
+      },
+      "id": "ngen1256"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Beng",
+          "longitude": -4.23539,
+          "latitude": 7.78122,
+          "id": "beng1286"
+        },
+        "name": "Beng"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.23539,
+          7.78122
+        ]
+      },
+      "id": "beng1286"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Yaouré",
+          "longitude": -5.57851,
+          "latitude": 6.95282,
+          "id": "yaou1238"
+        },
+        "name": "Yaouré"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.57851,
+          6.95282
+        ]
+      },
+      "id": "yaou1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Guro",
+          "longitude": -6.31154,
+          "latitude": 7.34954,
+          "id": "guro1248"
+        },
+        "name": "Guro"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.31154,
+          7.34954
+        ]
+      },
+      "id": "guro1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Dan",
+          "longitude": -8.24535,
+          "latitude": 7.22812,
+          "id": "dann1241"
+        },
+        "name": "Dan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -8.24535,
+          7.22812
+        ]
+      },
+      "id": "dann1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Shanga",
+          "longitude": 4.41464,
+          "latitude": 11.2752,
+          "id": "shan1282"
+        },
+        "name": "Shanga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.41464,
+          11.2752
+        ]
+      },
+      "id": "shan1282"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Kyenga",
+          "longitude": 3.58651,
+          "latitude": 11.5953,
+          "id": "kyen1242"
+        },
+        "name": "Kyenga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.58651,
+          11.5953
+        ]
+      },
+      "id": "kyen1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Busa",
+          "longitude": 4.39929,
+          "latitude": 9.91074,
+          "id": "busa1253"
+        },
+        "name": "Busa"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          4.39929,
+          9.91074
+        ]
+      },
+      "id": "busa1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Boko (Benin)",
+          "longitude": 3.71771,
+          "latitude": 10.5189,
+          "id": "boko1266"
+        },
+        "name": "Boko (Benin)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.71771,
+          10.5189
+        ]
+      },
+      "id": "boko1266"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Bokobaru",
+          "longitude": 3.80058,
+          "latitude": 9.52724,
+          "id": "boko1267"
+        },
+        "name": "Bokobaru"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          3.80058,
+          9.52724
+        ]
+      },
+      "id": "boko1267"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Nuclear Dan",
+          "longitude": -8.15,
+          "latitude": 7.27,
+          "id": "nucl1770"
+        },
+        "name": "Nuclear Dan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -8.15,
+          7.27
+        ]
+      },
+      "id": "nucl1770"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Goo",
+          "longitude": -7.562563,
+          "latitude": 7.580998,
+          "id": "gooa1234"
+        },
+        "name": "Goo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -7.562563,
+          7.580998
+        ]
+      },
+      "id": "gooa1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGMDAwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1629,
+        "language": {
+          "pk": 1629,
+          "name": "Toura (Côte d'Ivoire)",
+          "longitude": -7.33105,
+          "latitude": 7.76747,
+          "id": "tour1242"
+        },
+        "name": "Toura (Côte d'Ivoire)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -7.33105,
+          7.76747
+        ]
+      },
+      "id": "tour1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Susu",
+          "longitude": -13.3628,
+          "latitude": 10.4046,
+          "id": "susu1250"
+        },
+        "name": "Susu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -13.3628,
+          10.4046
+        ]
+      },
+      "id": "susu1250"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Yalunka",
+          "longitude": -11.2836,
+          "latitude": 9.97186,
+          "id": "yalu1240"
+        },
+        "name": "Yalunka"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -11.2836,
+          9.97186
+        ]
+      },
+      "id": "yalu1240"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Liberia Kpelle",
+          "longitude": -9.96128,
+          "latitude": 6.92048,
+          "id": "libe1247"
+        },
+        "name": "Liberia Kpelle"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -9.96128,
+          6.92048
+        ]
+      },
+      "id": "libe1247"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Guinea Kpelle",
+          "longitude": -8.98843,
+          "latitude": 7.93196,
+          "id": "guin1254"
+        },
+        "name": "Guinea Kpelle"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -8.98843,
+          7.93196
+        ]
+      },
+      "id": "guin1254"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Kono (Guinea)",
+          "longitude": -8.25793,
+          "latitude": 7.85002,
+          "id": "kono1267"
+        },
+        "name": "Kono (Guinea)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -8.25793,
+          7.85002
+        ]
+      },
+      "id": "kono1267"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Hainyaxo Bozo",
+          "longitude": -5.65085,
+          "latitude": 13.8734,
+          "id": "hain1253"
+        },
+        "name": "Hainyaxo Bozo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.65085,
+          13.8734
+        ]
+      },
+      "id": "hain1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Sininkere",
+          "longitude": -0.78772,
+          "latitude": 13.7206,
+          "id": "sini1242"
+        },
+        "name": "Sininkere"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -0.78772,
+          13.7206
+        ]
+      },
+      "id": "sini1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Soninke",
+          "longitude": -12.1408,
+          "latitude": 14.7596,
+          "id": "soni1259"
+        },
+        "name": "Soninke"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -12.1408,
+          14.7596
+        ]
+      },
+      "id": "soni1259"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Jowulu",
+          "longitude": -5.47873,
+          "latitude": 10.7691,
+          "id": "jowu1238"
+        },
+        "name": "Jowulu"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.47873,
+          10.7691
+        ]
+      },
+      "id": "jowu1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Southern Bobo Madaré",
+          "longitude": -4.26497,
+          "latitude": 11.5409,
+          "id": "sout2840"
+        },
+        "name": "Southern Bobo Madaré"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.26497,
+          11.5409
+        ]
+      },
+      "id": "sout2840"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Northern Bobo Madaré",
+          "longitude": -4.47538,
+          "latitude": 12.4182,
+          "id": "nort2819"
+        },
+        "name": "Northern Bobo Madaré"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.47538,
+          12.4182
+        ]
+      },
+      "id": "nort2819"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Loma (Liberia)",
+          "longitude": -9.69906,
+          "latitude": 7.91585,
+          "id": "loma1260"
+        },
+        "name": "Loma (Liberia)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -9.69906,
+          7.91585
+        ]
+      },
+      "id": "loma1260"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Toma",
+          "longitude": -9.3491,
+          "latitude": 8.4228,
+          "id": "toma1245"
+        },
+        "name": "Toma"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -9.3491,
+          8.4228
+        ]
+      },
+      "id": "toma1245"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Jenaama Bozo",
+          "longitude": -4.0194,
+          "latitude": 15.2533,
+          "id": "jena1242"
+        },
+        "name": "Jenaama Bozo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.0194,
+          15.2533
+        ]
+      },
+      "id": "jena1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Seeku",
+          "longitude": -4.58203,
+          "latitude": 11.1285,
+          "id": "seek1238"
+        },
+        "name": "Seeku"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.58203,
+          11.1285
+        ]
+      },
+      "id": "seek1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Kono (Sierra Leone)",
+          "longitude": -10.9214,
+          "latitude": 8.67039,
+          "id": "kono1268"
+        },
+        "name": "Kono (Sierra Leone)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -10.9214,
+          8.67039
+        ]
+      },
+      "id": "kono1268"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Vai",
+          "longitude": -11.3262,
+          "latitude": 7.05085,
+          "id": "vaii1241"
+        },
+        "name": "Vai"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -11.3262,
+          7.05085
+        ]
+      },
+      "id": "vaii1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Ligbi",
+          "longitude": -2.56353,
+          "latitude": 7.94291,
+          "id": "ligb1244"
+        },
+        "name": "Ligbi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -2.56353,
+          7.94291
+        ]
+      },
+      "id": "ligb1244"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Tonjon",
+          "longitude": -4.40666,
+          "latitude": 8.357,
+          "id": "tonj1246"
+        },
+        "name": "Tonjon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.40666,
+          8.357
+        ]
+      },
+      "id": "tonj1246"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Jalkunan",
+          "longitude": -5.21959,
+          "latitude": 10.5426,
+          "id": "jalk1242"
+        },
+        "name": "Jalkunan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.21959,
+          10.5426
+        ]
+      },
+      "id": "jalk1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Jeli",
+          "longitude": -5.66717,
+          "latitude": 9.3957,
+          "id": "jeri1242"
+        },
+        "name": "Jeli"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.66717,
+          9.3957
+        ]
+      },
+      "id": "jeri1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Loko",
+          "longitude": -12.1583,
+          "latitude": 9.11838,
+          "id": "loko1255"
+        },
+        "name": "Loko"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -12.1583,
+          9.11838
+        ]
+      },
+      "id": "loko1255"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Mende (Sierra Leone)",
+          "longitude": -10.9926,
+          "latitude": 7.90935,
+          "id": "mend1266"
+        },
+        "name": "Mende (Sierra Leone)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -10.9926,
+          7.90935
+        ]
+      },
+      "id": "mend1266"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Zialo",
+          "longitude": -9.805,
+          "latitude": 8.667,
+          "id": "zial1235"
+        },
+        "name": "Zialo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -9.805,
+          8.667
+        ]
+      },
+      "id": "zial1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Bandi",
+          "longitude": -10.1886,
+          "latitude": 8.207,
+          "id": "band1352"
+        },
+        "name": "Bandi"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -10.1886,
+          8.207
+        ]
+      },
+      "id": "band1352"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Tiéyaxo Bozo",
+          "longitude": -5.08609,
+          "latitude": 14.1223,
+          "id": "tiey1235"
+        },
+        "name": "Tiéyaxo Bozo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.08609,
+          14.1223
+        ]
+      },
+      "id": "tiey1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Tiemacèwè Bozo",
+          "longitude": -4.25688,
+          "latitude": 15.47052,
+          "id": "tiem1235"
+        },
+        "name": "Tiemacèwè Bozo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.25688,
+          15.47052
+        ]
+      },
+      "id": "tiem1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Duungooma",
+          "longitude": -5.85872,
+          "latitude": 10.9234,
+          "id": "duun1242"
+        },
+        "name": "Duungooma"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.85872,
+          10.9234
+        ]
+      },
+      "id": "duun1242"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Bankagooma",
+          "longitude": -5.50744,
+          "latitude": 11.7497,
+          "id": "bank1258"
+        },
+        "name": "Bankagooma"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.50744,
+          11.7497
+        ]
+      },
+      "id": "bank1258"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Kuranko",
+          "longitude": -10.6122,
+          "latitude": 9.49325,
+          "id": "kura1250"
+        },
+        "name": "Kuranko"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -10.6122,
+          9.49325
+        ]
+      },
+      "id": "kura1250"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Lele (Guinea)",
+          "longitude": -10.371,
+          "latitude": 8.98043,
+          "id": "lele1266"
+        },
+        "name": "Lele (Guinea)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -10.371,
+          8.98043
+        ]
+      },
+      "id": "lele1266"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Kpeego",
+          "longitude": -5.2677,
+          "latitude": 10.7244,
+          "id": "kpee1234"
+        },
+        "name": "Kpeego"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.2677,
+          10.7244
+        ]
+      },
+      "id": "kpee1234"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Dzùùngoo",
+          "longitude": -4.92036,
+          "latitude": 11.3796,
+          "id": "dzuu1241"
+        },
+        "name": "Dzùùngoo"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.92036,
+          11.3796
+        ]
+      },
+      "id": "dzuu1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Bambara",
+          "longitude": -7.65,
+          "latitude": 12.9,
+          "id": "bamb1269"
+        },
+        "name": "Bambara"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -7.65,
+          12.9
+        ]
+      },
+      "id": "bamb1269"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Marka",
+          "longitude": -3.58355,
+          "latitude": 12.7178,
+          "id": "mark1256"
+        },
+        "name": "Marka"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -3.58355,
+          12.7178
+        ]
+      },
+      "id": "mark1256"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Bolon",
+          "longitude": -4.75524,
+          "latitude": 11.8242,
+          "id": "bolo1266"
+        },
+        "name": "Bolon"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.75524,
+          11.8242
+        ]
+      },
+      "id": "bolo1266"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Dyula",
+          "longitude": -4.5823,
+          "latitude": 9.291,
+          "id": "dyul1238"
+        },
+        "name": "Dyula"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -4.5823,
+          9.291
+        ]
+      },
+      "id": "dyul1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Mandinka",
+          "longitude": -15.6539466667,
+          "latitude": 12.8165233333,
+          "id": "mand1436"
+        },
+        "name": "Mandinka"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -15.6539466667,
+          12.8165233333
+        ]
+      },
+      "id": "mand1436"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Mixifore",
+          "longitude": -14.385,
+          "latitude": 10.6822,
+          "id": "mixi1241"
+        },
+        "name": "Mixifore"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -14.385,
+          10.6822
+        ]
+      },
+      "id": "mixi1241"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Kakabe",
+          "longitude": -11.4418,
+          "latitude": 10.5962,
+          "id": "kaka1265"
+        },
+        "name": "Kakabe"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -11.4418,
+          10.5962
+        ]
+      },
+      "id": "kaka1265"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Worodougou",
+          "longitude": -6.72244,
+          "latitude": 8.23453,
+          "id": "woro1256"
+        },
+        "name": "Worodougou"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.72244,
+          8.23453
+        ]
+      },
+      "id": "woro1256"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Mahou",
+          "longitude": -7.7062,
+          "latitude": 8.2494,
+          "id": "maho1249"
+        },
+        "name": "Mahou"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -7.7062,
+          8.2494
+        ]
+      },
+      "id": "maho1249"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Wojenaka",
+          "longitude": -7.6104,
+          "latitude": 9.72582,
+          "id": "woje1238"
+        },
+        "name": "Wojenaka"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -7.6104,
+          9.72582
+        ]
+      },
+      "id": "woje1238"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Eastern Maninkakan",
+          "longitude": -9.3162,
+          "latitude": 10.41,
+          "id": "east2426"
+        },
+        "name": "Eastern Maninkakan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -9.3162,
+          10.41
+        ]
+      },
+      "id": "east2426"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Sankaran Maninka",
+          "longitude": -10.569,
+          "latitude": 10.0962,
+          "id": "sank1253"
+        },
+        "name": "Sankaran Maninka"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -10.569,
+          10.0962
+        ]
+      },
+      "id": "sank1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Xaasongaxango",
+          "longitude": -10.95,
+          "latitude": 14.1,
+          "id": "xaas1235"
+        },
+        "name": "Xaasongaxango"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -10.95,
+          14.1
+        ]
+      },
+      "id": "xaas1235"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Jahanka",
+          "longitude": -12.1443,
+          "latitude": 12.5863,
+          "id": "jaha1245"
+        },
+        "name": "Jahanka"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -12.1443,
+          12.5863
+        ]
+      },
+      "id": "jaha1245"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Western Maninkakan",
+          "longitude": -12.8009,
+          "latitude": 13.5677,
+          "id": "west2500"
+        },
+        "name": "Western Maninkakan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -12.8009,
+          13.5677
+        ]
+      },
+      "id": "west2500"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Kita Maninkakan",
+          "longitude": -9.49151,
+          "latitude": 13.1798,
+          "id": "kita1249"
+        },
+        "name": "Kita Maninkakan"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -9.49151,
+          13.1798
+        ]
+      },
+      "id": "kita1249"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Kagoro",
+          "longitude": -9.96404,
+          "latitude": 14.0546,
+          "id": "kago1248"
+        },
+        "name": "Kagoro"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -9.96404,
+          14.0546
+        ]
+      },
+      "id": "kago1248"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Koyaga",
+          "longitude": -6.2041,
+          "latitude": 8.0946,
+          "id": "koya1253"
+        },
+        "name": "Koyaga"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -6.2041,
+          8.0946
+        ]
+      },
+      "id": "koya1253"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Koro (Côte d'Ivoire)",
+          "longitude": -5.73572,
+          "latitude": 8.11966,
+          "id": "koro1306"
+        },
+        "name": "Koro (Côte d'Ivoire)"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -5.73572,
+          8.11966
+        ]
+      },
+      "id": "koro1306"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Konyanka Maninka",
+          "longitude": -8.7112,
+          "latitude": 8.667,
+          "id": "kony1250"
+        },
+        "name": "Konyanka Maninka"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -8.7112,
+          8.667
+        ]
+      },
+      "id": "kony1250"
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "icon": "data:image/svg+xml;base64,PHN2ZyAgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIgogICAgICB4bWxuczp4bGluaz0iaHR0cDovL3d3dy53My5vcmcvMTk5OS94bGluayIgaGVpZ2h0PSI0MCIgd2lkdGg9IjQwIj4KICA8Y2lyY2xlIGN4PSIyMCIgY3k9IjIwIiByPSIxNCIgc3R5bGU9ImZpbGw6I0ZGRkYwMDtzdHJva2U6YmxhY2s7c3Ryb2tlLXdpZHRoOjFweDtzdHJva2UtbGluZWNhcDpyb3VuZDtzdHJva2UtbGluZWpvaW46cm91bmQ7Ii8+Cjwvc3ZnPg==",
+        "branch": 1628,
+        "language": {
+          "pk": 1628,
+          "name": "Manya",
+          "longitude": -9.44257,
+          "latitude": 8.56186,
+          "id": "many1261"
+        },
+        "name": "Manya"
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [
+          -9.44257,
+          8.56186
+        ]
+      },
+      "id": "many1261"
+    }
+  ]
+};
+
+/* ════════════════════════════════════════════════════════════════
+   AB HIER NICHTS MEHR ÄNDERN
+════════════════════════════════════════════════════════════════ */
+
+/* ── Farb-Palette ── */
+const _PALETTE = [
+  "#7ec8c8","#c87868","#a0b878","#787ec8",
+  "#c87898","#88b8a0","#c8b878","#b878c8",
+  "#78b8c8","#c8a878","#98c878","#c87848"
+];
+let _autoColorMap = {};
+
+function _buildColorMap(root) {
+  _autoColorMap = {};
+  if (!root) return;
+  _autoColorMap[root.id] = "#c8973a";
+  (root.children || []).forEach((g, i) =>
+    _assignCol(g, _PALETTE[i % _PALETTE.length])
+  );
+}
+function _assignCol(node, col) {
+  _autoColorMap[node.id] = col;
+  if (node.children) node.children.forEach(c => _assignCol(c, col));
+}
+
+/* ── Auto-Länder via Nominatim ── */
+const _autoCountry = {};
+const _geocodeDone = new Set();
+
+function _flagFromCode(cc) {
+  if (!cc || cc.length !== 2) return '';
+  return [...cc.toUpperCase()].map(c =>
+    String.fromCodePoint(0x1F1E6 - 65 + c.charCodeAt(0))
+  ).join('');
+}
+
+async function _geocodeLang(id, lat, lon) {
+  try {
+    const r = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&accept-language=de`,
+      { headers: { 'User-Agent': 'SprachfamilienAtlas/4.0' } }
+    );
+    if (!r.ok) return;
+    const j    = await r.json();
+    const addr = j.address || {};
+    const cc   = (addr.country_code || '').toUpperCase();
+    const name = addr.country || '';
+    const reg  = addr.state || addr.province || addr.region || '';
+    if (cc && name) _autoCountry[id] = [{ flag: _flagFromCode(cc), name, region: reg }];
+  } catch(e) { /* silent */ } finally {
+    _geocodeDone.add(id);
+    if (selNode && selNode.data.id === id) showPanel(selNode);
+  }
+}
+
+function _startGeocoding() {
+  geoData.forEach((lang, i) => {
+    if (!countryData[lang.id])
+      setTimeout(() => _geocodeLang(lang.id, lang.lat, lang.lon), i * 1200);
+    else
+      _geocodeDone.add(lang.id);
+  });
+}
+
+function _getCountries(d) {
+  const id = d.data.id;
+  if (countryData[id]) return countryData[id];
+  if (_autoCountry[id]) return _autoCountry[id];
+  const seen = new Set(), res = [];
+  function collect(node) {
+    (_autoCountry[node.id] || []).forEach(e => {
+      if (!seen.has(e.name)) { seen.add(e.name); res.push({ flag: e.flag, name: e.name, region: '' }); }
+    });
+    if (node.children) node.children.forEach(collect);
+  }
+  collect(d.data);
+  return res.length ? res : null;
+}
+
+function _isPending(d) {
+  const id = d.data.id;
+  if (countryData[id] || _geocodeDone.has(id)) return false;
+  function hasCoord(node) {
+    if (_geocodeDone.has(node.id)) return false;
+    if (node.lat != null) return true;
+    return (node.children || []).some(hasCoord);
+  }
+  return hasCoord(d.data);
+}
+
+/* ── Hilfsfunktionen ── */
+function getDisplayName(id, fallback) { return nameTranslations[id] || fallback || id; }
+
+function colorByGroup(id) {
+  for (const g of mapLegendGroups)
+    if (g.ids && g.ids.includes(id)) return g.color;
+  return _autoColorMap[id] || "#c8973a";
+}
+
+const NODE_COLORS = { family:"#c8973a", language:"#7ec8c8", subgroup:"#c87868", dialect:"#a0b878" };
+function nodeRadius(type, fontSize) {
+  // Punkt-Radius proportional zur Schriftgröße
+  const base = { family: 9, language: 7, subgroup: 6, dialect: 5 };
+  const b = base[type] || 5;
+  return Math.max(3, Math.round(b * fontSize / 11));
+}
+function typeName(t) {
+  return { family:"Sprachfamilie", language:"Sprache", subgroup:"Untergruppe", dialect:"Dialekt / Varietät" }[t] || t;
+}
+
+/* ── Newick-Parser ── */
+function parseNewick(s) {
+  s = s.trim().replace(/;$/, '');
+  function parseNode(pos) {
+    const node = { children: [] };
+    if (s[pos] === '(') {
+      pos++;
+      while (pos < s.length) {
+        const r = parseNode(pos); node.children.push(r.node); pos = r.pos;
+        if (s[pos] === ',') { pos++; continue; }
+        if (s[pos] === ')') { pos++; break; }
+      }
+    }
+    let label = '';
+    if (s[pos] === "'") { pos++; while (pos < s.length && s[pos] !== "'") label += s[pos++]; pos++; }
+    else { while (pos < s.length && !/[,);:(]/.test(s[pos])) label += s[pos++]; }
+    if (s[pos] === ':') { pos++; while (pos < s.length && /[0-9.eE+\-]/.test(s[pos])) pos++; }
+    node.rawLabel = label.trim();
+    return { node, pos };
+  }
+  function parseLabel(raw) {
+    if (!raw) return { id:'unknown', nameOrig:'Unknown', iso:null, isLanguage:false };
+    const isLang = raw.includes('-l-');
+    const clean  = raw.replace(/-l-/g,'').trim();
+    const isoM   = clean.match(/\[([a-z]{3})\]\s*$/);
+    const glotMs = clean.match(/\[([a-z]+\d{4})\]/g);
+    const gid    = glotMs ? glotMs[0].replace(/[\[\]]/g,'') : null;
+    const nm     = clean.replace(/\[[^\]]*\]/g,'').replace(/\{[^}]*\}/g,'').trim();
+    return { id: gid || nm.toLowerCase().replace(/\s+/g,'_'), nameOrig: nm, iso: isoM ? isoM[1] : null, isLanguage: isLang };
+  }
+  function build(raw, depth) {
+    const { id, nameOrig, iso, isLanguage } = parseLabel(raw.rawLabel);
+    let type;
+    if      (depth === 0)                                type = 'family';
+    else if (isLanguage)                                 type = 'language';
+    else if (raw.children && raw.children.length > 0)   type = depth === 1 ? 'family' : 'subgroup';
+    else                                                 type = 'dialect';
+    const node = { id, nameOrig, type, iso: iso||null, lat:null, lon:null, name: getDisplayName(id, nameOrig) };
+    if (raw.children && raw.children.length > 0)
+      node.children = raw.children.map(c => build(c, depth + 1));
+    return node;
+  }
+  return build(parseNode(0).node, 0);
+}
+
+/* ── GeoJSON → internes Format ── */
+function geoJSONtoGeoData(geo) {
+  if (!geo || !geo.features) return [];
+  return geo.features.map(f => {
+    const lang = f.properties?.language || {};
+    const id   = f.id || lang.id || '';
+    const lat  = lang.latitude  ?? f.geometry?.coordinates?.[1] ?? null;
+    const lon  = lang.longitude ?? f.geometry?.coordinates?.[0] ?? null;
+    const raw  = lang.name || f.properties?.name || id;
+    return { id, name: getDisplayName(id, raw), nameOrig: raw, lat, lon, color: colorByGroup(id) };
+  }).filter(d => d.lat != null && d.lon != null);
+}
+
+function enrichCoords(node, map) {
+  if (map[node.id]) { node.lat = map[node.id].lat; node.lon = map[node.id].lon; }
+  if (node.children) node.children.forEach(c => enrichCoords(c, map));
+}
+
+/* ── Legende aufbauen ── */
+function _buildLegend() {
+  const el = document.getElementById('map-legend-items');
+  el.innerHTML = '';
+  const hasManual = mapLegendGroups.some(g => g.ids && g.ids.length > 0);
+  const source = hasManual
+    ? mapLegendGroups.map(g => ({ name: g.label, col: g.color }))
+    : (treeData && treeData.children
+        ? treeData.children.map((g, i) => ({ name: g.name, col: _PALETTE[i % _PALETTE.length] }))
+        : []);
+  source.forEach(s => {
+    const d = document.createElement('div'); d.className = 'ov-item';
+    d.innerHTML = `<div class="ov-dot" style="background:${s.col}"></div>${s.name}`;
+    el.appendChild(d);
+  });
+}
+
+/* ── Daten initialisieren ── */
+let treeData = null, geoData = [];
+
+function initData() {
+  try { treeData = parseNewick(rawNewick); }
+  catch(e) { console.error('Newick-Fehler:', e); return; }
+
+  _buildColorMap(treeData);
+  geoData = geoJSONtoGeoData(rawGeoJSON);
+  const cm = {};
+  geoData.forEach(d => { cm[d.id] = d; });
+  enrichCoords(treeData, cm);
+
+  document.getElementById('nav-glyph').textContent = familyGlyph;
+  const title = treeData ? getDisplayName(treeData.id, treeData.nameOrig) : 'Sprachfamilien-Atlas';
+  document.getElementById('nav-title-main').textContent = title;
+  document.title = title + ' – Atlas';
+  document.getElementById('chip-fam').textContent = familyMeta.families  + ' Familien';
+  document.getElementById('chip-lan').textContent = familyMeta.languages + ' Sprachen';
+  document.getElementById('chip-dia').textContent = familyMeta.dialects  + ' Dialekte';
+
+  _buildLegend();
+  _startGeocoding();
+}
+
+/* ── View umschalten ── */
+let mapReady = false;
+function switchView(id) {
+  document.querySelectorAll('.nav-tab').forEach(t => t.classList.toggle('active', t.dataset.view === id));
+  document.querySelectorAll('.view').forEach(v => v.classList.toggle('visible', v.id === 'view-' + id));
+  if (id === 'map' && !mapReady) { initMap(); mapReady = true; }
+  if (id === 'tree') setTimeout(() => { if (rootNode) drawTree(rootNode); }, 80);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   D3 STAMMBAUM mit DRAG & DROP & DYNAMISCHEN LINIEN
+════════════════════════════════════════════════════════════════ */
+let svgSel, gSel, rootNode, zoomBeh;
+let currentZoom  = d3.zoomIdentity;
+let selNode      = null;
+let currentFontSize = 11;
+let _searchTimer = null;
+let _sliderTimer = null;
+let draggedNode  = null;
+let dragOffsets  = null;
+let textBboxes   = []; // Speichert Text-Positionen für Masking
+
+/* Spacing: automatisch aus Schriftgröße berechnen */
+function spacingFromFont(fs) {
+  return Math.round(fs * 2.4);
+}
+
+/* Textopazität – immer sichtbar */
+function getTextOpacity(d) {
+  if (d._searchMatch) return 1;
+  return 1;
+}
+
+function getTextFill(d) {
+  if (d._searchMatch) return '#f0c060';
+  if (d.depth === 0)  return '#f5d070';
+  if (d.data.type === 'family')   return '#e0b860';
+  if (d.data.type === 'language') return '#b0e0e0';
+  if (d.data.type === 'subgroup') return '#e0a898';
+  return '#c8c0a0';
+}
+
+function countTreeLeaves(node) {
+  if (!node.children || !node.children.length) return 1;
+  return node.children.reduce((s, c) => s + countTreeLeaves(c), 0);
+}
+
+function syncFontUI(val) {
+  const sl = document.getElementById('fontsize-sl');
+  const sv = document.getElementById('fs-val');
+  if (sl) sl.value = Math.round(val);
+  if (sv) sv.textContent = Math.round(val) + ' px';
+}
+
+function onFontsizeChange(v) {
+  currentFontSize = +v;
+  document.getElementById('fs-val').textContent = v + ' px';
+  clearTimeout(_sliderTimer);
+  _sliderTimer = setTimeout(() => { if (rootNode) drawTree(rootNode); }, 60);
+}
+
+/* Baum initialisieren */
+function initTree() {
+  svgSel = d3.select('#tree-svg');
+  gSel   = d3.select('#tree-g');
+
+  zoomBeh = d3.zoom().scaleExtent([0.02, 8]).on('zoom', ev => {
+    currentZoom = ev.transform;
+    gSel.attr('transform', currentZoom);
+    document.getElementById('zoom-info').textContent = Math.round(currentZoom.k * 100) + '%';
+    updateLineDynamics();
+  });
+  svgSel.call(zoomBeh);
+
+  if (!treeData) return;
+  rootNode = d3.hierarchy(treeData);
+
+  const total = countTreeLeaves(treeData);
+  const collapseFrom = total <= 25 ? 99 : total <= 80 ? 2 : 1;
+  rootNode.descendants().forEach((d, i) => {
+    d._uid = i; d._searchMatch = false;
+    if (d.depth >= collapseFrom && d.children) { d._ch = d.children; d.children = null; }
+  });
+
+  currentFontSize = 11;
+  syncFontUI(currentFontSize);
+  drawTree(rootNode);
+  setTimeout(() => fitView(false), 120);
+}
+
+/* Radialer Fächer-Layout-Algorithmus */
+function computeFanLayout(root, canvasW, canvasH, fontSize) {
+  const maxLabelLen = 18;
+  const charW = fontSize * 0.62;
+  const levelGap = Math.max(fontSize * 2.2 + maxLabelLen * charW * 0.5, 140);
+
+  let maxDepth = 0;
+  root.each(d => { if (d.depth > maxDepth) maxDepth = d.depth; });
+
+  root.each(d => {
+    d.y = d.depth * levelGap;
+  });
+
+  function countLeaves(node) {
+    if (!node.children || node.children.length === 0) return 1;
+    return node.children.reduce((s, c) => s + countLeaves(c), 0);
+  }
+
+  const leafSpacing = Math.max(fontSize * 2.0, 18);
+  const totalLeaves = countLeaves(root);
+
+  let leafIndex = 0;
+  function assignX(node) {
+    if (!node.children || node.children.length === 0) {
+      node.x = leafIndex * leafSpacing;
+      leafIndex++;
+      return;
+    }
+    node.children.forEach(c => assignX(c));
+    const first = node.children[0].x;
+    const last  = node.children[node.children.length - 1].x;
+    node.x = (first + last) / 2;
+  }
+  assignX(root);
+
+  const minX = Math.min(...root.descendants().map(d => d.x));
+  const maxX = Math.max(...root.descendants().map(d => d.x));
+  const offsetX = (canvasH / 2) - (minX + maxX) / 2;
+  root.each(d => { d.x += offsetX; });
+
+   return { levelGap };
+}
+
+/* Dynamische Liniendicke basierend auf Zoom */
+function calculateStrokeWidth(baseWidth = 3) {
+  if (!currentZoom) return baseWidth;
+  const zoomFactor = currentZoom.k || 1;
+  return Math.max(0.8, baseWidth / (zoomFactor * 0.8));
+}
+
+function updateLineDynamics() {
+  if (!gSel) return;
+  const sw = calculateStrokeWidth(3);
+  gSel.selectAll('path.link').style('stroke-width', sw + 'px');
+}
+
+/* Erfasse Text-Positionen für Clipping */
+function captureTextBboxes() {
+  textBboxes = [];
+  gSel.selectAll('g.node text').each(function(d) {
+    try {
+      const bbox = this.getBBox();
+      const transform = d3.select(this.parentNode).attr('transform');
+      const match = transform ? transform.match(/translate\(([-\d.]+),([-\d.]+)\)/) : null;
+      if (match) {
+        const tx = parseFloat(match[1]);
+        const ty = parseFloat(match[2]);
+        textBboxes.push({
+          x: tx + bbox.x,
+          y: ty + bbox.y,
+          width: bbox.width,
+          height: bbox.height,
+          padding: Math.max(3, currentFontSize * 0.4)
+        });
+      }
+    } catch(e) { /* ignore */ }
+  });
+}
+
+/* Prüfe ob Punkt in Text-Zone liegt */
+function isInTextZone(x, y) {
+  return textBboxes.some(box => 
+    x >= box.x - box.padding && 
+    x <= box.x + box.width + box.padding &&
+    y >= box.y - box.padding && 
+    y <= box.y + box.height + box.padding
+  );
+}
+
+/* Splitte Linie um Text zu vermeiden - nutzt Dashing statt echtem Clipping */
+function applyTextClipping() {
+  gSel.selectAll('path.link').style('stroke-dasharray', null);
+}
+
+/* Baum zeichnen */
+function drawTree(src) {
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const fs = currentFontSize;
+
+  computeFanLayout(rootNode, canvasW, canvasH, fs);
+
+  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+  const dur  = 320;
+
+  /* Links */
+  const link = gSel.selectAll('path.link').data(rootNode.links(), d => d.target._uid);
+  const linkE = link.enter().append('path').attr('class','link')
+    .attr('d', () => {
+      const o = { x: src.x0 ?? 0, y: src.y0 ?? 0 };
+      return diag({ source: o, target: o });
+    });
+  linkE.merge(link).transition().duration(dur)
+    .attr('d', diag)
+    .style('stroke', d => {
+      const col = NODE_COLORS[d.source.data.type] || '#c8973a';
+      return d.source.depth === 0 ? col + '55' : col + '30';
+    })
+    .style('stroke-width', () => calculateStrokeWidth(3) + 'px');
+  link.exit().transition().duration(dur)
+    .attr('d', () => {
+      const o = { x: src.x, y: src.y };
+      return diag({ source: o, target: o });
+    }).remove();
+
+  /* Nodes */
+  const node = gSel.selectAll('g.node').data(rootNode.descendants(), d => d._uid);
+  const enter = node.enter().append('g').attr('class','node')
+    .attr('transform', () => `translate(${src.y0 ?? 0},${src.x0 ?? 0})`)
+    .style('cursor','pointer')
+    .on('click', (ev, d) => { ev.stopPropagation(); toggle(d); showPanel(d); });
+
+  enter.append('circle').attr('class','halo')
+    .attr('r', d => nodeRadius(d.data.type, fs) + 5)
+    .style('fill', d => (NODE_COLORS[d.data.type] || '#c8973a') + '18')
+    .style('stroke','none');
+  enter.append('circle').attr('r', 0)
+    .style('fill',   d => d._ch
+      ? (NODE_COLORS[d.data.type] || '#7ec8c8') + '55'
+      : (NODE_COLORS[d.data.type] || '#7ec8c8'))
+    .style('stroke', d => d._searchMatch
+      ? '#f0c060'
+      : (NODE_COLORS[d.data.type] || '#c8973a'));
+  enter.append('text').attr('dy','0.35em');
+
+  const merged = enter.merge(node);
+  merged.transition().duration(dur)
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+
+  merged.select('circle.halo').transition().duration(dur)
+    .attr('r', d => nodeRadius(d.data.type, fs) + 5);
+
+  merged.select('circle:not(.halo)').transition().duration(dur)
+    .attr('r', d => nodeRadius(d.data.type, fs))
+    .style('fill', d => d._ch
+      ? (NODE_COLORS[d.data.type] || '#7ec8c8') + '55'
+      : (NODE_COLORS[d.data.type] || '#7ec8c8'))
+    .style('stroke', d => d._searchMatch
+      ? '#f0c060'
+      : (NODE_COLORS[d.data.type] || '#c8973a'))
+    .style('stroke-width', d =>
+      d._searchMatch ? '3px' : (d === selNode ? '3px' : '1.5px'));
+
+  merged.select('text').transition().duration(dur)
+    .attr('x', d => {
+      const r = nodeRadius(d.data.type, fs);
+      return (d.children || d._ch) ? -(r + 6) : (r + 6);
+    })
+    .attr('text-anchor', d => (d.children || d._ch) ? 'end' : 'start')
+    .style('font-size', d => {
+      if (d.depth === 0)                return Math.round(fs * 1.2) + 'px';
+      if (d.data.type === 'family')     return Math.round(fs * 1.1) + 'px';
+      if (d.data.type === 'dialect')    return Math.round(fs * 0.88) + 'px';
+      return fs + 'px';
+    })
+    .text(d => {
+      const n  = d.data.name;
+      const mx = d.depth === 0 ? 40 : d.depth <= 2 ? 32 : 26;
+      return n.length > mx ? n.slice(0, mx - 1) + '…' : n;
+    })
+    .style('fill', d => getTextFill(d))
+    .attr('opacity', 1);
+
+  merged.classed('sel', d => selNode && d.data.id === selNode.data.id);
+
+  /* DRAG BEHAVIOR */
+  merged.call(d3.drag()
+    .on('start', dragStarted)
+    .on('drag', dragging)
+    .on('end', dragEnded));
+
+  node.exit().transition().duration(dur)
+    .attr('transform', `translate(${src.y},${src.x})`).remove();
+
+  rootNode.descendants().forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+  
+  /* Text-Clipping nach Render */
+  setTimeout(() => {
+    captureTextBboxes();
+    applyTextClipping();
+  }, dur + 50);
+}
+
+/* DRAG FUNKTIONEN */
+function dragStarted(event, d) {
+  draggedNode = d;
+  dragOffsets = new Map();
+  
+  function collectOffsets(node, baseX, baseY) {
+    dragOffsets.set(node._uid, { x: node.x - baseX, y: node.y - baseY });
+    if (node.children) {
+      node.children.forEach(c => collectOffsets(c, baseX, baseY));
+    }
+  }
+  
+  collectOffsets(d, d.x, d.y);
+  d3.select(this).classed('dragging', true);
+  d3.select(this).select('circle:not(.halo)').style('filter', 'drop-shadow(0 0 8px rgba(240,192,96,.6))');
+}
+
+function dragging(event, d) {
+  if (!draggedNode || !dragOffsets) return;
+  
+  const dx = event.dx / currentZoom.k;
+  const dy = event.dy / currentZoom.k;
+  
+  dragOffsets.forEach((offset, uid) => {
+    const node = rootNode.descendants().find(n => n._uid === uid);
+    if (node) {
+      node.x += dy;
+      node.y += dx;
+    }
+  });
+  
+  // OPTIMIERUNG: Nur direkt die Knoten verschieben, nicht neu zeichnen!
+  // Das macht Drag & Drop 10x flüssiger
+  gSel.selectAll('g.node').transition().duration(0)
+    .attr('transform', d => `translate(${d.y},${d.x})`);
+  
+  // Auch Links updaten
+  const diag = d3.linkHorizontal().x(d => d.y).y(d => d.x);
+  gSel.selectAll('path.link').transition().duration(0)
+    .attr('d', diag);
+}
+
+function dragEnded(event, d) {
+  d3.select(this).classed('dragging', false);
+  d3.select(this).select('circle:not(.halo)').style('filter', null);
+  draggedNode = null;
+  dragOffsets = null;
+}
+
+/* Übersicht */
+function fitView(anim = true) {
+  if (!rootNode) return;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  const nodes   = rootNode.descendants().filter(d => d.x != null && d.y != null);
+  if (!nodes.length) return;
+
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(d => {
+    if (d.x < minX) minX = d.x; if (d.x > maxX) maxX = d.x;
+    if (d.y < minY) minY = d.y; if (d.y > maxY) maxY = d.y;
+  });
+
+  const svgW    = Math.max(maxY - minY, 1);
+  const svgH    = Math.max(maxX - minX, 1);
+  const padL    = 80;
+  const padR    = currentFontSize * 18;
+  const padV    = 50;
+  const scaleX  = (canvasW - padL - padR) / svgW;
+  const scaleY  = (canvasH - 2 * padV)    / svgH;
+  const scale   = Math.min(scaleX, scaleY, 1.6);
+  const tx      = padL - minY * scale;
+  const ty      = canvasH / 2 - (minX + maxX) / 2 * scale;
+
+  const t = d3.zoomIdentity.translate(tx, ty).scale(scale);
+  (anim ? svgSel.transition().duration(450) : svgSel).call(zoomBeh.transform, t);
+}
+
+function fitToNodes(nodes) {
+  if (!nodes.length) return;
+  const canvasW = document.getElementById('tree-canvas').clientWidth  || 900;
+  const canvasH = document.getElementById('tree-canvas').clientHeight || 600;
+  let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+  nodes.forEach(d => {
+    if (d.x != null) { if (d.x < minX) minX = d.x; if (d.x > maxX) maxX = d.x; }
+    if (d.y != null) { if (d.y < minY) minY = d.y; if (d.y > maxY) maxY = d.y; }
+  });
+  if (!isFinite(minX)) return;
+  if (maxX === minX) { minX -= 40; maxX += 40; }
+  if (maxY === minY) { minY -= 100; maxY += 100; }
+  const svgW  = Math.max(maxY - minY, 1);
+  const svgH  = Math.max(maxX - minX, 1);
+  const scaleX = (canvasW - 80 - 220) / svgW;
+  const scaleY = (canvasH - 120)       / svgH;
+  const scale  = Math.min(scaleX, scaleY, 2.8);
+  const tx = (canvasW - svgW * scale) / 2 - minY * scale;
+  const ty = canvasH / 2 - (minX + maxX) / 2 * scale;
+  svgSel.transition().duration(550)
+    .call(zoomBeh.transform, d3.zoomIdentity.translate(tx, ty).scale(scale));
+}
+
+function toggle(d) {
+  if (d.children) { d._ch = d.children; d.children = null; }
+  else if (d._ch) { d.children = d._ch; d._ch = null; }
+  drawTree(d);
+}
+
+function expandAll() {
+  rootNode.descendants().forEach(d => { if (d._ch) { d.children = d._ch; d._ch = null; } });
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function collapseAll() {
+  rootNode.descendants().forEach(d => {
+    if (d.depth > 0 && d.children) { d._ch = d.children; d.children = null; }
+  });
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function _hasLanguageDescendant(node) {
+  // Hilfsfunktion: Prüft ob ein Knoten eine Sprache als Nachkomme hat
+  if (node.data.type === 'language') return true;
+  if (node.children) {
+    return node.children.some(child => _hasLanguageDescendant(child));
+  }
+  if (node._ch) {
+    return node._ch.some(child => _hasLanguageDescendant(child));
+  }
+  return false;
+}
+
+function toggleDialects() {
+  if (!rootNode) return;
+  
+  // Neue Strategie:
+  // - Alle Sprachen-Knoten (type === 'language') bleiben OFFEN
+  // - Alle Übergruppen, die Sprachen als Nachkommen haben, bleiben OFFEN
+  // - Alle Übergruppen, die KEINE Sprachen als Nachkommen haben, werden EINGEKLAPPT
+  // - Damit sind nur Sprachen und ihre direkten Vorfahren sichtbar
+  
+  rootNode.descendants().forEach(d => {
+    if (d.children) {
+      // Checke: Enthält dieser Knoten oder seine Kinder eine Sprache?
+      const hasLanguageChild = d.children.some(child => _hasLanguageDescendant(child));
+      
+      // Wenn KEINE Sprache als Nachkomme vorhanden: einklappen
+      if (!hasLanguageChild) {
+        d._ch = d.children;
+        d.children = null;
+      }
+      // Sonst: offen lassen (Sprachen bleiben sichtbar)
+    }
+  });
+  
+  drawTree(rootNode);
+  setTimeout(() => fitView(), 380);
+}
+
+function zoomBy(f) {
+  svgSel.transition().duration(260).call(zoomBeh.scaleBy, f);
+}
+
+/* Suche */
+function onSearchInput(q) {
+  clearTimeout(_searchTimer);
+  if (!q.trim()) { clearSearch(); return; }
+  _searchTimer = setTimeout(() => doSearch(q.trim()), 320);
+}
+
+function doSearch(q) {
+  if (!rootNode) return;
+  const ql = q.toLowerCase();
+  const matches = [];
+  rootNode.descendants().forEach(d => {
+    const n  = (d.data.name     || '').toLowerCase();
+    const o  = (d.data.nameOrig || '').toLowerCase();
+    const id = (d.data.id       || '').toLowerCase();
+    d._searchMatch = n.includes(ql) || o.includes(ql) || id.includes(ql);
+    if (d._searchMatch) matches.push(d);
+  });
+  matches.forEach(m => {
+    let a = m.parent;
+    while (a) { if (a._ch) { a.children = a._ch; a._ch = null; } a = a.parent; }
+  });
+  drawTree(rootNode);
+  if (matches.length) setTimeout(() => fitToNodes(matches), 380);
+}
+
+function clearSearch() {
+  if (!rootNode) return;
+  rootNode.descendants().forEach(d => { d._searchMatch = false; });
+  drawTree(rootNode);
+}
+
+
+
+/* ════════════════════════════════════════════════════════════════
+   INFO-PANEL  (mit Mini-Karte)
+════════════════════════════════════════════════════════════════ */
+let miniMap = null;
+let miniMarker = null;
+
+function _initMiniMap(lat, lon, color) {
+  const wrap = document.getElementById('ip-minimap-wrap');
+  if (!wrap) return;
+
+  // Alte Instanz immer zerstören, da das DOM-Element bei jedem Klick neu erstellt wird
+  if (miniMap) {
+    try { miniMap.remove(); } catch(e) {}
+    miniMap = null;
+    miniMarker = null;
+  }
+
+  miniMap = L.map('ip-minimap', {
+    zoomControl: true,
+    scrollWheelZoom: true,
+    dragging: true,
+    attributionControl: false,
+    zoomSnap: 0.5
+  });
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    subdomains: 'abcd', maxZoom: 18
+  }).addTo(miniMap);
+  L.control.attribution({ prefix: '© OSM · CARTO' }).addTo(miniMap);
+
+  const icon = L.divIcon({
+    html: `<div style="width:12px;height:12px;border-radius:50%;background:${color};border:2px solid #fff;box-shadow:0 0 6px ${color}aa;"></div>`,
+    className: '', iconSize: [12,12], iconAnchor: [6,6]
+  });
+  miniMarker = L.marker([lat, lon], { icon }).addTo(miniMap);
+  miniMap.setView([lat, lon], 5, { animate: false });
+  // Mehrfach invalidieren um sicherzustellen, dass Tiles vollständig geladen werden
+  setTimeout(() => miniMap.invalidateSize(), 100);
+  setTimeout(() => miniMap.invalidateSize(), 400);
+}
+
+function showPanel(d) {
+  selNode = d;
+  drawTree(d);
+  document.getElementById('ip-empty').style.display = 'none';
+  document.getElementById('ip-content').classList.add('on');
+
+  const data = d.data;
+  document.getElementById('ip-name').textContent = data.name;
+  const origEl = document.getElementById('ip-orig');
+  if (data.nameOrig && data.nameOrig !== data.name) {
+    origEl.textContent = data.nameOrig; origEl.style.display = 'block';
+  } else { origEl.style.display = 'none'; }
+
+  const body = document.getElementById('ip-body');
+  body.innerHTML = '';
+
+  const secKl = mkSec('Klassifikation');
+  const br = document.createElement('div'); br.className = 'ip-row';
+  br.innerHTML = `<span class="ip-key">Typ</span><span class="ip-badge badge-${data.type}">${typeName(data.type)}</span>`;
+  secKl.appendChild(br);
+  addRow(secKl, 'Ebene', d.depth);
+  body.appendChild(secKl);
+
+  const secId = mkSec('Identifikatoren');
+  addRow(secId, 'Glottolog', data.id, true);
+  if (data.iso) addRow(secId, 'ISO 639-3', data.iso, true);
+  body.appendChild(secId);
+
+  if (data.lat != null && data.lon != null) {
+    const secG = mkSec('Koordinaten');
+    addRow(secG, 'Breite', data.lat.toFixed(4) + '°');
+    addRow(secG, 'Länge',  data.lon.toFixed(4) + '°');
+    body.appendChild(secG);
+  }
+
+if (data.lat != null && data.lon != null) {
+    const secM = mkSec('Karte');
+    const wrap = document.createElement('div');
+    wrap.id = 'ip-minimap-wrap';
+    wrap.innerHTML = '<div id="ip-minimap"></div>';
+    secM.appendChild(wrap);
+    body.appendChild(secM);
+    // Längere Verzögerung damit das DOM sicher gerendert ist, bevor Leaflet initialisiert
+    setTimeout(() => {
+      const col = NODE_COLORS[data.type] || '#c8973a';
+      _initMiniMap(data.lat, data.lon, col);
+    }, 150);
+  } else {
+    // Alte Instanz aufräumen wenn kein Standort vorhanden
+    if (miniMap) {
+      try { miniMap.remove(); } catch(e) {}
+      miniMap = null;
+      miniMarker = null;
+    }
+  }
+
+  const countries = _getCountries(d);
+  const pending   = !countries && _isPending(d);
+  if (countries && countries.length) {
+    const secC = mkSec('Gesprochen in');
+    countries.forEach(c => {
+      const row = document.createElement('div'); row.className = 'ip-country';
+      row.innerHTML = `
+        <span class="ip-country-flag">${c.flag}</span>
+        <span class="ip-country-info">
+          <span class="ip-country-name">${c.name}</span>
+          ${c.region ? `<span class="ip-country-region">${c.region}</span>` : ''}
+        </span>`;
+      secC.appendChild(row);
+    });
+    body.appendChild(secC);
+  } else if (pending) {
+    const secC = mkSec('Gesprochen in');
+    const ld = document.createElement('div'); ld.className = 'ip-country-loading';
+    ld.textContent = 'Wird ermittelt…';
+    secC.appendChild(ld); body.appendChild(secC);
+  }
+
+  const kids = d.children || d._ch || [];
+  if (kids.length) {
+    const secK = mkSec(`Untereinheiten (${kids.length})`);
+    const ul = document.createElement('ul'); ul.className = 'ip-child-list';
+    kids.forEach(c => {
+      const li = document.createElement('li');
+      const dot = document.createElement('div'); dot.className = 'ip-child-dot';
+      dot.style.background = NODE_COLORS[c.data.type] || '#7a6a48';
+      li.appendChild(dot);
+      const sp = document.createElement('span'); sp.textContent = c.data.name;
+      li.appendChild(sp); ul.appendChild(li);
+    });
+    secK.appendChild(ul); body.appendChild(secK);
+  }
+
+  if (d.depth > 0) {
+    const ancs = d.ancestors().slice(1).reverse();
+    if (ancs.length) {
+      const secA = mkSec('Übergeordnet');
+      ancs.forEach((a, i) => {
+        const r = document.createElement('div'); r.className = 'ip-row';
+        r.innerHTML = `<span class="ip-key" style="padding-left:${i*8}px">${i?'└ ':''}${typeName(a.data.type)}</span><span class="ip-val">${a.data.name}</span>`;
+        secA.appendChild(r);
+      });
+      body.appendChild(secA);
+    }
+  }
+}
+
+function mkSec(title) {
+  const s = document.createElement('div'); s.className = 'ip-section';
+  const t = document.createElement('div'); t.className = 'ip-sec-title'; t.textContent = title;
+  s.appendChild(t); return s;
+}
+function addRow(p, key, val, mono=false) {
+  const r = document.createElement('div'); r.className = 'ip-row';
+  r.innerHTML = `<span class="ip-key">${key}</span><span class="ip-val${mono?' mono':''}">${val}</span>`;
+  p.appendChild(r);
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   LEAFLET-HAUPTKARTE  (ohne Clustering, direkte Marker)
+════════════════════════════════════════════════════════════════ */
+let leafMap = null;
+
+function initMap() {
+  leafMap = L.map('map', {
+    center: mapConfig.center,
+    zoom:   mapConfig.zoom,
+    zoomControl: false
+  });
+
+  L.control.zoom({ position: 'bottomright' }).addTo(leafMap);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/">CARTO</a>',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(leafMap);
+
+  geoData.forEach(lang => {
+    const col = lang.color || "#c8973a";
+    const icon = L.divIcon({
+      html: `<div style="
+        width:12px;height:12px;border-radius:50%;
+        background:${col};
+        border:2px solid rgba(255,255,255,0.85);
+        box-shadow:0 0 6px ${col}aa,0 1px 4px rgba(0,0,0,.5);
+        cursor:pointer;
+      "></div>`,
+      className: '', iconSize: [12,12], iconAnchor: [6,6], popupAnchor: [0,-8]
+    });
+    const popup = `
+      <div class="lp-name">${lang.name}</div>
+      ${lang.nameOrig !== lang.name ? `<div class="lp-orig">${lang.nameOrig}</div>` : ''}
+      <div class="lp-row"><span>Glottolog:</span><span class="lp-badge">${lang.id}</span></div>
+      <div class="lp-row" style="font-size:.63rem;color:#666">📍 ${lang.lat.toFixed(4)}° · ${lang.lon.toFixed(4)}°</div>`;
+    const m = L.marker([lang.lat, lang.lon], { icon });
+    m.bindPopup(popup, { maxWidth: 230 });
+    m.on('mouseover', () => m.openPopup());
+    m.addTo(leafMap);
+  });
+
+  setTimeout(() => leafMap.invalidateSize(), 150);
+}
+
+/* ── Start ── */
+window.addEventListener('resize', () => {
+  if (rootNode) drawTree(rootNode);
+  if (leafMap) leafMap.invalidateSize();
+  if (miniMap) miniMap.invalidateSize();
+});
+
+document.addEventListener('DOMContentLoaded', () => { initData(); initTree(); });
+</script>
+</body>
+</html>
