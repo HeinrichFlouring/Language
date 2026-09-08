@@ -2869,8 +2869,8 @@ function _initMiniMap(lat, lon, color) {
     attributionControl: false,
     zoomSnap: 0.5
   });
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    subdomains: 'abcd', maxZoom: 18
+  L.tileLayer('https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.jpg?key=Tnb7ksrXTTwHNMs1Eo2V', {
+    maxZoom: 20
   }).addTo(miniMap);
   L.control.attribution({ prefix: '© OSM · CARTO' }).addTo(miniMap);
 
@@ -3018,9 +3018,9 @@ function initMap() {
 
   L.control.zoom({ position: 'bottomright' }).addTo(leafMap);
 
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://carto.com/">CARTO</a>',
-    subdomains: 'abcd', maxZoom: 19
+  L.tileLayer('https://api.maptiler.com/maps/openstreetmap/{z}/{x}/{y}.jpg?key=Tnb7ksrXTTwHNMs1Eo2V', {
+    attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> · © <a href="https://www.maptiler.com/">MapTiler</a>',
+    maxZoom: 20
   }).addTo(leafMap);
 
   geoData.forEach(lang => {
