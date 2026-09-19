@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Weltkarte – Sprachen der Welt (3D)</title>
+<!-- Deine externen Daten -->
+<script src="data.js"></script>
+<!-- TopoJSON & Earcut für Geometrie-Erzeugung -->
+<script src="https://unpkg.com/topojson-client@3"></script>
+<script src="https://unpkg.com/earcut@2.2.4/dist/earcut.min.js"></script>
+
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#0d1117;color:#e6edf3;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#hdr{background:#161b22;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:2px solid #21262d;flex-shrink:0;z-index:10}
+#hdr h1{font-size:17px;color:#58a6ff;white-space:nowrap}
+#sw{position:relative;flex:1;min-width:180px;max-width:380px}
+#si{width:100%;padding:8px 14px;border-radius:20px;border:2px solid #30363d;background:#21262d;color:#e6edf3;font-size:14px;outline:none;transition:border .2s}
+#si:focus{border-color:#58a6ff}
+#ac{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#21262d;border:1px solid #30363d;border-radius:8px;max-height:250px;overflow-y:auto;z-index:2000;display:none;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+.ai{padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #30363d}
+.ai:last-child{border:none}
+.ai:hover{background:#30363d;color:#58a6ff}
+.ahi{color:#58a6ff;font-weight:bold}
+#bc{padding:7px 15px;border-radius:20px;border:none;background:#da3633;color:#fff;cursor:pointer;font-size:13px}
+#bc:hover{background:#b62324}
+#leg{font-size:12px;color:#8b949e;display:flex;align-items:center;gap:6px}
+#main{display:flex;flex:1;overflow:hidden;position:relative}
+#mw{flex:1;position:relative;overflow:hidden;background:#020205}
+#mw canvas{display:block;width:100%;height:100%}
+#tt{position:absolute;background:rgba(13,17,23,.96);border:1px solid #30363d;border-radius:10px;padding:12px 15px;pointer-events:none;display:none;font-size:13px;max-width:300px;z-index:500;box-shadow:0 8px 32px rgba(0,0,0,.7)}
+#tt h3{margin-bottom:8px;font-size:14px;padding-bottom:6px;border-bottom:1px solid #21262d}
+.tr{display:flex;justify-content:space-between;gap:14px;padding:3px 0}
+.tl{color:#8b949e;font-size:12px}
+.tv{font-weight:bold}
+#sb{width:330px;background:#161b22;border-left:2px solid #21262d;overflow:hidden;flex-shrink:0;display:flex;flex-direction:column;z-index:10}
+#sbt{padding:13px 16px;background:#21262d;font-weight:bold;font-size:14px;color:#58a6ff;flex-shrink:0}
+#sbc{flex:1;overflow-y:auto}
+.se{padding:24px 16px;color:#484f58;font-size:13px;text-align:center;margin-top:30px;line-height:1.8}
+table.dt{width:100%;border-collapse:collapse;font-size:13px}
+table.dt th{background:#21262d;padding:8px 10px;text-align:left;position:sticky;top:0;color:#8b949e;font-weight:normal;font-size:12px;cursor:pointer;user-select:none;z-index:1;white-space:nowrap}
+table.dt th:hover{color:#58a6ff}
+table.dt th.asc::after{content:" ↑";color:#58a6ff}
+table.dt th.desc::after{content:" ↓";color:#58a6ff}
+table.dt td{padding:7px 10px;border-bottom:1px solid #21262d;vertical-align:middle}
+.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bw{display:flex;align-items:center;gap:6px}
+.br{height:7px;border-radius:3px;min-width:2px;flex-shrink:0}
+#zc{position:absolute;bottom:20px;left:16px;display:flex;flex-direction:column;gap:4px;z-index:10}
+.zb{width:34px;height:34px;background:#161b22;border:1px solid #30363d;color:#e6edf3;font-size:18px;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center}
+.zb:hover{background:#21262d;color:#58a6ff}
+#ib{position:absolute;bottom:20px;left:62px;background:rgba(13,17,23,.8);border-radius:6px;padding:6px 12px;font-size:12px;color:#8b949e;pointer-events:none;border:1px solid #21262d;z-index:10}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0d1117}::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+</style>
+
+<script type="importmap">
+{
+    "imports": {
+        "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+}
+</script>
+</head>
+<body>
+<div id="hdr">
+  <h1>🌍 Sprachen der Welt</h1>
+  <div id="sw">
+    <input id="si" type="text" placeholder="Sprache suchen… (z.B. Deutsch, Arabisch)" autocomplete="off">
+    <div id="ac"></div>
+  </div>
+  <button id="bc">✕ Zurücksetzen</button>
+  <span id="leg"></span>
+</div>
+<div id="main">
+  <div id="mw">
+    <div id="tt"></div>
+    <div id="zc">
+      <button class="zb" id="zi">+</button>
+      <button class="zb" id="zo">−</button>
+      <button class="zb" id="zr">⌂</button>
+    </div>
+    <div id="ib">Klicke auf ein Land · Suche eine Sprache · Scroll zum Zoomen</div>
+  </div>
+  <div id="sb">
+    <div id="sbt">Informationen</div>
+    <div id="sbc"><div class="se">← Klicke auf ein Land<br>oder suche eine Sprache</div></div>
+  </div>
+</div>
+
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+
+// ── Globale Bibliotheken (via Script-Tag geladen) ──
+const topojson = window.topojson;
+const earcut = window.earcut;
+
+// ── ISO 3166-1 numeric (3-stellig, zero-padded) → Alpha-3 ──
+const NUM_TO_ISO = {
+  "004":"AFG","008":"ALB","010":"ATA","012":"DZA","016":"ASM","020":"AND","024":"AGO","028":"ATG","031":"AZE","032":"ARG",
+  "036":"AUS","040":"AUT","044":"BHS","048":"BHR","050":"BGD","051":"ARM","052":"BRB","056":"BEL","060":"BMU","064":"BTN",
+  "068":"BOL","070":"BIH","072":"BWA","074":"BVT","076":"BRA","084":"BLZ","086":"IOT","090":"SLB","092":"VGB","096":"BRN",
+  "100":"BGR","104":"MMR","108":"BDI","112":"BLR","116":"KHM","120":"CMR","124":"CAN","132":"CPV","136":"CYM","140":"CAF",
+  "144":"LKA","148":"TCD","152":"CHL","156":"CHN","158":"TWN","162":"CXR","166":"CCK","170":"COL","174":"COM","175":"MYT",
+  "178":"COG","180":"COD","184":"COK","188":"CRI","191":"HRV","192":"CUB","196":"CYP","203":"CZE","204":"BEN","208":"DNK",
+  "212":"DMA","214":"DOM","218":"ECU","222":"SLV","226":"GNQ","231":"ETH","232":"ERI","233":"EST","234":"FRO","238":"FLK",
+  "239":"SGS","242":"FJI","246":"FIN","248":"ALA","250":"FRA","254":"GUF","258":"PYF","260":"ATF","262":"DJI","266":"GAB",
+  "268":"GEO","270":"GMB","275":"PSE","276":"DEU","288":"GHA","292":"GIB","296":"KIR","300":"GRC","304":"GRL","308":"GRD",
+  "312":"GLP","316":"GUM","320":"GTM","324":"GIN","328":"GUY","332":"HTI","334":"HMD","336":"VAT","340":"HND","344":"HKG",
+  "348":"HUN","352":"ISL","356":"IND","360":"IDN","364":"IRN","368":"IRQ","372":"IRL","376":"ISR","380":"ITA","384":"CIV",
+  "388":"JAM","392":"JPN","398":"KAZ","400":"JOR","404":"KEN","408":"PRK","410":"KOR","414":"KWT","417":"KGZ","418":"LAO",
+  "422":"LBN","426":"LSO","428":"LVA","430":"LBR","434":"LBY","438":"LIE","440":"LTU","442":"LUX","446":"MAC","450":"MDG",
+  "454":"MWI","458":"MYS","462":"MDV","466":"MLI","470":"MLT","474":"MTQ","478":"MRT","480":"MUS","484":"MEX","492":"MCO",
+  "496":"MNG","498":"MDA","499":"MNE","500":"MSR","504":"MAR","508":"MOZ","512":"OMN","516":"NAM","520":"NRU","524":"NPL",
+  "528":"NLD","530":"ANT","531":"CUW","533":"ABW","534":"SXM","535":"BES","540":"NCL","548":"VUT","554":"NZL","558":"NIC",
+  "562":"NER","566":"NGA","570":"NIU","574":"NFK","578":"NOR","580":"MNP","581":"UMI","583":"FSM","584":"MHL","585":"PLW",
+  "586":"PAK","591":"PAN","598":"PNG","600":"PRY","604":"PER","608":"PHL","612":"PCN","616":"POL","620":"PRT","624":"GNB",
+  "626":"TLS","630":"PRI","634":"QAT","638":"REU","642":"ROU","643":"RUS","646":"RWA","652":"BLM","654":"SHN","659":"KNA",
+  "660":"AIA","662":"LCA","663":"MAF","666":"SPM","670":"VCT","674":"SMR","678":"STP","682":"SAU","686":"SEN","688":"SRB",
+  "690":"SYC","694":"SLE","702":"SGP","703":"SVK","704":"VNM","705":"SVN","706":"SOM","710":"ZAF","716":"ZWE","724":"ESP",
+  "728":"SSD","729":"SDN","732":"ESH","740":"SUR","744":"SJM","748":"SWZ","752":"SWE","756":"CHE","760":"SYR","762":"TJK",
+  "764":"THA","768":"TGO","772":"TKL","776":"TON","780":"TTO","784":"ARE","788":"TUN","792":"TUR","795":"TKM","796":"TCA",
+  "798":"TUV","800":"UGA","804":"UKR","807":"MKD","818":"EGY","826":"GBR","831":"GGY","832":"JEY","833":"IMN","834":"TZA",
+  "840":"USA","850":"VIR","854":"BFA","858":"URY","860":"UZB","862":"VEN","876":"WLF","882":"WSM","887":"YEM","894":"ZMB"
+};
+
+// ── THREE.JS BASIS ──
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x020205);
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 3000);
+camera.position.set(0, 0, 18);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+document.getElementById('mw').appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.dampingFactor = 0.05;
+controls.minDistance = 8;
+controls.maxDistance = 50;
+
+// ── LICHTER ──
+const ambientLight = new THREE.AmbientLight(0x888888, 2.2);
+scene.add(ambientLight);
+
+const sunLight = new THREE.DirectionalLight(0xffffff, 1.0);
+sunLight.position.set(10, 5, 10);
+scene.add(sunLight);
+
+const rimLight = new THREE.DirectionalLight(0x4455ff, 0.6);
+rimLight.position.set(-10, 0, -10);
+scene.add(rimLight);
+
+const fillLight = new THREE.DirectionalLight(0xcccccc, 0.5);
+fillLight.position.set(0, -10, -5);
+scene.add(fillLight);
+
+// ── STERNE ──
+const starGeo = new THREE.BufferGeometry();
+const starCount = 4000;
+const starPos = new Float32Array(starCount * 3);
+for (let i = 0; i < starCount * 3; i++) starPos[i] = (Math.random() - 0.5) * 1500;
+starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 1.2, sizeAttenuation: true, transparent: true, opacity: 0.8 });
+scene.add(new THREE.Points(starGeo, starMat));
+
+// ── ERDE ──
+const earthGroup = new THREE.Group();
+scene.add(earthGroup);
+
+const EARTH_R = 5;
+const COUNTRY_R = 5.015; 
+
+const earthGeo = new THREE.SphereGeometry(EARTH_R, 64, 64);
+const earthMat = new THREE.MeshStandardMaterial({ color: 0x1a4d8f, roughness: 0.7, metalness: 0.1, emissive: 0x001133, emissiveIntensity: 0.2 });
+const earth = new THREE.Mesh(earthGeo, earthMat);
+earthGroup.add(earth);
+
+const atmoGeo = new THREE.SphereGeometry(5.2, 64, 64);
+const atmoMat = new THREE.MeshBasicMaterial({ color: 0x4488ff, transparent: true, opacity: 0.1, side: THREE.BackSide, blending: THREE.AdditiveBlending });
+earthGroup.add(new THREE.Mesh(atmoGeo, atmoMat));
+
+// ── LÄNDER-GRUPPE ──
+const countryGroup = new THREE.Group();
+earthGroup.add(countryGroup);
+const countryMeshes = [];
+
+// ── HILFSFUNKTIONEN ──
+function latLonToVec3(lat, lon, radius) {
+    const phi = (90 - lat) * (Math.PI / 180);
+    const theta = (lon + 180) * (Math.PI / 180);
+    return new THREE.Vector3(
+        -radius * Math.sin(phi) * Math.cos(theta),
+         radius * Math.cos(phi),
+         radius * Math.sin(phi) * Math.sin(theta)
+    );
+}
+
+function hue(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return Math.abs(h)%360;}
+function col(s,a=1){return`hsla(${hue(s)},78%,60%,${a})`;}
+function ints(p){
+  if(!p||p<=0)return .35;
+  if(p>=75)return 1.0;
+  if(p>=40)return .88;
+  if(p>=15)return .68;
+  if(p>=3) return .50;
+  return .36;
+}
+function domSp(data){
+  if(!data)return null;
+  let best=null,bp=0;
+  for(const[s,v]of Object.entries(data))if((v.p||0)>bp){bp=v.p;best=s;}
+  return best;
+}
+function fN(n){return(n!=null&&n!=='')?n.toLocaleString('de-DE'):'–';}
+function fP(p){return p?p.toFixed(1).replace('.',',')+' %':'–';}
+
+// ── UNIVERSELLE DATEN-HILFSFUNKTION ──
+function getCountryData(mesh) {
+    const { n3, iso, name } = mesh.userData;
+    if (!D || !D.iso_data) return null;
+    if (D.iso_data[iso]) return D.iso_data[iso];
+    const numKey = String(parseInt(n3, 10));
+    if (D.iso_data[numKey]) return D.iso_data[numKey];
+    if (D.num3_to_land && D.num3_to_land[n3]) {
+        const landName = D.num3_to_land[n3];
+        if (D.iso_data[landName]) return D.iso_data[landName];
+    }
+    if (name && D.iso_data[name]) return D.iso_data[name];
+    return null;
+}
+
+// // ── Dreiecke unterteilen & auf Kugel projizieren (gegen "Durchsacken") ──
+function subdivideAndProject(positions, indices, radius, maxEdge) {
+    let pos = positions;
+    let idx = indices;
+    const maxEdgeSq = maxEdge * maxEdge;
+
+    for (let pass = 0; pass < 8; pass++) {
+        const midCache = new Map();
+        const newIdx = [];
+        let subdivided = false;
+
+        const getMid = (a, b) => {
+            const key = a < b ? a + '_' + b : b + '_' + a;
+            if (midCache.has(key)) return midCache.get(key);
+            let mx = (pos[a*3] + pos[b*3]) / 2;
+            let my = (pos[a*3+1] + pos[b*3+1]) / 2;
+            let mz = (pos[a*3+2] + pos[b*3+2]) / 2;
+            const l = Math.sqrt(mx*mx + my*my + mz*mz) || 1;
+            const i = pos.length / 3;
+            pos.push(mx/l*radius, my/l*radius, mz/l*radius); // auf Kugel projizieren!
+            midCache.set(key, i);
+            return i;
+        };
+        const eSq = (a, b) => {
+            const dx = pos[a*3]-pos[b*3], dy = pos[a*3+1]-pos[b*3+1], dz = pos[a*3+2]-pos[b*3+2];
+            return dx*dx + dy*dy + dz*dz;
+        };
+
+        for (let i = 0; i < idx.length; i += 3) {
+            const a = idx[i], b = idx[i+1], c = idx[i+2];
+            if (eSq(a,b) > maxEdgeSq || eSq(b,c) > maxEdgeSq || eSq(c,a) > maxEdgeSq) {
+                subdivided = true;
+                const ab = getMid(a,b), bc = getMid(b,c), ca = getMid(c,a);
+                newIdx.push(a,ab,ca,  ab,b,bc,  ca,bc,c,  ab,bc,ca);
+            } else {
+                newIdx.push(a, b, c);
+            }
+        }
+        idx = newIdx;
+        if (!subdivided) break;
+    }
+    return { positions: pos, indices: idx };
+}
+    
+function createCountryGeometry(geojsonGeom, radius) {
+    const allPositions = [];
+    const allIndices = [];
+    let vertexOffset = 0;
+
+    // Einzelnen Ring (outer ODER hole) triangulieren und zum Gesamt-Mesh hinzufügen
+    const processRing = (ring) => {
+        if (!ring || ring.length < 3) return;
+
+        const coords = [];
+        for (let i = 0; i < ring.length; i++) {
+            coords.push([ring[i][0], ring[i][1]]);
+        }
+        // Geschlossenen Ring normalisieren
+        if (coords.length > 1 &&
+            coords[0][0] === coords[coords.length - 1][0] &&
+            coords[0][1] === coords[coords.length - 1][1]) {
+            coords.pop();
+        }
+        if (coords.length < 3) return;
+
+        // Zentrum DIESES Rings für tangentiale Ebene
+        let cLat = 0, cLon = 0;
+        for (const [lon, lat] of coords) { cLon += lon; cLat += lat; }
+        cLon /= coords.length;
+        cLat /= coords.length;
+        const center3D = latLonToVec3(cLat, cLon, radius);
+
+        // Lokale Basisvektoren
+        const up = center3D.clone().normalize();
+        let east = new THREE.Vector3(0, 1, 0).cross(up).normalize();
+        if (east.length() < 0.001) {
+            east = new THREE.Vector3(1, 0, 0).cross(up).normalize();
+        }
+        const north = up.clone().cross(east).normalize();
+
+        // Projektion auf Ebene + 3D-Vertices
+        const flat = [];
+        const verts3D = [];
+        for (const [lon, lat] of coords) {
+            const v = latLonToVec3(lat, lon, radius);
+            const toV = v.clone().sub(center3D);
+            flat.push(toV.dot(east), toV.dot(north));
+            verts3D.push(v.x, v.y, v.z);
+        }
+
+        if (flat.length < 6) return;
+        const indices = earcut(flat);
+        if (!indices || indices.length === 0) return;
+
+        allPositions.push(...verts3D);
+        for (let i = 0; i < indices.length; i++) {
+            allIndices.push(indices[i] + vertexOffset);
+        }
+        vertexOffset += verts3D.length / 3;
+    };
+
+    // Polygon besteht aus [outerRing, hole1, hole2, ...]
+    // Wir füllen ALLE Ringe. Die inneren überdecken die "Löcher".
+    const processPolygon = (polygon) => {
+        if (!polygon) return;
+        for (let i = 0; i < polygon.length; i++) {
+            processRing(polygon[i]);
+        }
+    };
+
+    if (geojsonGeom.type === 'Polygon') {
+        processPolygon(geojsonGeom.coordinates);
+    } else if (geojsonGeom.type === 'MultiPolygon') {
+        geojsonGeom.coordinates.forEach(polygon => processPolygon(polygon));
+    }
+
+        if (allPositions.length === 0) return null;
+
+    // Große Dreiecke unterteilen, damit sie der Kugelkrümmung folgen
+    const refined = subdivideAndProject(allPositions, allIndices, radius, 0.16);
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(refined.positions, 3));
+    geometry.setIndex(refined.indices);
+
+    // Radiale Normals
+    const posArr = geometry.attributes.position.array;
+    const normArr = new Float32Array(posArr.length);
+    for (let i = 0; i < posArr.length; i += 3) {
+        const x = posArr[i], y = posArr[i + 1], z = posArr[i + 2];
+        const len = Math.sqrt(x * x + y * y + z * z) || 1;
+        normArr[i] = x / len;
+        normArr[i + 1] = y / len;
+        normArr[i + 2] = z / len;
+    }
+    geometry.setAttribute('normal', new THREE.BufferAttribute(normArr, 3));
+
+    return geometry;
+}
+
+// ── GRENZLINIEN (nur äußere Ringe) ──
+function createBorderLines(geojsonGeom, radius) {
+    const lines = [];
+    const processRing = (ring) => {
+        const len = ring.length;
+        if (len < 2) return;
+        const max = (len > 1 && ring[0][0] === ring[len-1][0] && ring[0][1] === ring[len-1][1]) ? len - 1 : len;
+        const pts = [];
+        for (let i = 0; i < max; i++) {
+            const [lon, lat] = ring[i];
+            const v = latLonToVec3(lat, lon, radius + 0.012); 
+            pts.push(v.x, v.y, v.z);
+        }
+        if (pts.length < 6) return;
+        const geo = new THREE.BufferGeometry();
+        geo.setAttribute('position', new THREE.Float32BufferAttribute(pts, 3));
+        lines.push(new THREE.LineLoop(geo, new THREE.LineBasicMaterial({ 
+            color: 0x1a2d45, 
+            transparent: true, 
+            opacity: 0.5 
+        })));
+    };
+    
+    if (geojsonGeom.type === 'Polygon') {
+        processRing(geojsonGeom.coordinates[0]); // nur outer ring
+    } else if (geojsonGeom.type === 'MultiPolygon') {
+        geojsonGeom.coordinates.forEach(polygon => processRing(polygon[0])); // nur outer ring
+    }
+    return lines;
+}
+
+// ── LÄNDER LADEN ──
+fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+    .then(r => r.json())
+    .then(topology => {
+        const geojson = topojson.feature(topology, topology.objects.countries);
+        geojson.features.forEach(feature => {
+            if (!feature.geometry) return;
+            const n3 = String(feature.id).padStart(3, '0');
+            const iso3 = NUM_TO_ISO[n3] || n3;
+            const name = (D && D.num3_to_land && D.num3_to_land[n3]) || feature.properties?.name || `Land ${n3}`;
+
+            const geometry = createCountryGeometry(feature.geometry, COUNTRY_R);
+            if (!geometry) return;
+
+            const material = new THREE.MeshBasicMaterial({
+                color: 0x3d6494,
+                side: THREE.DoubleSide,
+                transparent: true,
+                opacity: 1
+            });
+
+            const mesh = new THREE.Mesh(geometry, material);
+            mesh.userData = { n3, iso: iso3, name };
+            countryGroup.add(mesh);
+            countryMeshes.push(mesh);
+                        
+            createBorderLines(feature.geometry, COUNTRY_R).forEach(line => countryGroup.add(line));
+        });
+        colorAll();
+        console.log('Länder geladen:', countryMeshes.length);
+    })
+    .catch(err => console.error('Fehler beim Laden der Weltkarte:', err));
+
+// ── STATE ──
+let curSp = null, curLand = null, sortC = 'p', sortDi = -1;
+
+// ── KLEINE LÄNDER & INSELN aus data.js (KL-Array) als Marker ──
+if (typeof KL !== 'undefined' && Array.isArray(KL)) {
+    KL.forEach(([iso, lat, lon, name]) => {
+        const pos = latLonToVec3(lat, lon, COUNTRY_R);
+        const markerGeo = new THREE.SphereGeometry(0.07, 16, 16);
+        const markerMat = new THREE.MeshBasicMaterial({
+            color: 0x3d6494,
+            transparent: true,
+            opacity: 1
+        });
+        const marker = new THREE.Mesh(markerGeo, markerMat);
+        marker.position.copy(pos);
+        marker.userData = { n3: null, iso: iso, name: name, isMarker: true };
+        countryGroup.add(marker);
+        countryMeshes.push(marker);
+    });
+}
+
+// ── FARBLOGIK ──
+function colorAll() {
+    countryMeshes.forEach(mesh => {
+        const data = getCountryData(mesh);
+        const mat = mesh.material;
+        const iso = mesh.userData.iso;
+
+        if (curSp) {
+            const m = data && data[curSp];
+            if (m) {
+                mat.color.set(col(curSp, ints(m.p)));
+                mat.opacity = 1;
+            } else {
+                mat.color.set('#3d6494');
+                mat.opacity = 1;
+            }
+        } else if (curLand && iso === curLand) {
+            const sp = domSp(data);
+            mat.color.set(sp ? col(sp, 0.9) : '#4a7ab5');
+            mat.opacity = 1;
+        } else {
+            mat.color.set('#3d6494');
+            mat.opacity = 1;
+        }
+        mat.transparent = mat.opacity < 1;
+        mesh.userData.baseColor = mat.color.getHex();
+    });
+}
+
+// ── RAYCASTER ──
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+let hoveredMesh = null;
+
+function onPointerMove(e) {
+    const rect = renderer.domElement.getBoundingClientRect();
+    mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(mouse, camera);
+    const hits = raycaster.intersectObjects([...countryMeshes, earth]);
+    const camDir = camera.position.clone().normalize();
+    const landHit = hits.find(h => {
+        if (h.object === earth) return false;
+        const hitDir = h.point.clone().normalize();
+        return hitDir.dot(camDir) > 0.15;
+    });
+
+    if (landHit) {
+        const obj = landHit.object;
+        if (hoveredMesh !== obj) {
+            if (hoveredMesh) hoveredMesh.material.color.setHex(hoveredMesh.userData.baseColor || 0x3d6494);
+            hoveredMesh = obj;
+            const base = hoveredMesh.userData.baseColor || 0x3d6494;
+            const c = new THREE.Color(base);
+            c.offsetHSL(0, 0, 0.12);
+            hoveredMesh.material.color.copy(c);
+        }
+        document.body.style.cursor = 'pointer';
+        showTT(e, getCountryData(obj), obj.userData.name);
+    } else {
+        if (hoveredMesh) {
+            hoveredMesh.material.color.setHex(hoveredMesh.userData.baseColor || 0x3d6494);
+            hoveredMesh = null;
+        }
+        document.body.style.cursor = 'default';
+        hideTT();
+    }
+}
+
+function onClick(e) {
+    if (e.target.closest('#sb') || e.target.closest('#hdr') || e.target.closest('#zc')) return;
+
+    const rect = renderer.domElement.getBoundingClientRect();
+    const clickMouse = new THREE.Vector2();
+    clickMouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+    clickMouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+    raycaster.setFromCamera(clickMouse, camera);
+    const hits = raycaster.intersectObjects([...countryMeshes, earth]);
+    const camDir = camera.position.clone().normalize();
+    const landHit = hits.find(h => {
+        if (h.object === earth) return false;
+        const hitDir = h.point.clone().normalize();
+        return hitDir.dot(camDir) > 0.15;
+    });
+
+    if (landHit) {
+        const obj = landHit.object;
+        curLand = obj.userData.iso;
+        colorAll();
+        showSB(getCountryData(obj), obj.userData.name);
+    }
+}
+
+renderer.domElement.addEventListener('mousemove', onPointerMove);
+renderer.domElement.addEventListener('click', onClick);
+
+// ── TOOLTIP ──
+const tt = document.getElementById('tt');
+function posTT(e) {
+    const r = document.getElementById('mw').getBoundingClientRect();
+    let x = e.clientX - r.left + 14, y = e.clientY - r.top + 14;
+    if (x + 310 > r.width) x = e.clientX - r.left - 315;
+    if (y + 220 > r.height) y = e.clientY - r.top - 220;
+    tt.style.left = x + 'px'; tt.style.top = y + 'px';
+}
+function showTT(e, data, name) {
+    const c = curSp ? col(curSp) : '#58a6ff';
+    let h = `<h3 style="color:${c}">${name}</h3>`;
+    if (curSp) {
+        const m = data && data[curSp];
+        if (m) {
+            h += `<div class="tr"><span class="tl">Absolut:</span><span class="tv">${fN(m.a)}</span></div>`;
+            h += `<div class="tr"><span class="tl">Prozent:</span><span class="tv">${fP(m.p)}</span></div>`;
+            if (m.p) h += `<div class="tr"><span class="tl">Mehrheit:</span><span class="tv" style="color:${m.am ? '#3fb950' : m.rm ? '#f0883e' : '#8b949e'}">${m.am ? '✓ Absolut' : m.rm ? '~ Relativ' : '✗ Nein'}</span></div>`;
+        } else {
+            h += `<div style="color:#484f58;padding:4px 0">${curSp} wird hier nicht gesprochen</div>`;
+        }
+    } else if (data) {
+        Object.entries(data).filter(([, v]) => v.p || v.a).sort((a, b) => (b[1].p || 0) - (a[1].p || 0)).slice(0, 5)
+            .forEach(([s, v]) => h += `<div class="tr">
+        <span class="tl" style="display:flex;align-items:center;gap:5px">
+          <span style="width:8px;height:8px;border-radius:50%;background:${col(s)};display:inline-block;flex-shrink:0"></span>${s}
+        </span><span class="tv">${fP(v.p)}</span></div>`);
+        const n = Object.keys(data).length;
+        if (n > 5) h += `<div style="color:#484f58;font-size:11px;margin-top:4px">+${n - 5} weitere…</div>`;
+    } else {
+        h += `<div style="color:#484f58">Keine Daten</div>`;
+    }
+    tt.innerHTML = h; tt.style.display = 'block'; posTT(e);
+}
+function hideTT() { tt.style.display = 'none'; }
+
+// ── SIDEBAR ──
+function showSB(data, name) {
+    document.getElementById('sbt').textContent = name || 'Unbekannt';
+    if (!data) { document.getElementById('sbc').innerHTML = `<div class="se">Keine Daten für ${name || '?'}</div>`; return; }
+    let extra = '';
+    if (curSp) {
+        const m = data[curSp];
+        extra = `<div style="padding:10px 12px;background:#21262d;border-bottom:1px solid #30363d">
+      <div style="font-size:12px;color:#8b949e;margin-bottom:6px">${curSp} in ${name}</div>`;
+        if (m) extra += `<div class="tr"><span class="tl">Absolut:</span><span class="tv">${fN(m.a)}</span></div>
+      <div class="tr"><span class="tl">Prozent:</span><span class="tv">${fP(m.p)}</span></div>
+      <div class="tr"><span class="tl">Mehrheit:</span><span class="tv" style="color:${m.am ? '#3fb950' : m.rm ? '#f0883e' : '#8b949e'}">${m.am ? '✓ Absolut' : m.rm ? '~ Relativ' : '✗ Nein'}</span></div>`;
+        else extra += `<span style="color:#484f58">Nicht gesprochen</span>`;
+        extra += '</div>';
+    }
+    document.getElementById('sbc').innerHTML = extra + buildTable(data);
+    bindSort(data, extra);
+}
+function buildTable(data) {
+    let rows = Object.entries(data).map(([s, v]) => { return { s, p: v.p || 0, a: v.a || 0 }; });
+    rows.sort((a, b) => sortDi * (sortC === 's' ? a.s.localeCompare(b.s, 'de') : a[sortC] - b[sortC]));
+    return `<table class="dt" id="lt"><thead><tr>
+    <th data-c="s">Sprache</th>
+    <th data-c="p" class="n desc">Prozent</th>
+    <th data-c="a" class="n">Absolut</th>
+    </tr></thead><tbody>${rows.map(r => `<tr>
+      <td><div style="display:flex;align-items:center;gap:7px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${col(r.s)};flex-shrink:0;display:inline-block"></span>
+        ${r.s}</div></td>
+      <td class="n"><div class="bw"><div class="br" style="width:${Math.min(Math.max(r.p * 1.2, r.a ? 2 : 0), 80)}px;background:${col(r.s)}"></div>${fP(r.p)}</div></td>
+      <td class="n">${fN(r.a)}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+function bindSort(data, extra) {
+    document.querySelectorAll('#lt th[data-c]').forEach(th => {
+        th.addEventListener('click', () => {
+            const c = th.dataset.c;
+            if (sortC === c) sortDi *= -1; else { sortC = c; sortDi = c === 's' ? 1 : -1; }
+            document.querySelectorAll('#lt th').forEach(t => t.classList.remove('asc', 'desc'));
+            th.classList.add(sortDi === 1 ? 'asc' : 'desc');
+            document.getElementById('sbc').innerHTML = extra + buildTable(data);
+            bindSort(data, extra);
+        });
+    });
+}
+
+// ── SUCHE ──
+const si = document.getElementById('si'), ac = document.getElementById('ac');
+si.addEventListener('input', () => {
+    const q = si.value.trim().toLowerCase();
+    if (!q) { ac.style.display = 'none'; return; }
+    const m = D.sprachen.filter(s => s.toLowerCase().includes(q)).slice(0, 30);
+    if (!m.length) { ac.style.display = 'none'; return; }
+    ac.innerHTML = m.map(s => {
+        const i = s.toLowerCase().indexOf(q);
+        return `<div class="ai" data-s="${s}">${s.slice(0, i)}<span class="ahi">${s.slice(i, i + q.length)}</span>${s.slice(i + q.length)}</div>`;
+    }).join('');
+    ac.style.display = 'block';
+    ac.querySelectorAll('.ai').forEach(x => x.addEventListener('click', () => selectSp(x.dataset.s)));
+});
+si.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+        const q = si.value.trim().toLowerCase();
+        const m = D.sprachen.find(s => s.toLowerCase() === q) || D.sprachen.find(s => s.toLowerCase().startsWith(q));
+        if (m) selectSp(m); ac.style.display = 'none';
+    }
+    if (e.key === 'Escape') ac.style.display = 'none';
+});
+document.addEventListener('click', e => { if (!e.target.closest('#sw')) ac.style.display = 'none'; });
+
+function selectSp(sp) {
+    curSp = sp; curLand = null; si.value = sp; ac.style.display = 'none';
+    const entries = D.sprach_data[sp] || [];
+    const total = entries.reduce((s, e) => s + (e.a || 0), 0);
+    document.getElementById('leg').innerHTML =
+        `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${col(sp)};flex-shrink:0"></span>` +
+        `<span>${sp}: ${entries.length} Länder/Gebiete · ${fN(total)} Sprecher gesamt</span>`;
+    document.getElementById('sbt').textContent = sp + ' – alle Länder';
+    const sorted = [...entries].sort((a, b) => (b.p || 0) - (a.p || 0) || (b.a || 0) - (a.a || 0));
+    document.getElementById('sbc').innerHTML = `<table class="dt"><thead><tr>
+    <th>Land</th><th class="n desc">Prozent</th><th class="n">Absolut</th>
+    </tr></thead><tbody>${sorted.map(e => `<tr>
+      <td>${e.land}</td>
+      <td class="n"><div class="bw"><div class="br" style="width:${Math.min(Math.max((e.p || 0) * 1.2, 2), 80)}px;background:${col(sp)}"></div>${fP(e.p)}</div></td>
+      <td class="n">${fN(e.a)}</td>
+    </tr>`).join('')}</tbody></table>`;
+    colorAll();
+}
+
+// ── RESET ──
+document.getElementById('bc').onclick = () => {
+    curSp = null; curLand = null; si.value = '';
+    document.getElementById('leg').innerHTML = '';
+    document.getElementById('sbt').textContent = 'Informationen';
+    document.getElementById('sbc').innerHTML = '<div class="se">← Klicke auf ein Land<br>oder suche eine Sprache</div>';
+    controls.reset();
+    camera.position.set(0, 0, 18);
+    colorAll();
+};
+
+// ── ZOOM BUTTONS (3D) ──
+document.getElementById('zi').onclick = () => {
+    const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+    camera.position.addScaledVector(dir, -2);
+};
+document.getElementById('zo').onclick = () => {
+    const dir = new THREE.Vector3().subVectors(camera.position, controls.target).normalize();
+    camera.position.addScaledVector(dir, 2);
+};
+document.getElementById('zr').onclick = () => {
+    controls.reset();
+    camera.position.set(0, 0, 18);
+};
+
+// ── RESIZE ──
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+// ── ANIMATION ──
+function animate() {
+    requestAnimationFrame(animate);
+    earthGroup.rotation.y += 0.0008;
+    controls.update();
+    renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>

@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<title>Weltkarte – Sprachen der Welt</title>
+<script src="data.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/d3/7.8.5/d3.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/topojson/3.0.2/topojson.min.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,sans-serif;background:#0d1117;color:#e6edf3;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#hdr{background:#161b22;padding:10px 16px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;border-bottom:2px solid #21262d;flex-shrink:0}
+#hdr h1{font-size:17px;color:#58a6ff;white-space:nowrap}
+#sw{position:relative;flex:1;min-width:180px;max-width:380px}
+#si{width:100%;padding:8px 14px;border-radius:20px;border:2px solid #30363d;background:#21262d;color:#e6edf3;font-size:14px;outline:none;transition:border .2s}
+#si:focus{border-color:#58a6ff}
+#ac{position:absolute;top:calc(100% + 4px);left:0;right:0;background:#21262d;border:1px solid #30363d;border-radius:8px;max-height:250px;overflow-y:auto;z-index:2000;display:none;box-shadow:0 8px 24px rgba(0,0,0,.6)}
+.ai{padding:8px 14px;cursor:pointer;font-size:13px;border-bottom:1px solid #30363d}
+.ai:last-child{border:none}
+.ai:hover{background:#30363d;color:#58a6ff}
+.ahi{color:#58a6ff;font-weight:bold}
+#bc{padding:7px 15px;border-radius:20px;border:none;background:#da3633;color:#fff;cursor:pointer;font-size:13px}
+#bc:hover{background:#b62324}
+#leg{font-size:12px;color:#8b949e;display:flex;align-items:center;gap:6px}
+#main{display:flex;flex:1;overflow:hidden}
+#mw{flex:1;position:relative;overflow:hidden;background:#0d1117}
+#mw svg{width:100%;height:100%}
+/* WICHTIG: Kein fill in CSS für Länder-Paths — fill wird ausschließlich per inline style gesetzt */
+.cy{stroke:#1a2d45;stroke-width:.5;cursor:pointer}
+.cy:hover{stroke:#ffffff;stroke-width:1.2}
+.dot{cursor:pointer}
+.dot:hover{stroke:#ffffff !important;stroke-width:1.5 !important}
+#tt{position:absolute;background:rgba(13,17,23,.96);border:1px solid #30363d;border-radius:10px;padding:12px 15px;pointer-events:none;display:none;font-size:13px;max-width:300px;z-index:500;box-shadow:0 8px 32px rgba(0,0,0,.7)}
+#tt h3{margin-bottom:8px;font-size:14px;padding-bottom:6px;border-bottom:1px solid #21262d}
+.tr{display:flex;justify-content:space-between;gap:14px;padding:3px 0}
+.tl{color:#8b949e;font-size:12px}
+.tv{font-weight:bold}
+#sb{width:330px;background:#161b22;border-left:2px solid #21262d;overflow:hidden;flex-shrink:0;display:flex;flex-direction:column}
+#sbt{padding:13px 16px;background:#21262d;font-weight:bold;font-size:14px;color:#58a6ff;flex-shrink:0}
+#sbc{flex:1;overflow-y:auto}
+.se{padding:24px 16px;color:#484f58;font-size:13px;text-align:center;margin-top:30px;line-height:1.8}
+table.dt{width:100%;border-collapse:collapse;font-size:13px}
+table.dt th{background:#21262d;padding:8px 10px;text-align:left;position:sticky;top:0;color:#8b949e;font-weight:normal;font-size:12px;cursor:pointer;user-select:none;z-index:1;white-space:nowrap}
+table.dt th:hover{color:#58a6ff}
+table.dt th.asc::after{content:" ↑";color:#58a6ff}
+table.dt th.desc::after{content:" ↓";color:#58a6ff}
+table.dt td{padding:7px 10px;border-bottom:1px solid #21262d;vertical-align:middle}
+table.dt tr:hover td{background:#1c2128}
+.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.bw{display:flex;align-items:center;gap:6px}
+.br{height:7px;border-radius:3px;min-width:2px;flex-shrink:0}
+#zc{position:absolute;bottom:20px;left:16px;display:flex;flex-direction:column;gap:4px}
+.zb{width:34px;height:34px;background:#161b22;border:1px solid #30363d;color:#e6edf3;font-size:18px;cursor:pointer;border-radius:6px;display:flex;align-items:center;justify-content:center}
+.zb:hover{background:#21262d;color:#58a6ff}
+#ib{position:absolute;bottom:20px;left:62px;background:rgba(13,17,23,.8);border-radius:6px;padding:6px 12px;font-size:12px;color:#8b949e;pointer-events:none;border:1px solid #21262d}
+::-webkit-scrollbar{width:5px}::-webkit-scrollbar-track{background:#0d1117}::-webkit-scrollbar-thumb{background:#30363d;border-radius:3px}
+</style>
+</head>
+<body>
+<div id="hdr">
+  <h1>🌍 Sprachen der Welt</h1>
+  <div id="sw">
+    <input id="si" type="text" placeholder="Sprache suchen… (z.B. Deutsch, Arabisch)" autocomplete="off">
+    <div id="ac"></div>
+  </div>
+  <button id="bc">✕ Zurücksetzen</button>
+  <span id="leg"></span>
+</div>
+<div id="main">
+  <div id="mw">
+    <svg id="map"></svg>
+    <div id="tt"></div>
+    <div id="zc">
+      <button class="zb" id="zi">+</button>
+      <button class="zb" id="zo">−</button>
+      <button class="zb" id="zr">⌂</button>
+    </div>
+    <div id="ib">Klicke auf ein Land · Suche eine Sprache · Scroll zum Zoomen</div>
+  </div>
+  <div id="sb">
+    <div id="sbt">Informationen</div>
+    <div id="sbc"><div class="se">← Klicke auf ein Land<br>oder suche eine Sprache</div></div>
+  </div>
+</div>
+<script>
+const BASE_R=5;
+
+// Farbe pro Sprache
+function hue(s){let h=5381;for(let i=0;i<s.length;i++)h=((h<<5)+h+s.charCodeAt(i))|0;return Math.abs(h)%360;}
+function col(s,a=1){return`hsla(${hue(s)},78%,60%,${a})`;}
+function ints(p){
+  if(!p||p<=0)return .35;
+  if(p>=75)return 1.0;
+  if(p>=40)return .88;
+  if(p>=15)return .68;
+  if(p>=3) return .50;
+  return .36;
+}
+function domSp(data){
+  if(!data)return null;
+  let best=null,bp=0;
+  for(const[s,v]of Object.entries(data))if((v.p||0)>bp){bp=v.p;best=s;}
+  return best;
+}
+function fN(n){return(n!=null&&n!=='')?n.toLocaleString('de-DE'):'–';}
+function fP(p){return p?p.toFixed(1).replace('.',',')+' %':'–';}
+
+// ── SVG SETUP ──
+const svg=d3.select('#map');
+const gPoly=svg.append('g').attr('id','gpoly');  // Polygone (unten)
+const gDots=svg.append('g').attr('id','gdots');  // Punkte (oben)
+const proj=d3.geoNaturalEarth1().scale(158).translate([480,285]);
+const pathGen=d3.geoPath().projection(proj);
+
+let curZoomK=1;
+const zoom=d3.zoom().scaleExtent([.3,20]).on('zoom',e=>{
+  curZoomK=e.transform.k;
+  gPoly.attr('transform',e.transform);
+  gDots.attr('transform',e.transform);
+  // Punkte beim Zoomen anpassen
+  const r=BASE_R/Math.sqrt(curZoomK);
+  gDots.selectAll('.dot').attr('r',r).style('stroke-width', 0.6/curZoomK);
+});
+svg.call(zoom);
+document.getElementById('zi').onclick=()=>svg.transition().duration(400).call(zoom.scaleBy,1.6);
+document.getElementById('zo').onclick=()=>svg.transition().duration(400).call(zoom.scaleBy,.625);
+document.getElementById('zr').onclick=()=>svg.transition().duration(500).call(zoom.transform,d3.zoomIdentity);
+
+let curSp=null,curLand=null,sortC='p',sortDi=-1;
+let polyPaths=null;
+
+// ── PUNKTE sofort zeichnen ──
+KL.forEach(([iso,lat,lon,name])=>{
+  const xy=proj([lon,lat]);
+  if(!xy||isNaN(xy[0]))return;
+  gDots.append('circle').attr('class','dot')
+    .attr('cx',xy[0]).attr('cy',xy[1]).attr('r',BASE_R)
+    .attr('data-iso',iso).attr('data-name',name)
+    .style('stroke','#0a0f16').style('stroke-width',.6)
+    .on('mousemove',e=>showTT(e,D.iso_data[iso],name))
+    .on('mouseleave',hideTT)
+    .on('click',()=>{curLand=iso;colorAll();showSB(D.iso_data[iso],name);});
+});
+colorDots();  // Sofort einfärben
+
+// ── POLYGONE laden ──
+fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-110m.json')
+  .then(r=>r.json())
+  .then(world=>{
+    const features=topojson.feature(world,world.objects.countries).features;
+    // Debug: ersten paar IDs zeigen
+    console.log('Erste TopoJSON IDs:', features.slice(0,5).map(f=>f.id));
+    polyPaths=gPoly.selectAll('.cy').data(features).enter()
+      .append('path').attr('class','cy').attr('d',pathGen)
+      .on('mousemove',function(e,d){
+        const n3=String(d.id).padStart(3,'0');
+        const name=D.num3_to_land[n3]||('?'+n3);
+        showTT(e,D.num_data[n3],name);
+      })
+      .on('mouseleave',hideTT)
+      .on('click',function(e,d){
+        const n3=String(d.id).padStart(3,'0');
+        const name=D.num3_to_land[n3]||n3;
+        curLand=n3;
+        colorAll();
+        showSB(D.num_data[n3],name);
+      });
+    colorPolys();
+    console.log('Karte geladen,',features.length,'Features');
+    // Test Brasilien
+    const bra=D.num_data['076'];
+    console.log('Brasilien (076):', bra? Object.keys(bra).slice(0,3) : 'NICHT GEFUNDEN');
+  })
+  .catch(e=>console.error('Fetch Fehler:',e));
+
+// ── EINFÄRBEN (style() statt attr() — schlägt CSS-Klassen) ──
+function colorPolys(){
+  if(!polyPaths)return;
+  polyPaths.each(function(d){
+    const n3=String(d.id).padStart(3,'0');
+    const data=D.num_data[n3];
+    if(curSp){
+      const m=data&&data[curSp];
+      if(m){
+        this.style.fill=col(curSp,ints(m.p));
+        this.style.opacity='1';
+      }else{
+        this.style.fill='#1e3050';
+        this.style.opacity='.28';
+      }
+    }else if(curLand&&n3===curLand){
+      // Angeklicktes Land: dominante Sprache einfärben
+      const sp=domSp(data);
+      this.style.fill=sp?col(sp,.9):'#4a7ab5';
+      this.style.opacity='1';
+    }else{
+      // Ruhezustand: einheitlich hellblaugrau, keine bunten Farben
+      this.style.fill='#3d6494';
+      this.style.opacity='1';
+    }
+  });
+}
+
+function colorDots(){
+  const r=BASE_R/Math.sqrt(curZoomK);
+  gDots.selectAll('.dot').each(function(){
+    const iso=this.dataset.iso;
+    const data=D.iso_data[iso];
+    if(curSp){
+      const m=data&&data[curSp];
+      if(m){
+        this.style.fill=col(curSp,ints(m.p));
+        this.style.opacity='1';
+        d3.select(this).attr('r',r*1.2);
+      }else{
+        this.style.fill='#1e3050';
+        this.style.opacity='.25';
+        d3.select(this).attr('r',r*.7);
+      }
+    }else if(curLand&&iso===curLand){
+      const sp=domSp(data);
+      this.style.fill=sp?col(sp,.9):'#4a7ab5';
+      this.style.opacity='1';
+      d3.select(this).attr('r',r*1.3);
+    }else{
+      // Ruhezustand: einheitlich, keine bunten Farben
+      this.style.fill='#4a7ab5';
+      this.style.opacity='1';
+      d3.select(this).attr('r',r);
+    }
+  });
+}
+
+function colorAll(){colorPolys();colorDots();}
+
+// ── TOOLTIP ──
+const tt=document.getElementById('tt');
+function posTT(e){
+  const r=document.getElementById('mw').getBoundingClientRect();
+  let x=e.clientX-r.left+14,y=e.clientY-r.top+14;
+  if(x+310>r.width)x=e.clientX-r.left-315;
+  if(y+220>r.height)y=e.clientY-r.top-220;
+  tt.style.left=x+'px';tt.style.top=y+'px';
+}
+function showTT(e,data,name){
+  const c=curSp?col(curSp):'#58a6ff';
+  let h=`<h3 style="color:${c}">${name}</h3>`;
+  if(curSp){
+    const m=data&&data[curSp];
+    if(m){
+      h+=`<div class="tr"><span class="tl">Absolut:</span><span class="tv">${fN(m.a)}</span></div>`;
+      h+=`<div class="tr"><span class="tl">Prozent:</span><span class="tv">${fP(m.p)}</span></div>`;
+      if(m.p)h+=`<div class="tr"><span class="tl">Mehrheit:</span><span class="tv" style="color:${m.am?'#3fb950':m.rm?'#f0883e':'#8b949e'}">${m.am?'✓ Absolut':m.rm?'~ Relativ':'✗ Nein'}</span></div>`;
+    }else h+=`<div style="color:#484f58;padding:4px 0">${curSp} wird hier nicht gesprochen</div>`;
+  }else if(data){
+    Object.entries(data).filter(([,v])=>v.p||v.a).sort((a,b)=>(b[1].p||0)-(a[1].p||0)).slice(0,5)
+      .forEach(([s,v])=>h+=`<div class="tr">
+        <span class="tl" style="display:flex;align-items:center;gap:5px">
+          <span style="width:8px;height:8px;border-radius:50%;background:${col(s)};display:inline-block;flex-shrink:0"></span>${s}
+        </span><span class="tv">${fP(v.p)}</span></div>`);
+    const n=Object.keys(data).length;
+    if(n>5)h+=`<div style="color:#484f58;font-size:11px;margin-top:4px">+${n-5} weitere…</div>`;
+  }else h+=`<div style="color:#484f58">Keine Daten</div>`;
+  tt.innerHTML=h;tt.style.display='block';posTT(e);
+}
+function hideTT(){tt.style.display='none';}
+
+// ── SIDEBAR ──
+function showSB(data,name){
+  document.getElementById('sbt').textContent=name||'Unbekannt';
+  if(!data){document.getElementById('sbc').innerHTML=`<div class="se">Keine Daten für ${name||'?'}</div>`;return;}
+  let extra='';
+  if(curSp){
+    const m=data[curSp];
+    extra=`<div style="padding:10px 12px;background:#21262d;border-bottom:1px solid #30363d">
+      <div style="font-size:12px;color:#8b949e;margin-bottom:6px">${curSp} in ${name}</div>`;
+    if(m)extra+=`<div class="tr"><span class="tl">Absolut:</span><span class="tv">${fN(m.a)}</span></div>
+      <div class="tr"><span class="tl">Prozent:</span><span class="tv">${fP(m.p)}</span></div>
+      <div class="tr"><span class="tl">Mehrheit:</span><span class="tv" style="color:${m.am?'#3fb950':m.rm?'#f0883e':'#8b949e'}">${m.am?'✓ Absolut':m.rm?'~ Relativ':'✗ Nein'}</span></div>`;
+    else extra+=`<span style="color:#484f58">Nicht gesprochen</span>`;
+    extra+='</div>';
+  }
+  document.getElementById('sbc').innerHTML=extra+buildTable(data);
+  bindSort(data,extra);
+}
+function buildTable(data){
+  let rows=Object.entries(data).map(([s,v])=>{return{s,p:v.p||0,a:v.a||0};});
+  rows.sort((a,b)=>sortDi*(sortC==='s'?a.s.localeCompare(b.s,'de'):a[sortC]-b[sortC]));
+  return`<table class="dt" id="lt"><thead><tr>
+    <th data-c="s">Sprache</th>
+    <th data-c="p" class="n desc">Prozent</th>
+    <th data-c="a" class="n">Absolut</th>
+    </tr></thead><tbody>${rows.map(r=>`<tr>
+      <td><div style="display:flex;align-items:center;gap:7px">
+        <span style="width:10px;height:10px;border-radius:50%;background:${col(r.s)};flex-shrink:0;display:inline-block"></span>
+        ${r.s}</div></td>
+      <td class="n"><div class="bw"><div class="br" style="width:${Math.min(Math.max(r.p*1.2,r.a?2:0),80)}px;background:${col(r.s)}"></div>${fP(r.p)}</div></td>
+      <td class="n">${fN(r.a)}</td>
+    </tr>`).join('')}</tbody></table>`;
+}
+function bindSort(data,extra){
+  document.querySelectorAll('#lt th[data-c]').forEach(th=>{
+    th.addEventListener('click',()=>{
+      const c=th.dataset.c;
+      if(sortC===c)sortDi*=-1;else{sortC=c;sortDi=c==='s'?1:-1;}
+      document.querySelectorAll('#lt th').forEach(t=>t.classList.remove('asc','desc'));
+      th.classList.add(sortDi===1?'asc':'desc');
+      document.getElementById('sbc').innerHTML=extra+buildTable(data);
+      bindSort(data,extra);
+    });
+  });
+}
+
+// ── SUCHE ──
+const si=document.getElementById('si'),ac=document.getElementById('ac');
+si.addEventListener('input',()=>{
+  const q=si.value.trim().toLowerCase();
+  if(!q){ac.style.display='none';return;}
+  const m=D.sprachen.filter(s=>s.toLowerCase().includes(q)).slice(0,30);
+  if(!m.length){ac.style.display='none';return;}
+  ac.innerHTML=m.map(s=>{
+    const i=s.toLowerCase().indexOf(q);
+    return`<div class="ai" data-s="${s}">${s.slice(0,i)}<span class="ahi">${s.slice(i,i+q.length)}</span>${s.slice(i+q.length)}</div>`;
+  }).join('');
+  ac.style.display='block';
+  ac.querySelectorAll('.ai').forEach(x=>x.addEventListener('click',()=>selectSp(x.dataset.s)));
+});
+si.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    const q=si.value.trim().toLowerCase();
+    const m=D.sprachen.find(s=>s.toLowerCase()===q)||D.sprachen.find(s=>s.toLowerCase().startsWith(q));
+    if(m)selectSp(m);ac.style.display='none';
+  }
+  if(e.key==='Escape')ac.style.display='none';
+});
+document.addEventListener('click',e=>{if(!e.target.closest('#sw'))ac.style.display='none';});
+
+document.getElementById('bc').onclick=()=>{
+  curSp=null;curLand=null;si.value='';
+  document.getElementById('leg').innerHTML='';
+  document.getElementById('sbt').textContent='Informationen';
+  document.getElementById('sbc').innerHTML='<div class="se">← Klicke auf ein Land<br>oder suche eine Sprache</div>';
+  colorAll();
+};
+
+function selectSp(sp){
+  curSp=sp;curLand=null;si.value=sp;ac.style.display='none';
+  const entries=D.sprach_data[sp]||[];
+  const total=entries.reduce((s,e)=>s+(e.a||0),0);
+  document.getElementById('leg').innerHTML=
+    `<span style="display:inline-block;width:12px;height:12px;border-radius:50%;background:${col(sp)};flex-shrink:0"></span>`+
+    `<span>${sp}: ${entries.length} Länder/Gebiete · ${fN(total)} Sprecher gesamt</span>`;
+  document.getElementById('sbt').textContent=sp+' – alle Länder';
+  const sorted=[...entries].sort((a,b)=>(b.p||0)-(a.p||0)||(b.a||0)-(a.a||0));
+  document.getElementById('sbc').innerHTML=`<table class="dt"><thead><tr>
+    <th>Land</th><th class="n desc">Prozent</th><th class="n">Absolut</th>
+    </tr></thead><tbody>${sorted.map(e=>`<tr>
+      <td>${e.land}</td>
+      <td class="n"><div class="bw"><div class="br" style="width:${Math.min(Math.max((e.p||0)*1.2,2),80)}px;background:${col(sp)}"></div>${fP(e.p)}</div></td>
+      <td class="n">${fN(e.a)}</td>
+    </tr>`).join('')}</tbody></table>`;
+  colorAll();
+}
+</script>
+</body>
+</html>
